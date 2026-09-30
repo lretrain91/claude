@@ -568,7 +568,11 @@
           const sorted = [...E].sort((a, b) => a - b);
           const p5 = sorted[Math.floor(sorted.length * 0.05)] || 0, p95 = sorted[Math.floor(sorted.length * 0.95)] || 1;
           const starts = sections.map(x => x.debut_s);
-          return s.log.map((b, i) => {
+          // On retire les temps comptés après la fin de la musique (silence avant l'arrêt).
+          const med = median(s.log.map(b => b.Et));
+          let end = s.log.length;
+          while (end > 0 && s.log[end - 1].Et < 0.15 * med) end--;
+          return s.log.slice(0, end).map((b, i) => {
             const pos = this.position(s, b.k), t = rel(b.t);
             let si = 0;
             while (si + 1 < starts.length && starts[si + 1] <= t + 0.01) si++;

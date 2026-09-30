@@ -228,7 +228,7 @@
     card.appendChild(map);
 
     const legend = el("div", "legend");
-    legend.appendChild(el("span", null, "une ligne = une phrase · grand trait blanc = grand 1 · traits moyens = 1 de chaque 8 temps · couleur = section · intensité = énergie"));
+    legend.appendChild(el("span", null, "ligne = phrase · trait blanc = grand 1 · couleur = section · intensité = énergie"));
     for (const [, mark] of BS.mapLegend(m)) {
       const it = el("span");
       const sym = el("b", null, mark.sym);
