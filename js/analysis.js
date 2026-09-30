@@ -279,6 +279,89 @@
     return { stream, mode: "predict", label: surface === "browser" ? "onglet" : "écran" };
   };
 
+  // Filtre biquad (mêmes formules que le BiquadFilterNode du Web Audio).
+  function biquad(type, freq, q, sr) {
+    const w0 = (2 * Math.PI * freq) / sr, cos = Math.cos(w0), sin = Math.sin(w0);
+    // lowpass/highpass : Q en dB (1 dB par défaut) ; bandpass : Q linéaire.
+    const alpha = type === "bandpass" ? sin / (2 * q) : sin / (2 * Math.pow(10, (q ?? 1) / 20));
+    let b0, b1, b2;
+    if (type === "lowpass") { b0 = (1 - cos) / 2; b1 = 1 - cos; b2 = b0; }
+    else if (type === "highpass") { b0 = (1 + cos) / 2; b1 = -(1 + cos); b2 = b0; }
+    else { b0 = alpha; b1 = 0; b2 = -alpha; }
+    const a0 = 1 + alpha, a1 = -2 * cos, a2 = 1 - alpha;
+    const c = [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    return x => {
+      const y = c[0] * x + c[1] * x1 + c[2] * x2 - c[3] * y1 - c[4] * y2;
+      x2 = x1; x1 = x; y2 = y1; y1 = y;
+      return y;
+    };
+  }
+
+  // Lecture directe du micro, sans moteur audio (Chrome, dont Android) : la page ne produit
+  // aucun son et ne prend donc pas la main sur la musique d'une autre appli (Android Auto…).
+  // Renvoie null si le navigateur ne sait pas faire ; sinon { frameDur, clock, stop }.
+  BS.openMicFrames = async function (stream, onFrame) {
+    const track = stream.getAudioTracks()[0];
+    if (!track || typeof MediaStreamTrackProcessor === "undefined") return null;
+    let reader;
+    try { reader = new MediaStreamTrackProcessor({ track }).readable.getReader(); } catch { return null; }
+    const clock = () => performance.now() / 1000;
+    const first = await reader.read();
+    if (first.done) return null;
+    const sr = first.value.sampleRate, HOP = BS.HOP;
+    const filters = BS.BANDS.map(b => biquad(b.type, b.freq, b.q, sr));
+    const acc = [0, 0, 0, 0], zc = [0, 0, 0, 0], prev = [0, 0, 0, 0];
+    let n = 0, total = 0, base = Infinity, stopped = false, mono = new Float32Array(0), tmp = new Float32Array(0);
+
+    function handle(ad) {
+      const nf = ad.numberOfFrames, ch = ad.numberOfChannels;
+      if (mono.length < nf) { mono = new Float32Array(nf); tmp = new Float32Array(nf); }
+      ad.copyTo(mono, { planeIndex: 0, format: "f32-planar" });
+      for (let c = 1; c < ch; c++) {
+        ad.copyTo(tmp, { planeIndex: c, format: "f32-planar" });
+        for (let i = 0; i < nf; i++) mono[i] += tmp[i];
+      }
+      if (ch > 1) for (let i = 0; i < nf; i++) mono[i] /= ch;
+      // Horloge : l'arrivée la plus précoce d'un bloc donne le décalage entre échantillons et temps réel.
+      base = Math.min(base, clock() - (total + nf) / sr);
+      for (let i = 0; i < nf; i++) {
+        const x = mono[i];
+        for (let b = 0; b < 4; b++) {
+          const y = filters[b](x);
+          acc[b] += y * y;
+          if ((y >= 0) !== (prev[b] >= 0)) zc[b]++;
+          prev[b] = y;
+        }
+        if (++n === HOP) {
+          onFrame({ t: base + (total + i + 1 - HOP) / sr, e: acc.map(a => Math.sqrt(a / HOP)), z: zc.map(c => c / HOP) });
+          acc.fill(0); zc.fill(0); n = 0;
+        }
+      }
+      total += nf;
+    }
+
+    handle(first.value);
+    first.value.close();
+    (async () => {
+      while (!stopped) {
+        const { value, done } = await reader.read().catch(() => ({ done: true }));
+        if (done) break;
+        handle(value);
+        value.close();
+      }
+    })();
+    return {
+      frameDur: HOP / sr,
+      clock,
+      stop() {
+        stopped = true;
+        reader.cancel().catch(() => {});
+        stream.getTracks().forEach(t => t.stop());
+      },
+    };
+  };
+
   // Branche le flux sur les 4 filtres + le worklet ; `onFrame({t, e, z})` est appelé toutes les ~11 ms
   // (e : énergie RMS par bande, z : taux de passage par zéro, qui suit grossièrement la hauteur des notes).
   // Si `delay` > 0, le son est rejoué avec ce retard (mode "delay").
@@ -307,8 +390,12 @@
     });
     const mute = ctx.createGain();
     mute.gain.value = 0;
-    merger.connect(node).connect(mute).connect(ctx.destination);
-    node.port.onmessage = e => onFrame(e.data);
+    merger.connect(node);
+    // Pas de sortie audio : sur Android, une page qui « joue » du son (même muet) peut prendre
+    // la main sur la musique. On ne se branche sur la sortie que si le navigateur l'exige.
+    let got = false;
+    node.port.onmessage = e => { got = true; onFrame(e.data); };
+    const fallback = setTimeout(() => { if (!got) node.connect(mute).connect(ctx.destination); }, 1000);
 
     let delayNode = null;
     if (delay > 0) {
@@ -319,7 +406,9 @@
 
     return {
       frameDur: BS.HOP / ctx.sampleRate,
+      clock: () => ctx.currentTime,
       stop() {
+        clearTimeout(fallback);
         node.port.onmessage = null;
         [src, merger, node, mute, delayNode, ...filters].forEach(n => n && n.disconnect());
         stream.getTracks().forEach(t => t.stop());

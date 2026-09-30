@@ -60,8 +60,8 @@
   let level = 0;
   function loop() {
     raf = requestAnimationFrame(loop);
-    if (!mus || !actx) return;
-    renderPosition(mus.now(actx.currentTime + latency()));
+    if (!mus || !capture) return;
+    renderPosition(mus.now(clockNow() + latency()));
     $("meter").style.width = `${Math.min(100, level * 2500)}%`;
   }
 
@@ -110,8 +110,10 @@
     });
   }
 
+  // Horloge de la source audio en cours (temps des trames d'analyse).
+  const clockNow = () => (capture ? capture.clock() : actx ? actx.currentTime : 0);
+
   async function startListening() {
-    const ctx = audioCtx();
     let cap;
     try {
       setStatus("Autorise l'accès au micro…");
@@ -121,19 +123,38 @@
     }
     clearEvents();
     $("summary").className = "";
-    mus = newAnalyzer(BS.HOP / ctx.sampleRate, true);
-    renderLiveMap();
+
+    // Si la musique disparaît juste après le lancement (Android Auto, Bluetooth…), on le signale.
+    const cut = { start: null, ref: [], low: 0, shown: false };
+    const pending = [];
+    const onFrame = f => {
+      level = (f.e[0] + f.e[1] + f.e[2] + f.e[3]) / 4;
+      if (cut.start == null) cut.start = f.t;
+      const since = f.t - cut.start;
+      if (since < 0.6) cut.ref.push(level);
+      else if (since < 8 && !cut.shown) {
+        const ref = cut.ref.reduce((a, x) => a + x, 0) / Math.max(1, cut.ref.length);
+        cut.low = level < 0.2 * ref ? cut.low + 1 : 0;
+        if (ref > 0.003 && cut.low > 80) { // ~1 s bien plus bas qu'au départ
+          cut.shown = true;
+          setStatus("Ta musique s'est coupée ? Relance-la dans ton lecteur : l'écoute continue.", true);
+        }
+      }
+      if (mus) mus.push(f); else pending.push(f);
+    };
     try {
-      capture = await BS.createAnalyzer(ctx, cap.stream, 0, f => {
-        level = (f.e[0] + f.e[1] + f.e[2] + f.e[3]) / 4;
-        mus.push(f);
-      });
+      // Lecture directe du micro si possible (aucun son produit par la page), sinon moteur audio.
+      capture = await BS.openMicFrames(cap.stream, onFrame);
+      if (!capture) capture = await BS.createAnalyzer(audioCtx(), cap.stream, 0, onFrame);
     } catch (err) {
       cap.stream.getTracks().forEach(t => t.stop());
-      mus = null;
+      capture = null;
       return setStatus(`Impossible d'analyser le son : ${err.message}`, true);
     }
-    setStatus("À l'écoute. Le tempo et les comptes apparaissent après quelques secondes.");
+    mus = newAnalyzer(capture.frameDur, true);
+    pending.forEach(f => mus.push(f));
+    renderLiveMap();
+    if (!cut.shown) setStatus("À l'écoute. Le tempo et les comptes apparaissent quand un rythme est bien audible.");
     $("listen").textContent = "Arrêter et voir le bilan";
     $("listen").classList.add("stop");
     $("tap-one").disabled = $("tap-phrase").disabled = false;
@@ -161,8 +182,8 @@
   $("listen").addEventListener("click", () => (capture ? stopListening() : startListening()));
 
   function tap(phraseStart) {
-    if (!mus || !actx) return;
-    if (mus.tapOne(actx.currentTime + latency(), phraseStart)) {
+    if (!mus || !capture) return;
+    if (mus.tapOne(clockNow() + latency(), phraseStart)) {
       setStatus(phraseStart ? "Début de phrase recalé." : "Le 1 est recalé.");
       navigator.vibrate && navigator.vibrate(30);
     } else {

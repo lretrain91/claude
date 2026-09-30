@@ -1,5 +1,5 @@
 // Garde l'appli disponible hors connexion : réseau d'abord, cache en secours.
-const CACHE = "musicalite-v5";
+const CACHE = "musicalite-v6";
 const FILES = ["./", "./index.html", "./app.js", "./manifest.webmanifest", "./icon.svg",
   "./icon-192.png", "./icon-512.png", "../js/analysis.js", "../js/musicality.js", "./map.js"];
 
