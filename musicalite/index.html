@@ -74,6 +74,8 @@
   details.settings input[type=range] { flex: 1; }
 
   /* Liste d'événements */
+  #events-box { margin-top: 20px; }
+  #events-box summary { cursor: pointer; padding: 6px 0; }
   #events { list-style: none; margin: 0; padding: 0; }
   #events li { display: grid; grid-template-columns: 46px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line);
     animation: in .25s ease-out; }
@@ -90,18 +92,17 @@
   #summary.show { display: block; }
   .song { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
   .song h3 { margin: 0 0 4px; font-size: 18px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
-  .stats div { background: var(--panel2); border-radius: 10px; padding: 8px 10px; }
-  .stats b { display: block; font-size: 18px; }
-  .stats span { font-size: 12px; color: var(--muted); }
-  .timeline { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0 4px; }
-  .timeline div { width: 14px; height: 22px; border-radius: 3px; background: var(--accent); }
-  .timeline div.ph { margin-left: 5px; }
-  .timeline div.sec { box-shadow: 0 0 0 2px #b388ff; }
-  .legend { font-size: 12px; color: var(--muted); }
-  .sections { list-style: none; padding: 0; margin: 8px 0; font-size: 14px; }
-  .sections li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .song-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+  .song-head span { font-size: 14px; }
+  .form { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .letter { display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 10px; border-radius: 8px;
+    background: color-mix(in srgb, var(--c) 18%, transparent); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); }
+  .letter b { color: var(--c); font-size: 18px; }
+  .letter small { color: var(--muted); font-size: 11px; }
+  .map { border-radius: 10px; overflow: hidden; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .btn.small { min-height: 0; padding: 8px 12px; font-size: 14px; margin-top: 12px; }
+  #live-map .song { margin-top: 14px; }
   .export { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); background: var(--panel2); border-radius: 10px; padding: 10px; max-height: 320px; overflow: auto; }
 </style>
@@ -140,14 +141,19 @@
 
   <section id="summary"></section>
 
-  <h2>En direct <span class="muted" id="ev-count" style="font-weight:400"></span></h2>
-  <ul id="events"><li class="empty" style="display:block;border:0">Lance l'écoute, puis mets ta musique (Spotify, enceinte…) près du micro.</li></ul>
+  <section id="live-map"><p class="muted">Touche Écouter et mets ta musique près du micro : la carte du morceau se dessine au fil de l'écoute.</p></section>
+
+  <details id="events-box" hidden>
+    <summary class="muted">Tous les événements <span id="ev-count"></span></summary>
+    <ul id="events"></ul>
+  </details>
 </main>
 
 <input type="file" id="file" accept="audio/*" hidden>
 
 <script src="../js/analysis.js"></script>
 <script src="../js/musicality.js"></script>
+<script src="map.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

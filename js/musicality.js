@@ -469,39 +469,73 @@
     }
 
     summary() {
-      return this.songs.filter(s => s.beats.length || s.bpms.length).map(s => {
-        // Les positions sont recalculées avec le calage final des comptes et des phrases.
-        const label = (k, q = 0) => this.position(s, k, q).label;
-        const rel = t => +Math.max(0, t - s.start).toFixed(2);
-        const bpm = median(s.bpms);
-        const spread = s.bpms.length ? Math.sqrt(mean(s.bpms.map(b => (b - bpm) ** 2))) : 0;
-        const sections = [];
-        s.eights.forEach((e, i) => {
-          if (i === 0 || e.section) sections.push({ debut_s: rel(e.t), debut: label(e.pos.k), huit_temps: 0, levels: [] });
-          const cur = sections[sections.length - 1];
-          cur.huit_temps++;
-          cur.levels.push(e.level);
-        });
-        const resume = {};
-        for (const ev of s.events) if (!["tempo", "fin", "feeling"].includes(ev.type)) resume[ev.label] = (resume[ev.label] || 0) + 1;
-        return {
-          morceau: s.n,
-          duree_s: +(s.lastT - s.start).toFixed(1),
-          tempo_bpm: +bpm.toFixed(1),
-          tempo_wcs: BS.tempoCategory(bpm),
-          tempo_stable: spread < 0.02 * bpm,
-          feeling: BS.feelingOf(s.offbeats.length >= 12 ? median(s.offbeats) : null),
-          nb_temps: s.bpms.length,
-          nb_huit_temps: s.eights.length,
-          nb_phrases: Math.ceil(s.eights.length / 4),
-          sections: sections.map(({ levels, ...x }) => ({ ...x, energie: energyLabel(mean(levels)) })),
-          huit_temps: s.eights.map(e => ({ debut_s: rel(e.t), position: label(e.pos.k).replace(/ · \d+$/, ""),
-            energie: energyLabel(e.level), niveau: +e.level.toFixed(2) })),
-          resume_evenements: resume,
-          evenements: [...s.events].sort((a, b) => a.t - b.t).map(ev => ({ t_s: +ev.t.toFixed(2),
-            position: ev.k != null ? label(ev.k, ev.q) : "", type: ev.label, detail: ev.detail })),
-        };
+      return this.songs.filter(s => s.beats.length || s.bpms.length).map(s => this.summarizeSong(s));
+    }
+
+    // Résumé du morceau en cours (pour la carte en direct).
+    current() {
+      const s = this.song;
+      return s && s.eights.length ? this.summarizeSong(s) : null;
+    }
+
+    summarizeSong(s) {
+      // Les positions sont recalculées avec le calage final des comptes et des phrases.
+      const label = (k, q = 0) => this.position(s, k, q).label;
+      const rel = t => +Math.max(0, t - s.start).toFixed(2);
+      const bpm = median(s.bpms);
+      const spread = s.bpms.length ? Math.sqrt(mean(s.bpms.map(b => (b - bpm) ** 2))) : 0;
+
+      // Énergie de chaque 8-temps, relative à tout le morceau.
+      const energies = s.eights.map(e => e.energy);
+      const lo = Math.min(...energies), hi = Math.max(...energies);
+      const level = e => (hi > lo ? (e.energy - lo) / (hi - lo) : 0.5);
+
+      // Sections, puis lettres : deux sections au son proche reçoivent la même lettre (A B A B…).
+      const sections = [];
+      s.eights.forEach((e, i) => {
+        if (i === 0 || e.section) sections.push({ debut_s: rel(e.t), debut: label(e.pos.k), huit_temps: 0, levels: [], profs: [] });
+        const cur = sections[sections.length - 1];
+        cur.huit_temps++;
+        cur.levels.push(level(e));
+        cur.profs.push(e.prof);
+        e.sectionIndex = sections.length - 1;
       });
+      const thr = Math.max(0.6, 2 * median(s.eightD));
+      const groups = [];
+      for (const sec of sections) {
+        sec.prof = sec.profs[0].map((_, i) => mean(sec.profs.map(p => p[i])));
+        let best = null, bestD = Infinity;
+        for (const g of groups) {
+          const d = g.prof.reduce((a, v, i) => a + Math.abs(v - sec.prof[i]), 0);
+          if (d < bestD) { bestD = d; best = g; }
+        }
+        if (!best || bestD > thr) { best = { letter: String.fromCharCode(65 + groups.length), prof: sec.prof }; groups.push(best); }
+        sec.lettre = best.letter;
+      }
+
+      const resume = {};
+      for (const ev of s.events) if (!["tempo", "fin", "feeling"].includes(ev.type)) resume[ev.label] = (resume[ev.label] || 0) + 1;
+      return {
+        morceau: s.n,
+        duree_s: +(s.lastT - s.start).toFixed(1),
+        tempo_bpm: +bpm.toFixed(1),
+        tempo_categorie: BS.tempoCategory(bpm),
+        tempo_stable: spread < 0.02 * bpm,
+        feeling: BS.feelingOf(s.offbeats.length >= 12 ? median(s.offbeats) : null),
+        nb_temps: s.bpms.length,
+        nb_huit_temps: s.eights.length,
+        nb_phrases: Math.ceil(s.eights.length / 4),
+        forme: sections.map(x => x.lettre).join(" "),
+        sections: sections.map(({ levels, profs, prof, ...x }) => ({ ...x, energie: energyLabel(mean(levels)) })),
+        huit_temps: s.eights.map(e => {
+          const pos = this.position(s, e.pos.k);
+          return { debut_s: rel(e.t), position: label(e.pos.k).replace(/ · \d+$/, ""), phrase: pos.phrase, huit: pos.eight,
+            section: sections[e.sectionIndex].lettre, energie: energyLabel(level(e)), niveau: +level(e).toFixed(2) };
+        }),
+        resume_evenements: resume,
+        evenements: [...s.events].sort((a, b) => a.t - b.t).map(ev => ({ t_s: +ev.t.toFixed(2),
+          position: ev.k != null ? label(ev.k, ev.q) : "", type: ev.label, code: ev.type, detail: ev.detail })),
+      };
     }
   };
 
@@ -534,26 +568,33 @@
     }
   };
 
-  // Version texte du bilan, lisible et facile à partager.
+  // Moments marquants (affichés sur la carte et dans le résumé) ; le reste n'est que compté.
+  BS.KEY_MOMENTS = ["tag", "break", "drop", "montee", "bassOff", "hit"];
+
+  // Version texte du bilan : courte, lisible, facile à partager.
   BS.summaryText = function (songs) {
     const lines = [];
     const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
     for (const m of songs) {
-      lines.push(`MORCEAU ${m.morceau} — ${m.tempo_bpm} BPM (${m.tempo_wcs})${m.tempo_stable ? "" : " · tempo variable"}` +
-        `${m.feeling ? " · " + m.feeling : ""} · ${mmss(m.duree_s)}`);
-      lines.push(`${m.nb_huit_temps} × 8 temps · ${m.nb_phrases} phrases`);
+      lines.push(`MORCEAU ${m.morceau} — ${Math.round(m.tempo_bpm)} BPM (${m.tempo_categorie})` +
+        `${m.feeling ? " · " + m.feeling : ""} · ${mmss(m.duree_s)} · ${m.nb_phrases} phrases`);
+      lines.push(`Forme : ${m.forme}`);
       lines.push("");
-      lines.push("Structure :");
-      m.sections.forEach((s, i) => lines.push(`  ${i + 1}. ${mmss(s.debut_s)}  ${s.debut}  · ${s.huit_temps} × 8 · énergie ${s.energie}`));
-      lines.push("");
-      const r = Object.entries(m.resume_evenements).map(([k, v]) => `${k} ×${v}`).join(", ");
-      if (r) lines.push(`Micro-musicalité : ${r}`);
-      lines.push("");
-      for (const ev of m.evenements) {
-        lines.push(`  ${mmss(ev.t_s)}  ${(ev.position || "").padEnd(16)}  ${ev.type}${ev.detail ? " — " + ev.detail : ""}`);
+      m.sections.forEach(s => lines.push(`  ${s.lettre}  ${mmss(s.debut_s)}  ${s.huit_temps} × 8  ${s.energie}`));
+      const moments = m.evenements.filter(ev => BS.KEY_MOMENTS.includes(ev.code));
+      if (moments.length) {
+        lines.push("");
+        lines.push("Moments clés :");
+        for (const ev of moments) lines.push(`  ${mmss(ev.t_s)}  ${ev.type}${ev.position ? " (" + ev.position + ")" : ""}`);
       }
+      const small = ["accent", "syncope", "fill"].map(code => {
+        const n = m.evenements.filter(ev => ev.code === code).length;
+        return n ? `${BS.EVENT_TYPES[code].label.toLowerCase()}s ×${n}` : null;
+      }).filter(Boolean);
+      if (small.length) lines.push("", `Détails : ${small.join(", ")}`);
       lines.push("");
     }
     return lines.join("\n");
   };
+
 })();

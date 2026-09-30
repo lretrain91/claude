@@ -9,40 +9,25 @@ Deux outils dans le navigateur, construits sur le même moteur d'écoute :
 
 ## Musicalité
 
+Un résumé simple et visuel de la construction d'un morceau.
+
 Ouvre `musicalite/` sur ton téléphone, touche **Écouter** et mets ta musique à côté
-(Spotify sur une enceinte, un autre téléphone…). Le micro demande une page en `https://` :
-active GitHub Pages sur le dépôt, puis ouvre `https://<utilisateur>.github.io/<dépôt>/musicalite/`
-et « Ajouter à l'écran d'accueil » pour l'installer comme une appli.
+(ou analyse un fichier audio). Le micro demande une page en `https://` (GitHub Pages) :
+https://lretrain91.github.io/claude/musicalite/
 
-En direct :
-- tempo (BPM) et sa catégorie WCS (**lent** < 88, **moyen** 88–108, **rapide** > 108) ;
-- **feeling** : swing / shuffle (contretemps vers 2/3 du temps) ou droit (à la moitié) ;
-- compte **1 à 8** qui défile en rythme, position dans la phrase (**4 × 8 temps**)
-  et « prochaine phrase dans N temps » pour faire tomber tes patterns sur le 1 ;
-- liste des événements, chacun placé sur son compte (ex. `P2 · 3/4 · 4&`) :
+- **La carte du morceau**, dessinée au fil de l'écoute : un bâton par 8 temps
+  (hauteur = énergie, couleur = section), les phrases (4 × 8 temps) séparées par un espace,
+  une ligne toutes les 4 phrases, et les moments clés marqués au-dessus
+  (‖ break, ▲ drop, ↗ montée, T tag, ~ basse coupée, ● hit).
+- **La forme** en lettres, par exemple `A B A B C B` : les sections qui se ressemblent
+  reçoivent la même lettre.
+- En direct : tempo, feeling (swing ou droit), compte de 1 à 8, position dans la phrase.
+  « Taper le 1 » et « Début de phrase » recalent les comptes si besoin.
+- Bilan : la carte s'enregistre en image, le résumé se copie en texte, et le détail
+  complet se télécharge en JSON.
 
-| Événement | Ce que ça veut dire |
-|---|---|
-| Nouvelle section | le son change nettement d'un 8-temps à l'autre (couplet → refrain…) |
-| Montée | l'énergie monte pendant 3 × 8 temps |
-| Break / Reprise | la musique s'arrête presque, puis repart |
-| Drop | l'énergie explose après un passage calme ou un break |
-| Basse coupée / Retour de la basse | la basse disparaît puis revient |
-| Hit | tous les instruments frappent ensemble |
-| Accent | un temps nettement plus fort que le groove habituel |
-| Syncope | un accent sur le « & » ou à contretemps |
-| Fill | roulement sur les temps 7-8, avant la suite |
-| Tag | la musique repart après un break ailleurs que sur un 1 : phrase rallongée ou raccourcie ; les comptes se recalent tout seuls et les temps en trop sont notés « Tag · 1…4 » |
-
-
-« **Taper le 1** » recale les comptes (tape pile sur un 1), « **Début de phrase** » recale
-les phrases. En fin d'écoute, le **bilan** donne la structure du morceau (sections, énergie
-de chaque 8-temps) et tous les événements, à copier ou télécharger en texte ou en JSON.
-Plusieurs morceaux à la suite (playlist) sont séparés automatiquement grâce aux silences.
-On peut aussi analyser un fichier audio.
-
-Les comptes et les événements sont des estimations faites à partir de l'énergie du son
-dans 4 bandes de fréquence : fiables sur des musiques au rythme marqué, à vérifier à l'oreille.
+Les sections, comptes et moments sont estimés à partir de l'énergie du son dans
+4 bandes de fréquence : fiables sur des musiques au rythme marqué, à vérifier à l'oreille.
 
 ## Le jeu de rythme
 
@@ -79,7 +64,7 @@ Chaque attaque détectée (pic d'énergie) dans une bande devient une note.
 - `js/analysis.js` : détection des attaques, choix des notes, tempo, capture audio.
 - `js/app.js` : menu, mode extraits, mode live.
 - `js/musicality.js` : analyse de musicalité (comptes, phrases, événements, bilan).
-- `musicalite/` : interface de l'appli Musicalité (web app installable).
+- `musicalite/` : interface de l'appli Musicalité (web app installable), dont `map.js` pour la carte.
 
 ## Changer les titres
 
