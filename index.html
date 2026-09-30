@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Beat Spotify</title>
+<style>
+  :root {
+    --bg: #0e0f13;
+    --panel: #181a21;
+    --line: #2a2d38;
+    --text: #eceef3;
+    --muted: #8b90a0;
+    --accent: #1ed760;
+    --l0: #ff5c7a;
+    --l1: #ffb347;
+    --l2: #4fc3f7;
+    --l3: #b388ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { overflow-x: hidden; }
+  .screen { display: none; min-height: 100%; }
+  .screen.active { display: block; }
+
+  /* Menu */
+  #menu { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { background: none; border: 0; color: var(--muted); padding: 8px 14px; font: inherit; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #000; font-weight: 600; }
+  label.small { color: var(--muted); font-size: 14px; display: inline-flex; gap: 8px; align-items: center; }
+  input[type=number] { width: 72px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 8px; font: inherit; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    cursor: pointer; text-align: left; color: inherit; font: inherit; padding: 0; transition: transform .1s, border-color .1s; }
+  .card:hover, .card:focus-visible { transform: translateY(-2px); border-color: var(--accent); outline: none; }
+  .card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #222; }
+  .card .meta { padding: 10px 12px 12px; }
+  .card .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .a { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .best { color: var(--accent); font-size: 12px; margin-top: 4px; min-height: 15px; }
+  .card.file { display: flex; align-items: center; justify-content: center; min-height: 200px; border-style: dashed; }
+  .card.file .meta { text-align: center; }
+  .help { color: var(--muted); font-size: 14px; margin-top: 24px; line-height: 1.5; }
+  kbd { background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; font-size: 13px; }
+  #status { margin: 0 0 16px; min-height: 20px; color: var(--muted); }
+  #status.err { color: var(--l0); }
+
+  /* Jeu */
+  #game { position: fixed; inset: 0; }
+  #game canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  #hud { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; justify-content: space-between;
+    pointer-events: none; font-variant-numeric: tabular-nums; }
+  #hud .big { font-size: 26px; font-weight: 700; }
+  #hud .lbl { font-size: 12px; color: var(--muted); }
+  #quit { position: absolute; bottom: 12px; right: 16px; background: none; border: 1px solid var(--line);
+    color: var(--muted); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+
+  /* Résultats */
+  #results { max-width: 480px; margin: 0 auto; padding: 48px 16px; text-align: center; }
+  .grade { font-size: 96px; font-weight: 800; line-height: 1; margin: 12px 0; color: var(--accent); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 24px 0; text-align: left; }
+  .stats div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .stats b { display: block; font-size: 20px; }
+  .stats span { color: var(--muted); font-size: 13px; }
+  .btn { background: var(--accent); color: #000; border: 0; border-radius: 999px; padding: 12px 22px;
+    font: inherit; font-weight: 700; cursor: pointer; margin: 4px; }
+  .btn.ghost { background: none; color: var(--text); border: 1px solid var(--line); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<section id="menu" class="screen active">
+  <h1>Beat <span>Spotify</span></h1>
+  <p class="sub">Un jeu de rythme généré à partir de ta musique.</p>
+
+  <div class="controls">
+    <div class="seg" id="diff">
+      <button data-d="facile">Facile</button>
+      <button data-d="normal" class="on">Normal</button>
+      <button data-d="difficile">Difficile</button>
+    </div>
+    <label class="small">Décalage audio (ms)
+      <input type="number" id="offset" value="0" step="10">
+    </label>
+  </div>
+
+  <p id="status"></p>
+  <div class="grid" id="tracks"></div>
+
+  <p class="help">
+    Touches : <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> (ou touche les pistes sur mobile) · <kbd>Échap</kbd> pour quitter.<br>
+    Les notes sont générées en analysant l'extrait audio : les basses tombent à gauche, les aigus à droite.<br>
+    Si les notes semblent en avance ou en retard, ajuste le décalage audio.
+  </p>
+</section>
+
+<section id="game" class="screen">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <div><div class="big" id="score">0</div><div class="lbl" id="songname"></div></div>
+    <div style="text-align:right"><div class="big" id="combo"></div><div class="lbl" id="acc">100 %</div></div>
+  </div>
+  <button id="quit">Quitter (Échap)</button>
+</section>
+
+<section id="results" class="screen">
+  <div class="lbl" id="r-song" style="color:var(--muted)"></div>
+  <div class="grade" id="r-grade">A</div>
+  <div id="r-score" style="font-size:28px;font-weight:700"></div>
+  <div id="r-best" style="color:var(--accent);min-height:20px"></div>
+  <div class="stats">
+    <div><b id="r-perfect">0</b><span>Parfait</span></div>
+    <div><b id="r-good">0</b><span>Bien</span></div>
+    <div><b id="r-ok">0</b><span>Ok</span></div>
+    <div><b id="r-miss">0</b><span>Raté</span></div>
+    <div><b id="r-combo">0</b><span>Combo max</span></div>
+    <div><b id="r-acc">0 %</b><span>Précision</span></div>
+  </div>
+  <button class="btn" id="retry">Rejouer</button>
+  <button class="btn ghost" id="back">Choisir un titre</button>
+  <p id="r-link" style="margin-top:20px;font-size:14px"></p>
+</section>
+
+<input type="file" id="file" accept="audio/*" hidden>
+
+<script src="tracks.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Réglages ----------
+  const KEYS = ["KeyD", "KeyF", "KeyJ", "KeyK"];
+  const KEY_LABELS = ["D", "F", "J", "K"];
+  const LANE_COLORS = ["--l0", "--l1", "--l2", "--l3"].map(v =>
+    getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+  const LEAD_IN = 2.0; // secondes avant le début de la musique
+  const WINDOWS = { perfect: 0.045, good: 0.09, ok: 0.135 };
+  const POINTS = { perfect: 300, good: 200, ok: 100 };
+  const DIFFICULTY = {
+    facile:    { minGap: 0.30, laneGap: 0.45, thresh: 1.9, approach: 1.7 },
+    normal:    { minGap: 0.18, laneGap: 0.28, thresh: 1.5, approach: 1.35 },
+    difficile: { minGap: 0.11, laneGap: 0.17, thresh: 1.2, approach: 1.05 },
+  };
+
+  const $ = id => document.getElementById(id);
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+
+  let difficulty = store.get("bs:diff") || "normal";
+  $("offset").value = store.get("bs:offset") ?? 0;
+
+  // ---------- Écrans ----------
+  function show(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id));
+  }
+  function setStatus(msg, err) {
+    $("status").textContent = msg || "";
+    $("status").className = err ? "err" : "";
+  }
+
+  // ---------- Menu ----------
+  const diffSeg = $("diff");
+  function renderDiff() {
+    diffSeg.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.d === difficulty));
+  }
+  diffSeg.addEventListener("click", e => {
+    const d = e.target.dataset && e.target.dataset.d;
+    if (!d) return;
+    difficulty = d; store.set("bs:diff", d); renderDiff(); renderTracks();
+  });
+  $("offset").addEventListener("change", e => store.set("bs:offset", Number(e.target.value) || 0));
+  renderDiff();
+
+  function bestKey(track) { return "bs:best:" + difficulty + ":" + track.title + "|" + track.artist; }
+
+  function renderTracks() {
+    const grid = $("tracks");
+    grid.innerHTML = "";
+    (window.TRACKS || []).forEach(track => {
+      const btn = document.createElement("button");
+      btn.className = "card";
+      const best = store.get(bestKey(track));
+      btn.innerHTML = `<img alt="" loading="lazy"><div class="meta"><div class="t"></div><div class="a"></div><div class="best"></div></div>`;
+      btn.querySelector("img").src = track.cover;
+      btn.querySelector(".t").textContent = track.title;
+      btn.querySelector(".a").textContent = track.artist;
+      btn.querySelector(".best").textContent = best ? `Record : ${best.score.toLocaleString("fr-FR")} (${best.grade})` : "";
+      btn.addEventListener("click", () => loadTrack(track));
+      grid.appendChild(btn);
+    });
+    const file = document.createElement("button");
+    file.className = "card file";
+    file.innerHTML = `<div class="meta"><div class="t">+ Fichier audio</div><div class="a">MP3, WAV, OGG…</div></div>`;
+    file.addEventListener("click", () => $("file").click());
+    grid.appendChild(file);
+  }
+  renderTracks();
+
+  $("file").addEventListener("change", async e => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    const track = { title: f.name.replace(/\.[^.]+$/, ""), artist: "Fichier local" };
+    await startFromBuffer(track, () => f.arrayBuffer());
+  });
+
+  // ---------- Audio ----------
+  let actx = null;
+  function audioCtx() {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  }
+
+  let busy = false;
+  async function loadTrack(track) {
+    await startFromBuffer(track, async () => {
+      const res = await fetch(track.preview, { mode: "cors" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.arrayBuffer();
+    });
+  }
+
+  async function startFromBuffer(track, getBytes) {
+    if (busy) return;
+    busy = true;
+    const ctx = audioCtx(); // créé pendant le clic, pour l'autoplay
+    try {
+      setStatus(`Chargement de « ${track.title} »…`);
+      const bytes = await getBytes();
+      const buffer = await ctx.decodeAudioData(bytes);
+      setStatus("Analyse du rythme…");
+      const notes = await buildChart(buffer, DIFFICULTY[difficulty]);
+      if (!notes.length) throw new Error("aucune note détectée");
+      setStatus("");
+      lastPlayed = { track, buffer, notes };
+      play(track, buffer, notes);
+    } catch (err) {
+      console.error(err);
+      setStatus(`Impossible de charger ce titre (${err.message}). Essaie un autre titre ou un fichier audio local.`, true);
+    } finally {
+      busy = false;
+    }
+  }
+
+  // ---------- Génération des notes ----------
+  // Le signal est découpé en 4 bandes de fréquence (une par piste). Pour chaque bande on
+  // calcule le « flux » d'énergie, puis on garde les pics qui dépassent un seuil adaptatif.
+  const BANDS = [
+    { type: "lowpass",  freq: 150 },
+    { type: "bandpass", freq: 400,  q: 1.0 },
+    { type: "bandpass", freq: 1600, q: 1.0 },
+    { type: "highpass", freq: 4000 },
+  ];
+  const HOP = 512;
+
+  async function renderBand(buffer, band) {
+    const off = new OfflineAudioContext(1, buffer.length, buffer.sampleRate);
+    const src = off.createBufferSource();
+    src.buffer = buffer;
+    const f = off.createBiquadFilter();
+    f.type = band.type;
+    f.frequency.value = band.freq;
+    if (band.q) f.Q.value = band.q;
+    src.connect(f).connect(off.destination);
+    src.start();
+    return (await off.startRendering()).getChannelData(0);
+  }
+
+  function onsetFlux(data) {
+    const n = Math.floor(data.length / HOP);
+    const env = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (let j = i * HOP, end = j + HOP; j < end; j++) s += data[j] * data[j];
+      env[i] = Math.log1p(1000 * Math.sqrt(s / HOP));
+    }
+    const flux = new Float32Array(n);
+    for (let i = 1; i < n; i++) flux[i] = Math.max(0, env[i] - env[i - 1]);
+    return flux;
+  }
+
+  function pickPeaks(flux, mult, frameDur, lane) {
+    const W = 10, peaks = [];
+    let mean = 0, sq = 0, cnt = 0;
+    for (let i = 0; i < flux.length; i++) { mean += flux[i]; sq += flux[i] * flux[i]; cnt++; }
+    mean /= cnt;
+    const std = Math.sqrt(Math.max(0, sq / cnt - mean * mean));
+    for (let i = 3; i < flux.length - 3; i++) {
+      const v = flux[i];
+      if (v <= 0) continue;
+      let isMax = true;
+      for (let k = -3; k <= 3; k++) if (flux[i + k] > v) { isMax = false; break; }
+      if (!isMax) continue;
+      let loc = 0, c = 0;
+      for (let k = Math.max(0, i - W); k <= Math.min(flux.length - 1, i + W); k++) { loc += flux[k]; c++; }
+      loc /= c;
+      if (v > loc * mult && v > mean + 0.5 * std) {
+        peaks.push({ t: i * frameDur, lane, s: (v - mean) / (std || 1) });
+      }
+    }
+    return peaks;
+  }
+
+  async function buildChart(buffer, cfg) {
+    const frameDur = HOP / buffer.sampleRate;
+    const bands = await Promise.all(BANDS.map(b => renderBand(buffer, b)));
+    let cands = [];
+    bands.forEach((data, lane) => { cands = cands.concat(pickPeaks(onsetFlux(data), cfg.thresh, frameDur, lane)); });
+
+    // Les attaques les plus fortes passent en premier ; on respecte les écarts minimaux.
+    cands.sort((a, b) => b.s - a.s);
+    const chosen = [];
+    const laneLast = [[], [], [], []];
+    for (const c of cands) {
+      if (c.t < 0.3) continue;
+      if (chosen.some(n => Math.abs(n.t - c.t) < cfg.minGap)) continue;
+      let lane = c.lane;
+      if (laneLast[lane].some(t => Math.abs(t - c.t) < cfg.laneGap)) {
+        // piste occupée : on essaie une piste voisine
+        const alt = [lane - 1, lane + 1].filter(l => l >= 0 && l < 4 &&
+          !laneLast[l].some(t => Math.abs(t - c.t) < cfg.laneGap));
+        if (!alt.length) continue;
+        lane = alt[0];
+      }
+      chosen.push({ t: c.t, lane });
+      laneLast[lane].push(c.t);
+    }
+    chosen.sort((a, b) => a.t - b.t);
+    return chosen;
+  }
+
+  // ---------- Jeu ----------
+  const cv = $("cv");
+  const g = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1;
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+
+  let state = null;
+  let lastPlayed = null;
+
+  function play(track, buffer, notes) {
+    show("game");
+    resize();
+    const ctx = audioCtx();
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    const startAt = ctx.currentTime + LEAD_IN;
+    src.start(startAt);
+    state = {
+      track, src, startAt,
+      cfg: DIFFICULTY[difficulty],
+      offset: (Number($("offset").value) || 0) / 1000,
+      duration: buffer.duration,
+      notes: notes.map(n => ({ ...n, hit: null })),
+      next: 0,
+      score: 0, combo: 0, maxCombo: 0,
+      counts: { perfect: 0, good: 0, ok: 0, miss: 0 },
+      pressed: [0, 0, 0, 0],
+      flash: [], // { lane, kind, until }
+      judge: null,
+      ended: false,
+    };
+    $("songname").textContent = `${track.title} — ${track.artist}`;
+    updateHud();
+    requestAnimationFrame(frame);
+  }
+
+  function songTime() {
+    return actx.currentTime - state.startAt - state.offset;
+  }
+
+  function judge(note, kind, now) {
+    note.hit = kind;
+    state.counts[kind]++;
+    if (kind === "miss") {
+      state.combo = 0;
+    } else {
+      state.combo++;
+      state.maxCombo = Math.max(state.maxCombo, state.combo);
+      state.score += Math.round(POINTS[kind] * (1 + Math.min(state.combo, 100) / 100));
+      state.flash.push({ lane: note.lane, until: now + 0.15 });
+    }
+    state.judge = { kind, until: now + 0.5 };
+    updateHud();
+  }
+
+  function press(lane) {
+    if (!state || state.ended) return;
+    const now = songTime();
+    state.pressed[lane] = now + 0.08;
+    let best = null;
+    for (let i = state.next; i < state.notes.length; i++) {
+      const n = state.notes[i];
+      if (n.t - now > WINDOWS.ok) break;
+      if (n.hit || n.lane !== lane) continue;
+      if (Math.abs(n.t - now) <= WINDOWS.ok && (!best || Math.abs(n.t - now) < Math.abs(best.t - now))) best = n;
+    }
+    if (!best) return;
+    const d = Math.abs(best.t - now);
+    judge(best, d <= WINDOWS.perfect ? "perfect" : d <= WINDOWS.good ? "good" : "ok", now);
+  }
+
+  function accuracy() {
+    const c = state.counts;
+    const total = c.perfect + c.good + c.ok + c.miss;
+    if (!total) return 100;
+    return (100 * (c.perfect + c.good * 0.66 + c.ok * 0.33)) / total;
+  }
+
+  function updateHud() {
+    $("score").textContent = state.score.toLocaleString("fr-FR");
+    $("combo").textContent = state.combo > 1 ? `${state.combo}×` : "";
+    $("acc").textContent = accuracy().toFixed(1).replace(".", ",") + " %";
+  }
+
+  const JUDGE_TEXT = { perfect: ["PARFAIT", "#1ed760"], good: ["BIEN", "#4fc3f7"], ok: ["OK", "#ffb347"], miss: ["RATÉ", "#ff5c7a"] };
+
+  function frame() {
+    if (!state || state.ended) return;
+    const now = songTime();
+
+    // notes ratées
+    while (state.next < state.notes.length) {
+      const n = state.notes[state.next];
+      if (n.hit) { state.next++; continue; }
+      if (now - n.t > WINDOWS.ok) { judge(n, "miss", now); state.next++; continue; }
+      break;
+    }
+
+    draw(now);
+
+    if (state.next >= state.notes.length && now > state.duration + 0.3) return finish();
+    requestAnimationFrame(frame);
+  }
+
+  function draw(now) {
+    g.clearRect(0, 0, W, H);
+    const laneW = Math.min(110, (W - 32) / 4);
+    const x0 = (W - laneW * 4) / 2;
+    const hitY = H - Math.max(90, H * 0.14);
+    const speed = hitY / state.cfg.approach;
+
+    for (let l = 0; l < 4; l++) {
+      const x = x0 + l * laneW;
+      g.fillStyle = l % 2 ? "#14161c" : "#171920";
+      g.fillRect(x, 0, laneW, H);
+      if (state.pressed[l] > now) {
+        const grad = g.createLinearGradient(0, hitY, 0, hitY - 220);
+        grad.addColorStop(0, LANE_COLORS[l] + "55");
+        grad.addColorStop(1, LANE_COLORS[l] + "00");
+        g.fillStyle = grad;
+        g.fillRect(x, hitY - 220, laneW, 220);
+      }
+    }
+
+    // barre de frappe
+    for (let l = 0; l < 4; l++) {
+      const cx = x0 + l * laneW + laneW / 2;
+      const flash = state.flash.some(f => f.lane === l && f.until > now);
+      g.beginPath();
+      g.arc(cx, hitY, laneW * 0.32, 0, Math.PI * 2);
+      g.lineWidth = flash ? 5 : 3;
+      g.strokeStyle = flash ? "#fff" : LANE_COLORS[l];
+      g.stroke();
+      g.fillStyle = "#8b90a0";
+      g.font = "600 14px system-ui, sans-serif";
+      g.textAlign = "center";
+      g.fillText(KEY_LABELS[l], cx, hitY + laneW * 0.32 + 24);
+    }
+    state.flash = state.flash.filter(f => f.until > now);
+
+    // notes
+    for (let i = state.next; i < state.notes.length; i++) {
+      const n = state.notes[i];
+      const y = hitY - (n.t - now) * speed;
+      if (y < -40) break;
+      if (n.hit) continue;
+      const cx = x0 + n.lane * laneW + laneW / 2;
+      g.beginPath();
+      g.arc(cx, y, laneW * 0.28, 0, Math.PI * 2);
+      g.fillStyle = LANE_COLORS[n.lane];
+      g.fill();
+      g.beginPath();
+      g.arc(cx, y, laneW * 0.12, 0, Math.PI * 2);
+      g.fillStyle = "rgba(255,255,255,0.55)";
+      g.fill();
+    }
+
+    // compte à rebours
+    if (now < 0) {
+      g.fillStyle = "#eceef3";
+      g.font = "700 64px system-ui, sans-serif";
+      g.textAlign = "center";
+      g.fillText(Math.ceil(-now), W / 2, H * 0.4);
+    }
+
+    // jugement
+    if (state.judge && state.judge.until > now) {
+      const [txt, col] = JUDGE_TEXT[state.judge.kind];
+      g.globalAlpha = Math.min(1, (state.judge.until - now) / 0.25);
+      g.fillStyle = col;
+      g.font = "800 32px system-ui, sans-serif";
+      g.textAlign = "center";
+      g.fillText(txt, W / 2, hitY - 170);
+      g.globalAlpha = 1;
+    }
+
+    // progression
+    const p = Math.max(0, Math.min(1, now / state.duration));
+    g.fillStyle = "#1ed760";
+    g.fillRect(0, 0, W * p, 3);
+  }
+
+  function gradeFor(acc, miss) {
+    if (acc >= 97 && miss === 0) return "S";
+    if (acc >= 92) return "A";
+    if (acc >= 82) return "B";
+    if (acc >= 70) return "C";
+    return "D";
+  }
+
+  function stop() {
+    if (!state) return;
+    state.ended = true;
+    try { state.src.stop(); } catch {}
+  }
+
+  function finish() {
+    stop();
+    const acc = accuracy();
+    const c = state.counts;
+    const grade = gradeFor(acc, c.miss);
+    $("r-song").textContent = `${state.track.title} — ${state.track.artist} · ${difficulty}`;
+    $("r-grade").textContent = grade;
+    $("r-score").textContent = state.score.toLocaleString("fr-FR");
+    $("r-perfect").textContent = c.perfect;
+    $("r-good").textContent = c.good;
+    $("r-ok").textContent = c.ok;
+    $("r-miss").textContent = c.miss;
+    $("r-combo").textContent = state.maxCombo;
+    $("r-acc").textContent = acc.toFixed(1).replace(".", ",") + " %";
+    let bestMsg = "";
+    if (state.track.preview) {
+      const key = bestKey(state.track);
+      const prev = store.get(key);
+      if (!prev || state.score > prev.score) {
+        store.set(key, { score: state.score, grade });
+        bestMsg = prev ? "Nouveau record !" : "";
+      } else {
+        bestMsg = `Record : ${prev.score.toLocaleString("fr-FR")}`;
+      }
+    }
+    $("r-best").textContent = bestMsg;
+    const link = $("r-link");
+    link.innerHTML = "";
+    if (state.track.url) {
+      const a = document.createElement("a");
+      a.href = state.track.url; a.target = "_blank"; a.rel = "noopener";
+      a.textContent = "Écouter le titre complet sur Spotify";
+      link.appendChild(a);
+    }
+    show("results");
+  }
+
+  function quit() {
+    stop();
+    state = null;
+    renderTracks();
+    show("menu");
+  }
+
+  // ---------- Entrées ----------
+  window.addEventListener("keydown", e => {
+    if (!state || state.ended) return;
+    if (e.code === "Escape") return quit();
+    const lane = KEYS.indexOf(e.code);
+    if (lane < 0 || e.repeat) return;
+    e.preventDefault();
+    press(lane);
+  });
+  cv.addEventListener("pointerdown", e => {
+    const laneW = Math.min(110, (W - 32) / 4);
+    const x0 = (W - laneW * 4) / 2;
+    const lane = Math.floor((e.clientX - x0) / laneW);
+    if (lane >= 0 && lane < 4) press(lane);
+  });
+  $("quit").addEventListener("click", quit);
+  $("retry").addEventListener("click", () => {
+    if (lastPlayed) play(lastPlayed.track, lastPlayed.buffer, lastPlayed.notes);
+  });
+  $("back").addEventListener("click", () => { state = null; renderTracks(); show("menu"); });
+})();
+</script>
+</body>
+</html>
