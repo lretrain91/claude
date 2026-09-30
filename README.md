@@ -34,9 +34,6 @@ En direct :
 | Fill | roulement sur les temps 7-8, avant la suite |
 | Tag | la musique repart après un break ailleurs que sur un 1 : phrase rallongée ou raccourcie ; les comptes se recalent tout seuls et les temps en trop sont notés « Tag · 1…4 » |
 
-Chaque événement est accompagné d'une idée d'interprétation WCS (freeze ou anchor tenu sur
-un break, stretch quand la basse est coupée, triple step syncopé sur une syncope…),
-désactivable dans les réglages.
 
 « **Taper le 1** » recale les comptes (tape pile sur un 1), « **Début de phrase** » recale
 les phrases. En fin d'écoute, le **bilan** donne la structure du morceau (sections, énergie

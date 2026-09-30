@@ -1,6 +1,6 @@
 // Analyse de musicalité pour la danse (réglée pour le West Coast Swing) : tempo, feeling
 // swing/droit, comptes de 8, phrases, tags, sections et événements de micro-musicalité
-// (breaks, drops, accents, syncopes…), avec des idées d'interprétation.
+// (breaks, drops, accents, syncopes…).
 // On lui pousse des trames d'énergie par bande ({ t, e: [4] }), en direct ou depuis un fichier.
 (function () {
   "use strict";
@@ -17,23 +17,21 @@
   };
   const energyLabel = q => (q < 0.34 ? "calme" : q < 0.67 ? "moyenne" : "intense");
 
-  // `idee` : piste d'interprétation en West Coast Swing.
   BS.EVENT_TYPES = {
     tempo:   { label: "Tempo",              color: "#8b90a0" },
-    feeling: { label: "Feeling",            color: "#8b90a0",
-      idee: "Swing/shuffle : triple steps ronds et roulés. Droit : triple steps nets, plus contemporains." },
-    section: { label: "Nouvelle section",   color: "#b388ff", idee: "Change de texture : plus smooth, plus rythmique, nouveau type de patterns." },
-    tag:     { label: "Tag",                color: "#b388ff", idee: "La phrase est décalée : recale-toi, le vrai 1 est ici." },
-    montee:  { label: "Montée",             color: "#ffb347", idee: "Fais monter l'énergie progressivement, prépare un gros 1." },
-    drop:    { label: "Drop",               color: "#ff5c7a", idee: "Grosse action sur ce temps : whip, sugar push appuyé, pose." },
-    break:   { label: "Break",              color: "#4fc3f7", idee: "Arrête-toi avec la musique : freeze, anchor tenu, stretch." },
-    reprise: { label: "Reprise",            color: "#4fc3f7", idee: "Repars franchement avec la musique." },
-    bassOff: { label: "Basse coupée",       color: "#4fc3f7", idee: "Suspends, étire la connexion, mouvements plus légers." },
-    bassOn:  { label: "Retour de la basse", color: "#ff5c7a", idee: "Reprends l'ancrage au sol, pas plus marqués." },
-    hit:     { label: "Hit",                color: "#ff5c7a", idee: "Marque-le net : arrêt, isolation, frappe." },
-    accent:  { label: "Accent",             color: "#1ed760", idee: "Souligne-le : pose, body roll, pas marqué." },
-    syncope: { label: "Syncope",            color: "#1ed760", idee: "Syncope ton triple step : kick-ball-change, hitch, ripple." },
-    fill:    { label: "Fill",               color: "#ffb347", idee: "Rolling count ou préparation vers le 1 suivant." },
+    feeling: { label: "Feeling",            color: "#8b90a0" },
+    section: { label: "Nouvelle section",   color: "#b388ff" },
+    tag:     { label: "Tag",                color: "#b388ff" },
+    montee:  { label: "Montée",             color: "#ffb347" },
+    drop:    { label: "Drop",               color: "#ff5c7a" },
+    break:   { label: "Break",              color: "#4fc3f7" },
+    reprise: { label: "Reprise",            color: "#4fc3f7" },
+    bassOff: { label: "Basse coupée",       color: "#4fc3f7" },
+    bassOn:  { label: "Retour de la basse", color: "#ff5c7a" },
+    hit:     { label: "Hit",                color: "#ff5c7a" },
+    accent:  { label: "Accent",             color: "#1ed760" },
+    syncope: { label: "Syncope",            color: "#1ed760" },
+    fill:    { label: "Fill",               color: "#ffb347" },
     fin:     { label: "Fin du morceau",     color: "#8b90a0" },
   };
 
@@ -438,8 +436,7 @@
 
     emit(s, type, t, pos, detail) {
       const ev = { song: s.n, t: Math.max(0, t - s.start), type, label: BS.EVENT_TYPES[type].label,
-        position: pos ? pos.label : "", detail, k: pos ? pos.k : null, q: pos ? pos.sub : 0,
-        idee: BS.EVENT_TYPES[type].idee || "" };
+        position: pos ? pos.label : "", detail, k: pos ? pos.k : null, q: pos ? pos.sub : 0 };
       s.events.push(ev);
       this.onEvent(ev);
       return ev;
@@ -502,7 +499,7 @@
             energie: energyLabel(e.level), niveau: +e.level.toFixed(2) })),
           resume_evenements: resume,
           evenements: [...s.events].sort((a, b) => a.t - b.t).map(ev => ({ t_s: +ev.t.toFixed(2),
-            position: ev.k != null ? label(ev.k, ev.q) : "", type: ev.label, detail: ev.detail, idee: ev.idee })),
+            position: ev.k != null ? label(ev.k, ev.q) : "", type: ev.label, detail: ev.detail })),
         };
       });
     }
@@ -538,7 +535,7 @@
   };
 
   // Version texte du bilan, lisible et facile à partager.
-  BS.summaryText = function (songs, withIdeas = true) {
+  BS.summaryText = function (songs) {
     const lines = [];
     const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
     for (const m of songs) {
@@ -554,7 +551,6 @@
       lines.push("");
       for (const ev of m.evenements) {
         lines.push(`  ${mmss(ev.t_s)}  ${(ev.position || "").padEnd(16)}  ${ev.type}${ev.detail ? " — " + ev.detail : ""}`);
-        if (withIdeas && ev.idee) lines.push(`  ${" ".repeat(24)}→ ${ev.idee}`);
       }
       lines.push("");
     }
