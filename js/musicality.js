@@ -59,8 +59,8 @@
         this.silentFor += this.fd;
         if (this.song && this.silentFor > 1.5) this.endSong();
       } else {
+        if (!this.song) this.startSong(f.t, this.silentFor > 0.2); // après un silence : entrée propre
         this.silentFor = 0;
-        if (!this.song) this.startSong(f.t);
       }
       const s = this.song;
       if (!s) return;
@@ -85,9 +85,9 @@
       if (g) while (f.t >= g.next + g.P - g.P / 8 + 0.06) this.finalizeBeat();
     }
 
-    startSong(t) {
+    startSong(t, fromSilence = false) {
       this.song = {
-        n: this.songs.length + 1, start: t, lastT: t,
+        n: this.songs.length + 1, start: t, lastT: t, fromSilence,
         detector: new BS.OnsetDetector(this.fd, 1.3),
         tempo: new BS.TempoTracker(this.fd, 102), // la plupart des morceaux de WCS : 75–130 BPM
         offbeats: [], feeling: null,
@@ -110,6 +110,7 @@
       if (!s) return;
       this.song = null;
       if (s.beats.length === 0 && !s.events.length) return;
+      this.finalAlign(s); // calage final sur tout le morceau
       if (s.inBreak && s.inBreak.ev) s.events.splice(s.events.indexOf(s.inBreak.ev), 1); // c'est la fin, pas un break
       if (s.grid) this.emit(s, "fin", s.lastT, null, "");
       this.songs.push(s);
@@ -148,9 +149,8 @@
         s.start = this.musicStart(s, now);
         const from = s.start - P / 8;
         s.grid = { P, next: from + mod(phase - from, P), k: 0, miss: 0 };
-        // A priori : la musique commence presque toujours sur un 1, en début de phrase.
-        s.s8[0] += 1; s.s8n[0] += 1;
-        s.s4[0] += 1;
+        // A priori (voir realign) : si on a entendu l'entrée de la musique, elle se fait sur un grand 1.
+        s.cleanStart = s.startClean;
       } else {
         const diff = mod(phase - mod(g.next, P) + P / 2, P) - P / 2;
         if (Math.abs(P - g.P) / g.P < 0.04 && Math.abs(diff) < 0.15 * P) {
@@ -179,21 +179,36 @@
     musicStart(s, now) {
       const lv = s.frames.filter(x => x.t >= now - 9).map(x => ({ t: x.t, v: (x.e[0] + x.e[1] + x.e[2] + x.e[3]) / 4 }));
       if (!lv.length) return Math.max(s.start, now - 9);
-      const sorted = lv.map(x => x.v).sort((a, b) => a - b);
-      const floor = sorted[Math.floor(sorted.length * 0.1)];
-      const music = median(lv.filter(x => x.t >= now - 3).map(x => x.v));
-      if (music < 1.8 * floor) return Math.max(s.start, lv[0].t); // pas de montée nette : la musique jouait déjà
-      const thr = Math.sqrt(floor * music);
-      // On remonte par blocs de 0,25 s jusqu'à trouver un bloc sous le seuil.
-      const blk = Math.round(0.25 / this.fd);
-      for (let i = lv.length - blk; i >= 0; i -= blk) {
-        const m = mean(lv.slice(i, i + blk).map(x => x.v));
-        if (m < thr) {
-          const first = lv.slice(i).find(x => x.v >= thr);
-          return first ? first.t : lv[i].t;
+      // Le morceau a commencé après un silence, il y a moins de 9 s : on a entendu son entrée.
+      if (s.fromSilence && s.start >= now - 9) { s.startClean = true; return s.start; }
+      // On raisonne par blocs d'une demi-seconde : les creux entre deux frappes ne comptent pas.
+      const blk = Math.round(0.5 / this.fd);
+      const blocks = [];
+      for (let i = 0; i + blk <= lv.length; i += Math.round(blk / 2)) blocks.push({ i, m: mean(lv.slice(i, i + blk).map(x => x.v)) });
+      s.startClean = false;
+      if (blocks.length < 4) return Math.max(s.start, lv[0].t);
+      const floor = Math.min(...blocks.map(b => b.m));
+      const music = median(blocks.filter(b => lv[b.i].t >= now - 3).map(b => b.m));
+      if (music < 2 * floor) return Math.max(s.start, lv[0].t); // pas de montée nette : la musique jouait déjà
+      const thr = Math.min(Math.sqrt(floor * music), 0.5 * music);
+      // On remonte jusqu'au dernier bloc nettement plus calme que la musique : elle entre juste après.
+      for (let j = blocks.length - 1; j >= 0; j--) {
+        if (blocks[j].m < thr) {
+          s.startClean = true;
+          const first = lv.slice(blocks[j].i).find(x => x.v >= thr);
+          return first ? first.t : lv[blocks[j].i].t;
         }
       }
       return Math.max(s.start, lv[0].t);
+    }
+
+    // Grand 1 fiable ? Oui si on a entendu l'entrée du morceau (ou la reprise après un tag), si
+    // l'utilisateur l'a calé, ou après 2 phrases entendues. Sinon on ne peut pas encore savoir
+    // lequel des 8-temps d'une section ouvre la phrase.
+    phraseSure(s) {
+      if (s.manualPhrase != null || s.finalized) return true;
+      if (s.cur.kStart === 0 ? s.cleanStart : true) return true;
+      return s.log.filter(b => b.k >= s.cur.kStart).length >= 64;
     }
 
     position(s, k, q = 0) {
@@ -229,42 +244,128 @@
       s.bpms.push(60 / P);
       this.learnFeeling(s, beat);
 
-      this.learnDownbeat(s, beat);
-      s.log.push({ k, t: T, Et: beat.Et }); // historique complet des temps, pour la frise
+      // Historique complet des temps : sert à la frise et au calage des 1 / grands 1.
+      const onBeat = lane => Math.max(0, ...beat.ons.filter(o => o.lane === lane && Math.abs(o.t - T) < P / 6).map(o => o.s));
+      s.log.push({ k, t: T, Et: beat.Et, E: [...E], Z: [Z[0], Z[1]], low: onBeat(0), mid: Math.max(onBeat(1), onBeat(2)),
+        high: onBeat(3), n: beat.ons.length, evt: 0 });
       const pos = this.position(s, k);
       beat.pos = pos;
       this.beatEvents(s, beat, pos);
       s.beats.push(beat);
       if (s.beats.length > 64) s.beats.shift();
       if (pos.count === 8) this.closeEight(s);
-      this.onBeat({ song: s.n, t: T - s.start, bpm: 60 / P, ...pos });
+      if (mod(k - s.cur.kStart, 4) === 3) this.realign(s, false);
+      this.onBeat({ song: s.n, t: T - s.start, bpm: 60 / P, phraseSure: this.phraseSure(s), ...pos });
     }
 
-    // Le « 1 » du 8-temps : là où les notes changent (basse, accords) et où tape la grosse caisse.
-    // Les grands changements (break, drop, nouvelle section) votent aussi, via vote1().
-    learnDownbeat(s, beat) {
-      const prev = s.beats.length ? s.beats[s.beats.length - 1] : null;
-      const pitch = (a, b) => (a > 0 && b > 0 ? Math.abs(Math.log(a / b)) : 0);
-      const N = prev ? 4 * pitch(beat.Z[0], prev.Z[0]) + 2 * pitch(beat.Z[1], prev.Z[1]) : 0;
-      const low = Math.max(0, ...beat.ons.filter(o => o.lane === 0 && Math.abs(o.t - beat.t) < beat.P / 6).map(o => o.s));
-      this.vote1(s, beat.k, N + 0.05 * low);
-    }
-
+    // Un grand changement (break, drop, basse, nouvelle section) au temps k : indice de début de phrase.
     vote1(s, k, v) {
-      const j = mod(k, 8);
-      for (let i = 0; i < 8; i++) { s.s8[i] *= 0.995; s.s8n[i] *= 0.995; }
-      s.s8[j] += v;
-      s.s8n[j] += 1;
-      if (s.manualOne != null || k < 16) return;
-      const avg = i => (s.s8n[i] ? s.s8[i] / s.s8n[i] : 0);
-      const score = i => avg(i) + 0.5 * avg((i + 4) % 8);
-      let best = 0;
-      for (let i = 1; i < 8; i++) if (score(i) > score(best)) best = i;
-      if (best !== s.oneOff && score(best) > 1.1 * score(s.oneOff)) {
-        if (++s.oneVotes >= 4) { s.oneOff = best; s.oneVotes = 0; }
-      } else {
-        s.oneVotes = 0;
+      const b = s.log.find(x => x.k === k);
+      if (b) b.evt += v;
+    }
+
+    // Calage des 1 et des grands 1 sur tout ce qui a été entendu depuis le début du morceau
+    // (ou depuis le dernier tag). Pour chacune des 32 places possibles du grand 1, on additionne
+    // les indices musicaux qui tombent au bon endroit, et on garde la plus cohérente :
+    //  - changements de son ou d'énergie (sections, drops, reprises, basse) → début de phrase ;
+    //  - fill ou roulement juste avant → début de phrase ;
+    //  - changement de notes (basse, accords) et attaque forte → début de mesure ;
+    //  - grosse caisse sur 1 et 3, caisse claire sur 2 et 4 → parité des temps.
+    // `range` : une portion figée par un tag ({ kStart, kEnd, tagFrom }) ; on renvoie alors
+    // seulement la meilleure place du grand 1, sans rien modifier.
+    realign(s, final, range) {
+      const part = range || s.cur;
+      const manual = !range;
+      let L = s.log.filter(b => b.k >= part.kStart && (part.kEnd == null || b.k < (part.tagFrom ?? part.kEnd)));
+      // Les temps comptés dans le silence (avant l'entrée, après la fin) ressembleraient à de gros
+      // changements de section : on les écarte.
+      const medEt = median(L.map(b => b.Et));
+      let a = 0, z = L.length;
+      while (a < z && L[a].Et < 0.15 * medEt) a++;
+      while (z > a && L[z - 1].Et < 0.15 * medEt) z--;
+      L = L.slice(a, z);
+      const n = L.length;
+      if (n < 8) return null;
+      if (manual && s.manualOne != null && s.manualPhrase != null) return null;
+      const P = L.map(b => [...b.E.map(x => Math.log1p(1000 * x)), Math.log1p(b.n)]);
+      const avgProf = (a, z) => { const r = [0, 0, 0, 0, 0]; for (let i = a; i < z; i++) for (let j = 0; j < 5; j++) r[j] += P[i][j] / (z - a); return r; };
+      const avgEt = (a, z) => mean(L.slice(a, z).map(b => b.Et));
+      const lg = (a, b) => (a > 0 && b > 0 ? Math.abs(Math.log(a / b)) : 0);
+      const nov = [], jump = [], pitch = [], acc = [], fill = [], back = [];
+      const nMed = median(L.map(b => b.n));
+      for (let i = 0; i < n; i++) {
+        // Avant / après le temps i, en mettant de côté les 2 temps juste avant : c'est là que se
+        // logent les fills, qui sinon feraient croire que le changement commence 2 temps trop tôt.
+        // Il faut 6 temps de recul de chaque côté : les derniers temps entendus, jugés avec moins
+        // de recul, créeraient de faux changements.
+        const w = 6;
+        if (i - 2 - w >= 0 && i + w <= n) {
+          const before = avgProf(i - 2 - w, i - 2), after = avgProf(i, i + w);
+          nov.push(before.reduce((a, v, j) => a + Math.abs(v - after[j]), 0));
+          jump.push(lg(avgEt(i, i + 4), avgEt(i - 6, i - 2)));
+        } else { nov.push(0); jump.push(0); }
+        pitch.push(i > 0 ? 2 * lg(L[i].Z[0], L[i - 1].Z[0]) + lg(L[i].Z[1], L[i - 1].Z[1]) : 0);
+        acc.push(L[i].low + L[i].high);
+        fill.push(i >= 2 ? Math.max(0, L[i - 1].n + L[i - 2].n - 2 * nMed) : 0);
+        back.push(L[i].low - L[i].mid);
       }
+      // Pour les changements, on retire ce qui revient à chaque mesure (le groove lui-même) :
+      // seul compte ce qui sort de l'ordinaire à cette place dans la mesure.
+      const ungroove = a => {
+        const sum = [0, 0, 0, 0], cnt = [0, 0, 0, 0];
+        a.forEach((v, i) => { const j = mod(L[i].k, 4); sum[j] += v; cnt[j]++; });
+        const avg = sum.map((x, j) => (cnt[j] ? x / cnt[j] : 0)), all = mean(a);
+        return a.map((v, i) => Math.max(0, v - avg[mod(L[i].k, 4)] + all));
+      };
+      // Chaque indice est ramené à son niveau habituel pour pouvoir les additionner.
+      const norm = a => { const m = mean(a.map(Math.abs)) || 1; return a.map(v => v / m); };
+      const [N, J, H, A, F, K] = [ungroove(nov), ungroove(jump), pitch, acc, ungroove(fill), back].map(norm);
+      const Emax = Math.max(1, ...L.map(b => b.evt));
+      const score = o => {
+        let sc = 0;
+        for (let i = 0; i < n; i++) {
+          const r = mod(L[i].k - o, 32);
+          const B = N[i] + 1.5 * J[i] + 0.7 * F[i] + (3 * L[i].evt) / Emax; // changements
+          const wB = r === 0 ? 3 : r % 8 === 0 ? 1 : r % 4 === 0 ? 0.3 : 0;
+          const wA = r === 0 ? 0.5 : r % 8 === 0 ? 0.4 : r % 4 === 0 ? 0.2 : 0; // attaques
+          const wH = r % 8 === 0 ? 1 : r % 4 === 0 ? 0.7 : 0;                     // notes
+          sc += wB * B + wA * A[i] + wH * H[i] + (r % 2 === 0 ? 0.6 : -0.6) * K[i]; // grosse caisse / caisse claire
+        }
+        return sc;
+      };
+      // A priori : si on a entendu l'entrée de la musique, elle se fait presque toujours sur un
+      // grand 1. Elle compte comme le plus gros changement du morceau, sans plus : si l'écoute a
+      // commencé en cours de morceau, les autres indices l'emportent.
+      let maxB = 0;
+      for (let i = 0; i < n; i++) maxB = Math.max(maxB, N[i] + 1.5 * J[i] + 0.7 * F[i] + (3 * L[i].evt) / Emax);
+      // Même a priori pour la reprise qui ouvre une portion après un tag : c'est un grand 1.
+      const clean = part.kStart === 0 ? s.cleanStart : true;
+      const cands = [];
+      for (let o = 0; o < 32; o++) {
+        if (manual && s.manualOne != null && mod(o, 8) !== mod(s.manualOne, 8)) continue;
+        const r0 = mod(L[0].k - o, 32);
+        const prior = clean ? (r0 === 0 ? 3 : r0 % 8 === 0 ? 1 : 0) * maxB : 0;
+        cands.push({ o, sc: score(o) + prior });
+      }
+      cands.sort((a, b) => b.sc - a.sc);
+      const best = cands[0];
+      if (range) return best.o;
+      const apply = o => {
+        const newOne = mod(o, 8);
+        if (s.manualOne == null) s.oneOff = newOne;
+        if (s.manualPhrase == null) s.phraseOff = mod((o - newOne) / 8, 4);
+      };
+      if (final) { s.alignCand = null; s.finalized = true; apply(best.o); return; }
+
+      const one = s.manualOne ?? s.oneOff, p = s.manualPhrase ?? s.phraseOff;
+      const curO = mod(one + 8 * p, 32);
+      const cur = cands.find(c => c.o === curO);
+      if (best.o === curO) { s.alignCand = null; return; }
+      // En direct, on ne change qu'avec une nette avance, confirmée deux fois de suite.
+      const margin = cur ? best.sc - cur.sc : Infinity;
+      if (margin < 0.08 * Math.abs(best.sc) + 1 || s.alignCand !== best.o) { s.alignCand = best.o; return; }
+      s.alignCand = null;
+      apply(best.o);
     }
 
     beatEvents(s, beat, pos) {
@@ -289,8 +390,14 @@
           s.inBreak = null;
           // La musique repart presque toujours sur un 1, souvent en début de phrase.
           // Si elle repart ailleurs après un vrai break, c'est probablement un tag.
-          if (len >= 2 && pos.count !== 1 && beat.k >= 32) this.tag(s, beat, pos);
-          else { this.vote1(s, beat.k, 3); this.votePhrase(s, pos, 2); }
+          this.vote1(s, beat.k, 3);
+          if (len >= 2 && pos.count !== 1 && beat.k >= 32) {
+            // Avant de parler de tag, on vérifie avec le meilleur calage sur tout ce qu'on a entendu :
+            // souvent, c'est le calage qui était faux et la reprise tombe bien sur un 1.
+            this.realign(s, true);
+            const p2 = this.position(s, beat.k);
+            if (p2.count !== 1) this.tag(s, beat, p2);
+          }
         }
         return;
       }
@@ -390,10 +497,8 @@
         const isSection = s.eightD.length >= 3 && ((D > 2 * medD && D > 0.6) || jump > Math.log(1.35));
         for (let i = 0; i < 4; i++) s.s4[i] *= 0.95;
         s.s4[mod(eight.n, 4)] += D;
-        this.updatePhrase(s);
         if (isSection) {
           eight.section = true;
-          this.vote1(s, first.k, 3);
           this.emit(s, "section", eight.t, eight.pos, `énergie ${energyLabel(eight.level)}`);
         }
       }
@@ -455,19 +560,40 @@
       s.swing = ratio;
     }
 
-    // Début de phrase : là où le son change le plus d'un 8-temps à l'autre (avec un peu d'inertie).
-    votePhrase(s, pos, v) {
-      if (pos.count !== 1) return;
-      s.s4[mod(pos.eightAbs, 4)] += v;
-      this.updatePhrase(s);
+    // Calage final : chaque portion (séparée par un tag) est recalée sur ses propres temps ; si deux
+    // portions voisines ont le même calage, le tag était faux et on les fusionne.
+    finalAlign(s) {
+      for (let i = s.regions.length - 1; i >= 0; i--) {
+        const r = s.regions[i], next = s.regions[i + 1] || s.cur;
+        const o1 = this.realign(s, true, r);
+        const o2 = next === s.cur ? this.realign(s, true, { kStart: next.kStart }) : this.realign(s, true, next);
+        if (o1 != null && o2 != null && o1 === o2) {
+          next.kStart = r.kStart;
+          next.num0 = r.num0;
+          s.events = s.events.filter(e => !(e.type === "tag" && e.k === r.kEnd));
+          s.regions.splice(i, 1);
+        } else if (o1 != null) {
+          r.one = mod(o1, 8);
+          r.p = mod((o1 - r.one) / 8, 4);
+        }
+      }
+      this.realign(s, true);
+      // Numérotation des phrases d'une portion à l'autre.
+      const parts = [...s.regions, s.cur];
+      for (let i = 1; i < parts.length; i++) {
+        const prev = parts[i - 1];
+        const lastK = (prev.tagFrom ?? prev.kEnd) - 1;
+        const saved = prev.tagFrom;
+        prev.tagFrom = null;
+        const ph = this.position(s, lastK).phrase;
+        prev.tagFrom = saved;
+        prev.lastPhrase = ph;
+        parts[i].num0 = ph + 1;
+      }
     }
 
-    updatePhrase(s) {
-      if (s.manualPhrase != null || s.eightD.length < 3) return;
-      let best = 0;
-      for (let i = 1; i < 4; i++) if (s.s4[i] > s.s4[best]) best = i;
-      if (s.s4[best] > 1.2 * s.s4[s.phraseOff]) s.phraseOff = best;
-    }
+    // Début de phrase : un grand changement à cet endroit est un indice (voir realign).
+    votePhrase() {}
 
     emit(s, type, t, pos, detail) {
       const ev = { song: s.n, t: Math.max(0, t - s.start), type, label: BS.EVENT_TYPES[type].label,
@@ -483,7 +609,7 @@
       if (!s || !s.grid) return null;
       const g = s.grid, kf = g.k + (t - g.next) / g.P, k = Math.floor(kf);
       const pos = this.position(s, k);
-      return { bpm: 60 / g.P, frac: kf - k, song: s.n, feeling: s.feeling, ...pos,
+      return { bpm: 60 / g.P, frac: kf - k, song: s.n, feeling: s.feeling, phraseSure: this.phraseSure(s), ...pos,
         toPhrase: (4 - pos.eight) * 8 + (8 - pos.count) + 1 };
     }
 

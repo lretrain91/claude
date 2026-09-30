@@ -1,13 +1,4 @@
-# Beat Spotify
-
-Deux outils dans le navigateur, construits sur le même moteur d'écoute :
-
-- **Musicalité** (`musicalite/`) : appli pour téléphone qui écoute la musique au micro et
-  décrit, pour le West Coast Swing, le tempo, le feeling, les comptes de 8, les phrases,
-  les tags et la micro-musicalité.
-- **Le jeu de rythme** (`index.html`) : notes générées à partir de ta musique Spotify.
-
-## Musicalité
+# Musicalité
 
 Un résumé simple et visuel de la construction d'un morceau.
 
@@ -27,7 +18,7 @@ https://lretrain91.github.io/claude/musicalite/
   Rien ne s'affiche tant qu'on n'entend pas un rythme franc (bruit de la pièce, voix) ;
   le morceau commence à l'entrée réelle de la musique.
   « Taper le 1 » et « Début de phrase » recalent les comptes si besoin.
-- Bilan : la carte s'enregistre en image, le résumé se copie en texte, et le détail
+- Bilan : la frise s'enregistre en image, le résumé se copie en texte, et le détail
   complet se télécharge en JSON.
 
 Sur Chrome (Android compris), le micro est lu directement, sans moteur audio : la page ne
@@ -37,43 +28,16 @@ Si la musique se coupe quand même au lancement, l'appli le signale : relance-la
 Les sections, comptes et moments sont estimés à partir de l'énergie du son dans
 4 bandes de fréquence : fiables sur des musiques au rythme marqué, à vérifier à l'oreille.
 
-## Le jeu de rythme
-
-## Jouer
-
-Ouvre `index.html` dans un navigateur (double-clic, ou via GitHub Pages).
-
-- Touches **D F J K** (ou toucher les pistes sur mobile), **Échap** pour quitter.
-- 3 difficultés, record sauvegardé par titre.
-- **+ Fichier audio** : joue sur n'importe quel MP3/WAV de ton ordinateur (morceau complet).
-
-## Mode live (playlist Spotify en direct)
-
-- **Capturer l'onglet Spotify** (Chrome/Edge sur ordinateur) : ouvre ta playlist sur
-  open.spotify.com, lance le live, choisis cet onglet et coche « Partager l'audio ».
-  Le jeu coupe le son de l'onglet et le rejoue avec 2,5 s de retard : les notes tombent
-  exactement sur les attaques réelles.
-- **Micro** : pour l'appli Spotify, un téléphone ou une enceinte. Le jeu mesure le tempo
-  et projette chaque attaque sur la mesure suivante (précis sur les musiques régulières).
-- Les silences entre deux titres sont détectés : le bilan donne un score par titre.
-
-Le partage d'onglet et le micro demandent une page servie en `https://` (GitHub Pages)
-ou ouverte en local.
-
-## Comment les notes sont générées
-
-L'extrait de 30 s du titre (fourni par Spotify) est découpé en 4 bandes de fréquence,
-une par piste : basses → D, bas-médiums → F, hauts-médiums → J, aigus → K.
-Chaque attaque détectée (pic d'énergie) dans une bande devient une note.
+**Les 1 et les grands 1.** Le calage est recalculé tous les 4 temps sur tout ce qui a été
+entendu : pour chacune des 32 places possibles du grand 1, l'appli additionne les indices qui
+tombent au bon endroit (changements de son ou d'énergie, drops, reprises, entrée ou sortie de la
+basse, fills juste avant, changements de notes, attaques, grosse caisse sur 1 et 3 / caisse
+claire sur 2 et 4) et garde la plus cohérente. Si l'écoute a commencé en cours de morceau, le
+grand 1 ne peut se déduire qu'au prochain changement : l'appli affiche « Phrase ? » pendant les
+deux premières phrases ; le compte de 1 à 8 reste affiché.
 
 ## Code
 
-- `js/engine.js` : pistes, notes, jugement, score.
-- `js/analysis.js` : détection des attaques, choix des notes, tempo, capture audio.
-- `js/app.js` : menu, mode extraits, mode live.
-- `js/musicality.js` : analyse de musicalité (comptes, phrases, événements, bilan).
-- `musicalite/` : interface de l'appli Musicalité (web app installable), dont `map.js` pour la frise.
-
-## Changer les titres
-
-La liste est dans `tracks.js` (titre, artiste, pochette, URL de l'extrait).
+- `js/analysis.js` : bandes de fréquence, attaques, tempo, lecture du micro.
+- `js/musicality.js` : analyse de musicalité (comptes, phrases, calage des grands 1, sections, événements, bilan).
+- `musicalite/` : interface de l'appli (web app installable), dont `map.js` pour la frise.
