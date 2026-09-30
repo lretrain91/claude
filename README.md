@@ -1,6 +1,45 @@
 # Beat Spotify
 
-Petit jeu de rythme dans le navigateur, généré à partir des titres écoutés sur Spotify.
+Deux outils dans le navigateur, construits sur le même moteur d'écoute :
+
+- **Musicalité** (`musicalite/`) : appli pour téléphone qui écoute la musique au micro et
+  décrit, pour la danse, le tempo, les comptes de 8, les phrases et la micro-musicalité.
+- **Le jeu de rythme** (`index.html`) : notes générées à partir de ta musique Spotify.
+
+## Musicalité
+
+Ouvre `musicalite/` sur ton téléphone, touche **Écouter** et mets ta musique à côté
+(Spotify sur une enceinte, un autre téléphone…). Le micro demande une page en `https://` :
+active GitHub Pages sur le dépôt, puis ouvre `https://<utilisateur>.github.io/<dépôt>/musicalite/`
+et « Ajouter à l'écran d'accueil » pour l'installer comme une appli.
+
+En direct :
+- tempo (BPM) et compte **1 à 8** qui défile en rythme ;
+- position dans la phrase (**4 × 8 temps**) ;
+- liste des événements, chacun placé sur son compte (ex. `P2 · 3/4 · 4&`) :
+
+| Événement | Ce que ça veut dire |
+|---|---|
+| Nouvelle section | le son change nettement d'un 8-temps à l'autre (couplet → refrain…) |
+| Montée | l'énergie monte pendant 3 × 8 temps |
+| Break / Reprise | la musique s'arrête presque, puis repart |
+| Drop | l'énergie explose après un passage calme ou un break |
+| Basse coupée / Retour de la basse | la basse disparaît puis revient |
+| Hit | tous les instruments frappent ensemble |
+| Accent | un temps nettement plus fort que le groove habituel |
+| Syncope | un accent sur le « & » ou à contretemps |
+| Fill | roulement sur les temps 7-8, avant la suite |
+
+« **Taper le 1** » recale les comptes (tape pile sur un 1), « **Début de phrase** » recale
+les phrases. En fin d'écoute, le **bilan** donne la structure du morceau (sections, énergie
+de chaque 8-temps) et tous les événements, à copier ou télécharger en texte ou en JSON.
+Plusieurs morceaux à la suite (playlist) sont séparés automatiquement grâce aux silences.
+On peut aussi analyser un fichier audio.
+
+Les comptes et les événements sont des estimations faites à partir de l'énergie du son
+dans 4 bandes de fréquence : fiables sur des musiques au rythme marqué, à vérifier à l'oreille.
+
+## Le jeu de rythme
 
 ## Jouer
 
@@ -34,6 +73,8 @@ Chaque attaque détectée (pic d'énergie) dans une bande devient une note.
 - `js/engine.js` : pistes, notes, jugement, score.
 - `js/analysis.js` : détection des attaques, choix des notes, tempo, capture audio.
 - `js/app.js` : menu, mode extraits, mode live.
+- `js/musicality.js` : analyse de musicalité (comptes, phrases, événements, bilan).
+- `musicalite/` : interface de l'appli Musicalité (web app installable).
 
 ## Changer les titres
 

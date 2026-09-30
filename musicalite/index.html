@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Musicalité</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #0e0f13;
+    --panel: #181a21;
+    --panel2: #1f222b;
+    --line: #2a2d38;
+    --text: #eceef3;
+    --muted: #8b90a0;
+    --accent: #1ed760;
+    --warn: #ff5c7a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); overflow-x: hidden; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  h2 { font-size: 16px; margin: 24px 0 10px; }
+  .muted { color: var(--muted); }
+  #status { min-height: 20px; font-size: 14px; color: var(--muted); margin: 8px 0; }
+  #status.err { color: var(--warn); }
+
+  /* Panneau live */
+  .live { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .bpm { font-size: 40px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .bpm small { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+  .where { text-align: right; font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .where b { color: var(--text); font-size: 18px; }
+  .count { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 18px 0 6px; }
+  .count div { aspect-ratio: 1; border-radius: 10px; background: var(--panel2); display: flex; align-items: center;
+    justify-content: center; font-weight: 800; font-size: clamp(16px, 5vw, 26px); color: var(--muted);
+    transition: background .06s, color .06s, transform .06s; }
+  .count div.on { background: var(--accent); color: #000; }
+  .count div.pulse { transform: scale(1.1); }
+  .count div.one { box-shadow: inset 0 0 0 2px #ffffff22; }
+  .count div.on.one { background: #fff; }
+  .phrase { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .phrase div { height: 6px; border-radius: 3px; background: var(--panel2); }
+  .phrase div.done { background: #1ed76066; }
+  .phrase div.on { background: var(--accent); }
+  .meter { height: 4px; background: var(--panel2); border-radius: 2px; margin-top: 14px; overflow: hidden; }
+  .meter div { height: 100%; width: 0; background: var(--muted); transition: width .1s; }
+
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  button { font: inherit; cursor: pointer; }
+  .btn { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 12px;
+    padding: 14px 12px; font-weight: 600; min-height: 48px; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); grid-column: 1 / -1; font-size: 17px; }
+  .btn.primary.stop { background: var(--warn); border-color: var(--warn); }
+  .btn.ghost { background: none; }
+  .file-row { grid-column: 1 / -1; }
+
+  details.settings { margin-top: 12px; font-size: 14px; color: var(--muted); }
+  details.settings summary { cursor: pointer; }
+  details.settings label { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  details.settings input[type=range] { flex: 1; }
+
+  /* Liste d'événements */
+  #events { list-style: none; margin: 0; padding: 0; }
+  #events li { display: grid; grid-template-columns: 46px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line);
+    animation: in .25s ease-out; }
+  @keyframes in { from { opacity: 0; transform: translateY(-4px); } }
+  .ev-time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; padding-top: 2px; }
+  .ev-main { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+  .chip { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #000; }
+  .pos { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .detail { font-size: 13px; color: var(--muted); width: 100%; }
+  .empty { color: var(--muted); font-size: 14px; padding: 12px 0; }
+
+  /* Bilan */
+  #summary { display: none; }
+  #summary.show { display: block; }
+  .song { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  .song h3 { margin: 0 0 4px; font-size: 18px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+  .stats div { background: var(--panel2); border-radius: 10px; padding: 8px 10px; }
+  .stats b { display: block; font-size: 18px; }
+  .stats span { font-size: 12px; color: var(--muted); }
+  .timeline { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0 4px; }
+  .timeline div { width: 14px; height: 22px; border-radius: 3px; background: var(--accent); }
+  .timeline div.ph { margin-left: 5px; }
+  .timeline div.sec { box-shadow: 0 0 0 2px #b388ff; }
+  .legend { font-size: 12px; color: var(--muted); }
+  .sections { list-style: none; padding: 0; margin: 8px 0; font-size: 14px; }
+  .sections li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .export { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); background: var(--panel2); border-radius: 10px; padding: 10px; max-height: 320px; overflow: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Musicalité<span>.</span></h1>
+    <a class="muted" href="../index.html" style="font-size:14px;color:var(--muted)">Jeu de rythme →</a>
+  </header>
+
+  <section class="live">
+    <div class="top">
+      <div class="bpm" id="bpm">—<small>BPM</small></div>
+      <div class="where"><b id="where-phrase">Phrase —</b><br><span id="where-eight">8-temps —</span></div>
+    </div>
+    <div class="count" id="count"></div>
+    <div class="phrase" id="phrase"><div></div><div></div><div></div><div></div></div>
+    <div class="meter"><div id="meter"></div></div>
+
+    <div class="controls">
+      <button class="btn primary" id="listen">Écouter</button>
+      <button class="btn" id="tap-one" disabled>Taper le 1</button>
+      <button class="btn" id="tap-phrase" disabled>Début de phrase</button>
+      <button class="btn ghost file-row" id="pick-file">Analyser un fichier audio</button>
+    </div>
+    <details class="settings">
+      <summary>Réglages</summary>
+      <label>Latence <input type="range" id="latency" min="0" max="300" step="10" value="60"> <span id="latency-v">60 ms</span></label>
+      <p>Si les comptes s'affichent en retard ou en avance sur ce que tu entends, ajuste la latence.
+      « Taper le 1 » : tape pile sur un 1 pour recaler les comptes. « Début de phrase » : tape sur le 1 qui ouvre une phrase.</p>
+    </details>
+    <p id="status"></p>
+  </section>
+
+  <section id="summary"></section>
+
+  <h2>En direct <span class="muted" id="ev-count" style="font-weight:400"></span></h2>
+  <ul id="events"><li class="empty" style="display:block;border:0">Lance l'écoute, puis mets ta musique (Spotify, enceinte…) près du micro.</li></ul>
+</main>
+
+<input type="file" id="file" accept="audio/*" hidden>
+
+<script src="../js/analysis.js"></script>
+<script src="../js/musicality.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

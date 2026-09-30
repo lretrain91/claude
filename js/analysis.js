@@ -201,17 +201,22 @@
   // ---------- Live : capture d'un flux audio et analyse en continu ----------
   const WORKLET = `
     class BandEnergy extends AudioWorkletProcessor {
-      constructor(o) { super(); this.hop = o.processorOptions.hop; this.acc = [0,0,0,0]; this.n = 0; this.t0 = 0; }
+      constructor(o) { super(); this.hop = o.processorOptions.hop; this.acc = [0,0,0,0]; this.zc = [0,0,0,0]; this.prev = [0,0,0,0]; this.n = 0; this.t0 = 0; }
       process(inputs) {
         const inp = inputs[0];
         if (!inp || !inp.length) return true;
         const len = inp[0].length;
         for (let i = 0; i < len; i++) {
           if (this.n === 0) this.t0 = currentTime + i / sampleRate;
-          for (let b = 0; b < 4; b++) { const s = (inp[b] || inp[0])[i]; this.acc[b] += s * s; }
+          for (let b = 0; b < 4; b++) {
+            const s = (inp[b] || inp[0])[i];
+            this.acc[b] += s * s;
+            if ((s >= 0) !== (this.prev[b] >= 0)) this.zc[b]++;
+            this.prev[b] = s;
+          }
           if (++this.n === this.hop) {
-            this.port.postMessage({ t: this.t0, e: this.acc.map(a => Math.sqrt(a / this.hop)) });
-            this.acc = [0,0,0,0]; this.n = 0;
+            this.port.postMessage({ t: this.t0, e: this.acc.map(a => Math.sqrt(a / this.hop)), z: this.zc.map(c => c / this.hop) });
+            this.acc = [0,0,0,0]; this.zc = [0,0,0,0]; this.n = 0;
           }
         }
         return true;
@@ -252,7 +257,8 @@
     return { stream, mode: "predict", label: surface === "browser" ? "onglet" : "écran" };
   };
 
-  // Branche le flux sur les 4 filtres + le worklet ; `onFrame({t, e})` est appelé toutes les ~11 ms.
+  // Branche le flux sur les 4 filtres + le worklet ; `onFrame({t, e, z})` est appelé toutes les ~11 ms
+  // (e : énergie RMS par bande, z : taux de passage par zéro, qui suit grossièrement la hauteur des notes).
   // Si `delay` > 0, le son est rejoué avec ce retard (mode "delay").
   BS.createAnalyzer = async function (ctx, stream, delay, onFrame) {
     if (!loadedCtx.has(ctx)) {
