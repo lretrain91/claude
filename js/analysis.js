@@ -1,5 +1,5 @@
-// Analyse audio : détection des attaques (onsets) sur 4 bandes de fréquence, choix des notes,
-// estimation du tempo. Utilisé à la fois hors-ligne (extraits) et en direct (mode live).
+// Analyse audio : 4 bandes de fréquence, détection des attaques (onsets), estimation du tempo,
+// lecture du micro. Utilisé en direct (micro) comme sur un fichier audio.
 (function () {
   "use strict";
   const BS = (window.BS = window.BS || {});
@@ -77,36 +77,6 @@
       this.tempoOdf = tOdf;
       return out;
     }
-  };
-
-  // Choisit parmi les attaques candidates en respectant les écarts minimaux entre notes.
-  // Les plus fortes passent en premier ; si une piste est occupée on tente une voisine.
-  BS.NoteSelector = class {
-    constructor(cfg) { this.cfg = cfg; this.recent = []; }
-
-    select(cands) {
-      const cfg = this.cfg, recent = this.recent, out = [];
-      const busy = (lane, t) => recent.some(n => n.lane === lane && Math.abs(n.t - t) < cfg.laneGap);
-      for (const c of [...cands].sort((a, b) => b.s - a.s)) {
-        if (recent.some(n => Math.abs(n.t - c.t) < cfg.minGap)) continue;
-        let lane = c.lane;
-        if (busy(lane, c.t)) {
-          const alt = [lane - 1, lane + 1].filter(l => l >= 0 && l < 4 && !busy(l, c.t));
-          if (!alt.length) continue;
-          lane = alt[0];
-        }
-        const n = { t: c.t, lane };
-        recent.push(n);
-        out.push(n);
-      }
-      if (out.length) {
-        const last = Math.max(...out.map(n => n.t));
-        this.recent = recent.filter(n => n.t > last - 2);
-      }
-      return out.sort((a, b) => a.t - b.t);
-    }
-
-    reset() { this.recent = []; }
   };
 
   // Estimation du tempo par autocorrélation de la courbe d'attaques (8 dernières secondes).
@@ -189,35 +159,6 @@
       }
       this.cand = bar;
     }
-  };
-
-  // ---------- Hors-ligne : génère toutes les notes d'un morceau décodé ----------
-  async function renderBand(buffer, band) {
-    const off = new OfflineAudioContext(1, buffer.length, buffer.sampleRate);
-    const src = off.createBufferSource();
-    src.buffer = buffer;
-    src.connect(BS.makeFilter(off, band)).connect(off.destination);
-    src.start();
-    return (await off.startRendering()).getChannelData(0);
-  }
-
-  BS.buildChart = async function (buffer, cfg) {
-    const HOP = BS.HOP, frameDur = HOP / buffer.sampleRate;
-    const bands = await Promise.all(BS.BANDS.map(b => renderBand(buffer, b)));
-    const det = new BS.OnsetDetector(frameDur, cfg.thresh);
-    const frames = Math.floor(buffer.length / HOP);
-    let cands = [];
-    const e = [0, 0, 0, 0];
-    for (let i = 0; i < frames; i++) {
-      for (let b = 0; b < 4; b++) {
-        let s = 0;
-        const d = bands[b];
-        for (let j = i * HOP, end = j + HOP; j < end; j++) s += d[j] * d[j];
-        e[b] = Math.sqrt(s / HOP);
-      }
-      cands = cands.concat(det.push(e, i * frameDur));
-    }
-    return new BS.NoteSelector(cfg).select(cands.filter(c => c.t >= 0.3));
   };
 
   // ---------- Live : capture d'un flux audio et analyse en continu ----------

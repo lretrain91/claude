@@ -37,11 +37,19 @@
     }
     $("bpm").innerHTML = `${Math.round(p.bpm)}<small>BPM</small>`;
     $("feel").textContent = `tempo ${BS.tempoCategory(p.bpm)}` + (p.feeling ? ` · ${p.feeling}` : "");
-    $("where-phrase").textContent = `Phrase ${p.phrase}`;
-    $("where-eight").textContent = `8-temps ${p.eight}/4`;
     const tp = $("to-phrase");
-    tp.textContent = p.toPhrase === 32 ? "début de phrase !" : `prochaine phrase dans ${p.toPhrase}`;
-    tp.className = p.toPhrase <= 8 || p.toPhrase === 32 ? "soon" : "";
+    if (p.phraseSure) {
+      $("where-phrase").textContent = `Phrase ${p.phrase}`;
+      $("where-eight").textContent = `8-temps ${p.eight}/4`;
+      tp.textContent = p.toPhrase === 32 ? "début de phrase !" : `prochaine phrase dans ${p.toPhrase}`;
+      tp.className = p.toPhrase <= 8 || p.toPhrase === 32 ? "soon" : "";
+    } else {
+      // Écoute commencée en cours de morceau : le grand 1 se confirme au prochain changement.
+      $("where-phrase").textContent = "Phrase ?";
+      $("where-eight").textContent = "grand 1 à confirmer";
+      tp.textContent = "";
+    }
+    phraseCells.forEach(c => c.classList.toggle("unsure", !p.phraseSure));
     cells.forEach((c, i) => {
       c.classList.toggle("on", i + 1 === p.count);
       c.classList.toggle("pulse", i + 1 === p.count && p.frac < 0.2); // flash court sur chaque temps
