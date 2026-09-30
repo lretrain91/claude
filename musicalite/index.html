@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0e0f13">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Musicalité</title>
+<title>Musicalité WCS</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -41,6 +41,10 @@
   .bpm small { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 4px; }
   .where { text-align: right; font-size: 14px; color: var(--muted); line-height: 1.5; }
   .where b { color: var(--text); font-size: 18px; }
+  .feel { font-size: 13px; color: var(--muted); margin-top: 6px; min-height: 16px; }
+  #to-phrase.soon { color: var(--accent); font-weight: 700; }
+  .idee { font-size: 13px; color: #c9ccd6; width: 100%; border-left: 2px solid var(--line); padding-left: 8px; margin-top: 2px; }
+  .no-ideas .idee { display: none; }
   .count { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 18px 0 6px; }
   .count div { aspect-ratio: 1; border-radius: 10px; background: var(--panel2); display: flex; align-items: center;
     justify-content: center; font-weight: 800; font-size: clamp(16px, 5vw, 26px); color: var(--muted);
@@ -107,14 +111,14 @@
 <body>
 <main>
   <header>
-    <h1>Musicalité<span>.</span></h1>
-    <a class="muted" href="../index.html" style="font-size:14px;color:var(--muted)">Jeu de rythme →</a>
+    <h1>Musicalité<span>.</span> <small class="muted" style="font-size:13px;font-weight:600">WCS</small></h1>
+    <a class="muted" href="../index.html" style="font-size:14px;color:var(--muted);white-space:nowrap">Jeu →</a>
   </header>
 
   <section class="live">
     <div class="top">
-      <div class="bpm" id="bpm">—<small>BPM</small></div>
-      <div class="where"><b id="where-phrase">Phrase —</b><br><span id="where-eight">8-temps —</span></div>
+      <div><div class="bpm" id="bpm">—<small>BPM</small></div><div class="feel" id="feel"></div></div>
+      <div class="where"><b id="where-phrase">Phrase —</b><br><span id="where-eight">8-temps —</span><br><span id="to-phrase"></span></div>
     </div>
     <div class="count" id="count"></div>
     <div class="phrase" id="phrase"><div></div><div></div><div></div><div></div></div>
@@ -129,8 +133,10 @@
     <details class="settings">
       <summary>Réglages</summary>
       <label>Latence <input type="range" id="latency" min="0" max="300" step="10" value="60"> <span id="latency-v">60 ms</span></label>
+      <label><input type="checkbox" id="ideas" checked> Afficher les idées d'interprétation WCS</label>
       <p>Si les comptes s'affichent en retard ou en avance sur ce que tu entends, ajuste la latence.
-      « Taper le 1 » : tape pile sur un 1 pour recaler les comptes. « Début de phrase » : tape sur le 1 qui ouvre une phrase.</p>
+      « Taper le 1 » : tape pile sur un 1 pour recaler les comptes. « Début de phrase » : tape sur le 1 qui ouvre une phrase.
+      Les tags (phrase rallongée) sont détectés quand la musique repart après un break ailleurs que sur un 1 ; les comptes se recalent alors tout seuls.</p>
     </details>
     <p id="status"></p>
   </section>

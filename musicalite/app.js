@@ -29,13 +29,19 @@
       $("bpm").innerHTML = "—<small>BPM</small>";
       $("where-phrase").textContent = "Phrase —";
       $("where-eight").textContent = mus ? "écoute du rythme…" : "8-temps —";
+      $("to-phrase").textContent = "";
+      $("feel").textContent = "";
       cells.forEach(c => c.classList.remove("on"));
       phraseCells.forEach(c => c.className = "");
       return;
     }
     $("bpm").innerHTML = `${Math.round(p.bpm)}<small>BPM</small>`;
+    $("feel").textContent = `tempo ${BS.tempoCategory(p.bpm)}` + (p.feeling ? ` · ${p.feeling}` : "");
     $("where-phrase").textContent = `Phrase ${p.phrase}`;
     $("where-eight").textContent = `8-temps ${p.eight}/4`;
+    const tp = $("to-phrase");
+    tp.textContent = p.toPhrase === 32 ? "début de phrase !" : `prochaine phrase dans ${p.toPhrase}`;
+    tp.className = p.toPhrase <= 8 || p.toPhrase === 32 ? "soon" : "";
     cells.forEach((c, i) => {
       c.classList.toggle("on", i + 1 === p.count);
       c.classList.toggle("pulse", i + 1 === p.count && p.frac < 0.2); // flash court sur chaque temps
@@ -46,6 +52,12 @@
   const latency = () => (Number($("latency").value) || 0) / 1000;
   $("latency").value = store.get("mu:latency") ?? 60;
   $("latency-v").textContent = `${$("latency").value} ms`;
+  const ideas = $("ideas");
+  ideas.checked = store.get("mu:ideas") ?? true;
+  const applyIdeas = () => document.body.classList.toggle("no-ideas", !ideas.checked);
+  ideas.addEventListener("change", () => { store.set("mu:ideas", ideas.checked); applyIdeas(); });
+  applyIdeas();
+
   $("latency").addEventListener("input", e => {
     $("latency-v").textContent = `${e.target.value} ms`;
     store.set("mu:latency", Number(e.target.value));
@@ -70,13 +82,15 @@
     if (ev.type === "tempo" && evCount > 0 && !/avant/.test(ev.detail)) return;
     const info = BS.EVENT_TYPES[ev.type];
     const li = document.createElement("li");
-    li.innerHTML = `<div class="ev-time"></div><div class="ev-main"><span class="chip"></span><span class="pos"></span><span class="detail"></span></div>`;
+    li.innerHTML = `<div class="ev-time"></div><div class="ev-main"><span class="chip"></span><span class="pos"></span><span class="detail"></span><span class="idee"></span></div>`;
     li.querySelector(".ev-time").textContent = mmss(ev.t);
     const chip = li.querySelector(".chip");
     chip.textContent = ev.label;
     chip.style.background = info.color;
     li.querySelector(".pos").textContent = ev.position;
     li.querySelector(".detail").textContent = ev.detail;
+    if (ev.idee) li.querySelector(".idee").textContent = ev.idee;
+    else li.querySelector(".idee").remove();
     const list = $("events");
     list.insertBefore(li, list.firstChild);
     while (list.children.length > 300) list.removeChild(list.lastChild);
@@ -204,7 +218,8 @@
     for (const m of songs) {
       const card = el("div", "song");
       card.appendChild(el("h3", null, `Morceau ${m.morceau}`));
-      card.appendChild(el("div", "muted", `${mmss(m.duree_s)} · ${m.tempo_stable ? "tempo stable" : "tempo variable"}`));
+      card.appendChild(el("div", "muted", `${mmss(m.duree_s)} · tempo ${m.tempo_wcs}${m.tempo_stable ? "" : " et variable"}` +
+        (m.feeling ? ` · ${m.feeling}` : "")));
       const stats = el("div", "stats");
       [[m.tempo_bpm, "BPM"], [m.nb_huit_temps, "× 8 temps"], [m.nb_phrases, "phrases"]].forEach(([v, l]) => {
         const d = el("div"); d.appendChild(el("b", null, String(v))); d.appendChild(el("span", null, l)); stats.appendChild(d);
@@ -244,7 +259,7 @@
       box.appendChild(card);
     }
 
-    const text = BS.summaryText(songs);
+    const text = BS.summaryText(songs, $("ideas").checked);
     const exp = el("div", "export");
     const btn = (label, fn) => { const b = el("button", "btn", label); b.addEventListener("click", fn); exp.appendChild(b); return b; };
     const copy = async (str, b) => {

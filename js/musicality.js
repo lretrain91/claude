@@ -1,5 +1,6 @@
-// Analyse de musicalité pour la danse : tempo, comptes de 8, phrases, sections et
-// événements de micro-musicalité (breaks, drops, accents, syncopes…).
+// Analyse de musicalité pour la danse (réglée pour le West Coast Swing) : tempo, feeling
+// swing/droit, comptes de 8, phrases, tags, sections et événements de micro-musicalité
+// (breaks, drops, accents, syncopes…), avec des idées d'interprétation.
 // On lui pousse des trames d'énergie par bande ({ t, e: [4] }), en direct ou depuis un fichier.
 (function () {
   "use strict";
@@ -16,21 +17,31 @@
   };
   const energyLabel = q => (q < 0.34 ? "calme" : q < 0.67 ? "moyenne" : "intense");
 
+  // `idee` : piste d'interprétation en West Coast Swing.
   BS.EVENT_TYPES = {
     tempo:   { label: "Tempo",              color: "#8b90a0" },
-    section: { label: "Nouvelle section",   color: "#b388ff" },
-    montee:  { label: "Montée",             color: "#ffb347" },
-    drop:    { label: "Drop",               color: "#ff5c7a" },
-    break:   { label: "Break",              color: "#4fc3f7" },
-    reprise: { label: "Reprise",            color: "#4fc3f7" },
-    bassOff: { label: "Basse coupée",       color: "#4fc3f7" },
-    bassOn:  { label: "Retour de la basse", color: "#ff5c7a" },
-    hit:     { label: "Hit",                color: "#ff5c7a" },
-    accent:  { label: "Accent",             color: "#1ed760" },
-    syncope: { label: "Syncope",            color: "#1ed760" },
-    fill:    { label: "Fill",               color: "#ffb347" },
+    feeling: { label: "Feeling",            color: "#8b90a0",
+      idee: "Swing/shuffle : triple steps ronds et roulés. Droit : triple steps nets, plus contemporains." },
+    section: { label: "Nouvelle section",   color: "#b388ff", idee: "Change de texture : plus smooth, plus rythmique, nouveau type de patterns." },
+    tag:     { label: "Tag",                color: "#b388ff", idee: "La phrase est décalée : recale-toi, le vrai 1 est ici." },
+    montee:  { label: "Montée",             color: "#ffb347", idee: "Fais monter l'énergie progressivement, prépare un gros 1." },
+    drop:    { label: "Drop",               color: "#ff5c7a", idee: "Grosse action sur ce temps : whip, sugar push appuyé, pose." },
+    break:   { label: "Break",              color: "#4fc3f7", idee: "Arrête-toi avec la musique : freeze, anchor tenu, stretch." },
+    reprise: { label: "Reprise",            color: "#4fc3f7", idee: "Repars franchement avec la musique." },
+    bassOff: { label: "Basse coupée",       color: "#4fc3f7", idee: "Suspends, étire la connexion, mouvements plus légers." },
+    bassOn:  { label: "Retour de la basse", color: "#ff5c7a", idee: "Reprends l'ancrage au sol, pas plus marqués." },
+    hit:     { label: "Hit",                color: "#ff5c7a", idee: "Marque-le net : arrêt, isolation, frappe." },
+    accent:  { label: "Accent",             color: "#1ed760", idee: "Souligne-le : pose, body roll, pas marqué." },
+    syncope: { label: "Syncope",            color: "#1ed760", idee: "Syncope ton triple step : kick-ball-change, hitch, ripple." },
+    fill:    { label: "Fill",               color: "#ffb347", idee: "Rolling count ou préparation vers le 1 suivant." },
     fin:     { label: "Fin du morceau",     color: "#8b90a0" },
   };
+
+  // Repères de tempo usuels en West Coast Swing.
+  BS.tempoCategory = bpm => (bpm < 88 ? "lent" : bpm <= 108 ? "moyen" : "rapide");
+
+  // Position du contretemps dans le temps : 0,5 = croches droites, ~0,67 = swing/shuffle.
+  BS.feelingOf = ratio => (ratio == null ? null : ratio < 0.56 ? "droit" : ratio < 0.61 ? "légèrement swing" : "swing / shuffle");
 
   BS.MusicalityAnalyzer = class {
     constructor(frameDur, opts = {}) {
@@ -80,7 +91,10 @@
       this.song = {
         n: this.songs.length + 1, start: t, lastT: t,
         detector: new BS.OnsetDetector(this.fd, 1.3),
-        tempo: new BS.TempoTracker(this.fd),
+        tempo: new BS.TempoTracker(this.fd, 102), // la plupart des morceaux de WCS : 75–130 BPM
+        offbeats: [], feeling: null,
+        // Portions du morceau séparées par des tags, chacune avec son propre calage.
+        regions: [], cur: { kStart: 0, num0: 1 },
         frames: [], odf: [], onsets: [], beats: [],
         lastTempoAt: t, grid: null, bpms: [],
         // comptes : quel temps est un « 1 », quel 8-temps commence une phrase
@@ -140,21 +154,31 @@
       }
       const bpm = 60 / s.grid.P;
       if (!s.bpmShown || Math.abs(bpm - s.bpmShown) / s.bpmShown > 0.04) {
-        this.emit(s, "tempo", now, null, `${Math.round(bpm)} BPM` + (s.bpmShown ? ` (avant ${Math.round(s.bpmShown)})` : ""));
+        this.emit(s, "tempo", now, null, `${Math.round(bpm)} BPM · ${BS.tempoCategory(bpm)}` + (s.bpmShown ? ` (avant ${Math.round(s.bpmShown)})` : ""));
         s.bpmShown = bpm;
       }
     }
 
+    region(s, k) {
+      for (const r of s.regions) if (k < r.kEnd) return r;
+      return s.cur;
+    }
+
     position(s, k, q = 0) {
-      const one = s.manualOne ?? s.oneOff;
+      const r = this.region(s, k);
+      const one = r.one ?? s.manualOne ?? s.oneOff;
+      const p = r.p ?? s.manualPhrase ?? s.phraseOff;
       const rel = k - one;
       const count = mod(rel, 8) + 1;
       const eightAbs = Math.floor(rel / 8);
-      const p = s.manualPhrase ?? s.phraseOff;
       const e = eightAbs - p;
-      const base = Math.floor((Math.floor(-one / 8) - p) / 4); // phrase du tout premier temps
-      const phrase = Math.floor(e / 4) - base + 1;
+      const eA = Math.floor((Math.floor((r.kStart - one) / 8) - p) / 4); // phrase du début de la portion
+      let phrase = r.num0 + Math.floor(e / 4) - eA;
       const eight = mod(e, 4) + 1;
+      if (r.tagFrom != null && k >= r.tagFrom) {
+        const n = k - r.tagFrom + 1;
+        return { k, count: n, eight, phrase: r.lastPhrase, eightAbs, sub: q, tag: true, label: `Tag · ${n}${SUB[q]}` };
+      }
       return { k, count, eight, phrase, eightAbs, sub: q,
         label: `P${phrase} · ${eight}/4 · ${count}${SUB[q]}` };
     }
@@ -171,6 +195,7 @@
       g.k++;
       g.next += P;
       s.bpms.push(60 / P);
+      this.learnFeeling(s, beat);
 
       this.learnDownbeat(s, beat);
       const pos = this.position(s, k);
@@ -227,10 +252,12 @@
           const len = beat.k - s.inBreak.k;
           if (len >= 2 && beat.Et > 1.15 * s.inBreak.ref) at("drop", `après ${len} temps de break`);
           else at("reprise", `après ${len} temps`);
-          this.vote1(s, beat.k, 3); // la musique repart presque toujours sur un 1…
-          this.votePhrase(s, pos, 2); // …et souvent en début de phrase
           s.dropCool = 4;
           s.inBreak = null;
+          // La musique repart presque toujours sur un 1, souvent en début de phrase.
+          // Si elle repart ailleurs après un vrai break, c'est probablement un tag.
+          if (len >= 2 && pos.count !== 1 && beat.k >= 32) this.tag(s, beat, pos);
+          else { this.vote1(s, beat.k, 3); this.votePhrase(s, pos, 2); }
         }
         return;
       }
@@ -266,7 +293,9 @@
       const strongest = {}, perLane = [0, 0, 0, 0];
       for (const o of beat.ons) {
         perLane[o.lane]++;
-        const q = Math.max(0, Math.round((o.t - beat.t) / (beat.P / 4)));
+        const ph = (o.t - beat.t) / beat.P;
+        // En swing, le « & » tombe vers 2/3 du temps et non à la moitié.
+        const q = s.swing > 0.6 && ph > 0.55 && ph < 0.8 ? 2 : Math.max(0, Math.round(ph * 4));
         if (q > 3) continue;
         const key = q * 4 + o.lane;
         if (!strongest[key] || o.s > strongest[key].s) strongest[key] = { ...o, q };
@@ -351,6 +380,48 @@
       }
     }
 
+    // Tag : on recale les comptes pour que ce temps devienne le 1 d'une phrase.
+    tag(s, beat, pos) {
+      const shift = pos.count - 1;
+      // On fige le calage de la portion précédente ; les temps en trop forment le tag.
+      const last = this.position(s, beat.k - shift - 1);
+      s.regions.push({ ...s.cur, kEnd: beat.k, one: s.manualOne ?? s.oneOff, p: s.manualPhrase ?? s.phraseOff,
+        tagFrom: shift <= 4 ? beat.k - shift : null, lastPhrase: last.phrase });
+      s.cur = { kStart: beat.k, num0: last.phrase + 1 };
+      const one = mod(beat.k, 8);
+      s.oneOff = one;
+      s.oneVotes = 0;
+      s.s8.fill(0); s.s8n.fill(0);
+      this.vote1(s, beat.k, 3);
+      if (s.manualOne != null) s.manualOne = one;
+      const eightAbs = Math.floor((beat.k - one) / 8);
+      s.phraseOff = mod(eightAbs, 4);
+      s.s4.fill(0);
+      s.s4[s.phraseOff] = 3;
+      if (s.manualPhrase != null) s.manualPhrase = s.phraseOff;
+      const extra = shift <= 4 ? `${shift} temps en plus` : `${8 - shift} temps en moins`;
+      this.emit(s, "tag", beat.t, this.position(s, beat.k), `la musique repart sur le ${pos.count} : phrase décalée (${extra}), comptes recalés`);
+    }
+
+    // Swing ou droit : où tombent les contretemps (charley, caisse claire) dans le temps.
+    learnFeeling(s, beat) {
+      for (const o of beat.ons) {
+        if (o.lane === 0) continue;
+        const ph = (o.t - beat.t) / beat.P;
+        if (ph > 0.38 && ph < 0.8) s.offbeats.push(ph);
+      }
+      if (s.offbeats.length > 300) s.offbeats.splice(0, s.offbeats.length - 300);
+      if (beat.k < 24 || beat.k % 8 !== 7 || s.offbeats.length < 12) return;
+      const ratio = median(s.offbeats);
+      const feeling = BS.feelingOf(ratio);
+      if (feeling !== s.feeling) {
+        s.feeling = feeling;
+        s.swing = ratio;
+        this.emit(s, "feeling", beat.t, null, `${feeling} (contretemps à ${Math.round(ratio * 100)} % du temps)`);
+      }
+      s.swing = ratio;
+    }
+
     // Début de phrase : là où le son change le plus d'un 8-temps à l'autre (avec un peu d'inertie).
     votePhrase(s, pos, v) {
       if (pos.count !== 1) return;
@@ -367,7 +438,8 @@
 
     emit(s, type, t, pos, detail) {
       const ev = { song: s.n, t: Math.max(0, t - s.start), type, label: BS.EVENT_TYPES[type].label,
-        position: pos ? pos.label : "", detail, k: pos ? pos.k : null, q: pos ? pos.sub : 0 };
+        position: pos ? pos.label : "", detail, k: pos ? pos.k : null, q: pos ? pos.sub : 0,
+        idee: BS.EVENT_TYPES[type].idee || "" };
       s.events.push(ev);
       this.onEvent(ev);
       return ev;
@@ -378,7 +450,9 @@
       const s = this.song;
       if (!s || !s.grid) return null;
       const g = s.grid, kf = g.k + (t - g.next) / g.P, k = Math.floor(kf);
-      return { bpm: 60 / g.P, frac: kf - k, song: s.n, ...this.position(s, k) };
+      const pos = this.position(s, k);
+      return { bpm: 60 / g.P, frac: kf - k, song: s.n, feeling: s.feeling, ...pos,
+        toPhrase: (4 - pos.eight) * 8 + (8 - pos.count) + 1 };
     }
 
     // L'utilisateur tape sur un « 1 » (ou sur le début d'une phrase) pour caler les comptes.
@@ -412,12 +486,14 @@
           cur.levels.push(e.level);
         });
         const resume = {};
-        for (const ev of s.events) if (ev.type !== "tempo" && ev.type !== "fin") resume[ev.label] = (resume[ev.label] || 0) + 1;
+        for (const ev of s.events) if (!["tempo", "fin", "feeling"].includes(ev.type)) resume[ev.label] = (resume[ev.label] || 0) + 1;
         return {
           morceau: s.n,
           duree_s: +(s.lastT - s.start).toFixed(1),
           tempo_bpm: +bpm.toFixed(1),
+          tempo_wcs: BS.tempoCategory(bpm),
           tempo_stable: spread < 0.02 * bpm,
+          feeling: BS.feelingOf(s.offbeats.length >= 12 ? median(s.offbeats) : null),
           nb_temps: s.bpms.length,
           nb_huit_temps: s.eights.length,
           nb_phrases: Math.ceil(s.eights.length / 4),
@@ -426,7 +502,7 @@
             energie: energyLabel(e.level), niveau: +e.level.toFixed(2) })),
           resume_evenements: resume,
           evenements: [...s.events].sort((a, b) => a.t - b.t).map(ev => ({ t_s: +ev.t.toFixed(2),
-            position: ev.k != null ? label(ev.k, ev.q) : "", type: ev.label, detail: ev.detail })),
+            position: ev.k != null ? label(ev.k, ev.q) : "", type: ev.label, detail: ev.detail, idee: ev.idee })),
         };
       });
     }
@@ -462,11 +538,12 @@
   };
 
   // Version texte du bilan, lisible et facile à partager.
-  BS.summaryText = function (songs) {
+  BS.summaryText = function (songs, withIdeas = true) {
     const lines = [];
     const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
     for (const m of songs) {
-      lines.push(`MORCEAU ${m.morceau} — ${m.tempo_bpm} BPM${m.tempo_stable ? "" : " (tempo variable)"} · ${mmss(m.duree_s)}`);
+      lines.push(`MORCEAU ${m.morceau} — ${m.tempo_bpm} BPM (${m.tempo_wcs})${m.tempo_stable ? "" : " · tempo variable"}` +
+        `${m.feeling ? " · " + m.feeling : ""} · ${mmss(m.duree_s)}`);
       lines.push(`${m.nb_huit_temps} × 8 temps · ${m.nb_phrases} phrases`);
       lines.push("");
       lines.push("Structure :");
@@ -477,6 +554,7 @@
       lines.push("");
       for (const ev of m.evenements) {
         lines.push(`  ${mmss(ev.t_s)}  ${(ev.position || "").padEnd(16)}  ${ev.type}${ev.detail ? " — " + ev.detail : ""}`);
+        if (withIdeas && ev.idee) lines.push(`  ${" ".repeat(24)}→ ${ev.idee}`);
       }
       lines.push("");
     }

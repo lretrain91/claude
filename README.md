@@ -3,7 +3,8 @@
 Deux outils dans le navigateur, construits sur le même moteur d'écoute :
 
 - **Musicalité** (`musicalite/`) : appli pour téléphone qui écoute la musique au micro et
-  décrit, pour la danse, le tempo, les comptes de 8, les phrases et la micro-musicalité.
+  décrit, pour le West Coast Swing, le tempo, le feeling, les comptes de 8, les phrases,
+  les tags et la micro-musicalité.
 - **Le jeu de rythme** (`index.html`) : notes générées à partir de ta musique Spotify.
 
 ## Musicalité
@@ -14,8 +15,10 @@ active GitHub Pages sur le dépôt, puis ouvre `https://<utilisateur>.github.io/
 et « Ajouter à l'écran d'accueil » pour l'installer comme une appli.
 
 En direct :
-- tempo (BPM) et compte **1 à 8** qui défile en rythme ;
-- position dans la phrase (**4 × 8 temps**) ;
+- tempo (BPM) et sa catégorie WCS (**lent** < 88, **moyen** 88–108, **rapide** > 108) ;
+- **feeling** : swing / shuffle (contretemps vers 2/3 du temps) ou droit (à la moitié) ;
+- compte **1 à 8** qui défile en rythme, position dans la phrase (**4 × 8 temps**)
+  et « prochaine phrase dans N temps » pour faire tomber tes patterns sur le 1 ;
 - liste des événements, chacun placé sur son compte (ex. `P2 · 3/4 · 4&`) :
 
 | Événement | Ce que ça veut dire |
@@ -29,6 +32,11 @@ En direct :
 | Accent | un temps nettement plus fort que le groove habituel |
 | Syncope | un accent sur le « & » ou à contretemps |
 | Fill | roulement sur les temps 7-8, avant la suite |
+| Tag | la musique repart après un break ailleurs que sur un 1 : phrase rallongée ou raccourcie ; les comptes se recalent tout seuls et les temps en trop sont notés « Tag · 1…4 » |
+
+Chaque événement est accompagné d'une idée d'interprétation WCS (freeze ou anchor tenu sur
+un break, stretch quand la basse est coupée, triple step syncopé sur une syncope…),
+désactivable dans les réglages.
 
 « **Taper le 1** » recale les comptes (tape pile sur un 1), « **Début de phrase** » recale
 les phrases. En fin d'écoute, le **bilan** donne la structure du morceau (sections, énergie

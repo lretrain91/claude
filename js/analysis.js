@@ -101,9 +101,11 @@
   };
 
   // Estimation du tempo par autocorrélation de la courbe d'attaques (8 dernières secondes).
+  // `center` : tempo le plus probable a priori (sert à trancher entre tempo simple et double).
   BS.TempoTracker = class {
-    constructor(frameDur) {
+    constructor(frameDur, center = 120) {
       this.fd = frameDur;
+      this.center = center;
       this.maxLen = Math.round(8 / frameDur);
       this.reset();
     }
@@ -142,7 +144,7 @@
       for (let lag = lagMin; lag <= lagMax; lag++) {
         const r = ac(lag);
         const bpm = 60 / (lag * fd);
-        const w = Math.exp(-0.5 * Math.pow(Math.log2(bpm / 120) / 0.7, 2));
+        const w = Math.exp(-0.5 * Math.pow(Math.log2(bpm / this.center) / 0.7, 2));
         if (r * w > bestScore) { bestScore = r * w; best = lag; bestAc = r; }
       }
       const beatLag = interp(best, ac);

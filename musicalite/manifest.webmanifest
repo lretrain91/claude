@@ -1,7 +1,7 @@
 {
-  "name": "Musicalité",
+  "name": "Musicalité WCS",
   "short_name": "Musicalité",
-  "description": "Écoute la musique et décrit tempo, comptes de 8, phrases et micro-musicalité pour la danse.",
+  "description": "Écoute la musique et décrit tempo, comptes de 8, phrases et micro-musicalité pour le West Coast Swing.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",
