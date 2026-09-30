@@ -30,6 +30,10 @@ https://lretrain91.github.io/claude/musicalite/
 - Bilan : la carte s'enregistre en image, le résumé se copie en texte, et le détail
   complet se télécharge en JSON.
 
+Sur Chrome (Android compris), le micro est lu directement, sans moteur audio : la page ne
+produit aucun son, ce qui évite de couper la musique d'une autre appli (Android Auto, Bluetooth).
+Si la musique se coupe quand même au lancement, l'appli le signale : relance-la, l'écoute continue.
+
 Les sections, comptes et moments sont estimés à partir de l'énergie du son dans
 4 bandes de fréquence : fiables sur des musiques au rythme marqué, à vérifier à l'oreille.
 
