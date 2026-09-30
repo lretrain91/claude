@@ -70,6 +70,7 @@
     $("events").innerHTML = "";
     evCount = 0;
     $("ev-count").textContent = "";
+    $("events-box").hidden = false;
   }
 
   function addEvent(ev) {
@@ -87,7 +88,7 @@
     list.insertBefore(li, list.firstChild);
     while (list.children.length > 300) list.removeChild(list.lastChild);
     evCount++;
-    $("ev-count").textContent = `· ${evCount}`;
+    $("ev-count").textContent = `(${evCount})`;
   }
 
   function setStatus(msg, err) {
@@ -102,8 +103,11 @@
     return actx;
   }
 
-  function newAnalyzer(frameDur) {
-    return new BS.MusicalityAnalyzer(frameDur, { onEvent: addEvent });
+  function newAnalyzer(frameDur, live) {
+    return new BS.MusicalityAnalyzer(frameDur, {
+      onEvent: addEvent,
+      onBeat: b => { if (live && b.count === 8) renderLiveMap(); },
+    });
   }
 
   async function startListening() {
@@ -117,7 +121,8 @@
     }
     clearEvents();
     $("summary").className = "";
-    mus = newAnalyzer(BS.HOP / ctx.sampleRate);
+    mus = newAnalyzer(BS.HOP / ctx.sampleRate, true);
+    renderLiveMap();
     try {
       capture = await BS.createAnalyzer(ctx, cap.stream, 0, f => {
         level = (f.e[0] + f.e[1] + f.e[2] + f.e[3]) / 4;
@@ -189,7 +194,7 @@
     }
   });
 
-  // ---------- Bilan ----------
+  // ---------- Carte et bilan ----------
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -197,9 +202,66 @@
     return e;
   }
 
+  // Carte d'un morceau : en-tête, forme en lettres, carte visuelle, légende.
+  function songCard(m, live) {
+    const card = el("div", "song");
+    const head = el("div", "song-head");
+    head.appendChild(el("h3", null, live ? "En cours" : `Morceau ${m.morceau}`));
+    head.appendChild(el("span", "muted", [`${Math.round(m.tempo_bpm)} BPM`, m.tempo_categorie, m.feeling, mmss(m.duree_s)]
+      .filter(Boolean).join(" · ")));
+    card.appendChild(head);
+
+    const form = el("div", "form");
+    m.sections.forEach(sec => {
+      const c = el("span", "letter");
+      c.appendChild(el("b", null, sec.lettre));
+      c.appendChild(el("small", null, `${sec.huit_temps}×8`));
+      c.style.setProperty("--c", BS.SECTION_COLORS[(sec.lettre.charCodeAt(0) - 65) % BS.SECTION_COLORS.length]);
+      c.title = `${mmss(sec.debut_s)} · ${sec.debut} · énergie ${sec.energie}`;
+      form.appendChild(c);
+    });
+    card.appendChild(form);
+
+    const map = el("div", "map");
+    const svg = BS.renderMap(m);
+    map.appendChild(svg);
+    card.appendChild(map);
+
+    const legend = el("div", "legend");
+    legend.appendChild(el("span", null, "hauteur = énergie · couleur = section · espace = phrase"));
+    for (const [, mark] of BS.mapLegend(m)) {
+      const it = el("span");
+      const sym = el("b", null, mark.sym);
+      sym.style.color = mark.color;
+      it.append(sym, ` ${mark.label}`);
+      legend.appendChild(it);
+    }
+    card.appendChild(legend);
+    card.svg = svg;
+    return card;
+  }
+
+  // Carte en direct : redessinée à chaque fin de 8-temps.
+  function renderLiveMap() {
+    const box = $("live-map");
+    const m = mus && mus.current();
+    box.innerHTML = "";
+    if (m) box.appendChild(songCard(m, true));
+    else box.appendChild(el("p", "muted", "La carte du morceau se dessine ici au fil de l'écoute."));
+  }
+
+  function download(blob, name) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
   function showSummary(songs, source) {
     const box = $("summary");
     box.innerHTML = "";
+    $("live-map").innerHTML = "";
     lastSummary = { app: "Musicalité", date: new Date().toISOString(), source, morceaux: songs };
     box.appendChild(el("h2", null, "Bilan"));
     if (!songs.length) {
@@ -207,71 +269,32 @@
       box.className = "show";
       return;
     }
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
     for (const m of songs) {
-      const card = el("div", "song");
-      card.appendChild(el("h3", null, `Morceau ${m.morceau}`));
-      card.appendChild(el("div", "muted", `${mmss(m.duree_s)} · tempo ${m.tempo_wcs}${m.tempo_stable ? "" : " et variable"}` +
-        (m.feeling ? ` · ${m.feeling}` : "")));
-      const stats = el("div", "stats");
-      [[m.tempo_bpm, "BPM"], [m.nb_huit_temps, "× 8 temps"], [m.nb_phrases, "phrases"]].forEach(([v, l]) => {
-        const d = el("div"); d.appendChild(el("b", null, String(v))); d.appendChild(el("span", null, l)); stats.appendChild(d);
+      const card = songCard(m, false);
+      const b = el("button", "btn ghost small", "Enregistrer l'image");
+      b.addEventListener("click", async () => {
+        try {
+          const title = `Morceau ${m.morceau} · ${Math.round(m.tempo_bpm)} BPM · forme ${m.forme}`;
+          download(await BS.mapToPng(card.svg, title), `musicalite-${stamp}-morceau-${m.morceau}.png`);
+        } catch (err) {
+          b.textContent = "Image impossible";
+        }
       });
-      card.appendChild(stats);
-
-      card.appendChild(el("div", "legend", "Énergie de chaque 8-temps (un espace = une nouvelle phrase, contour violet = nouvelle section)"));
-      const tl = el("div", "timeline");
-      const starts = new Set(m.sections.map(s => s.debut_s));
-      m.huit_temps.forEach((h, i) => {
-        const d = el("div");
-        d.style.opacity = String(0.2 + 0.8 * h.niveau);
-        if (/ · 1\/4$/.test(h.position) && i > 0) d.classList.add("ph");
-        if (starts.has(h.debut_s) && i > 0) d.classList.add("sec");
-        d.title = `${mmss(h.debut_s)} · ${h.position} · énergie ${h.energie}`;
-        tl.appendChild(d);
-      });
-      card.appendChild(tl);
-
-      const secs = el("ul", "sections");
-      m.sections.forEach((s, i) => {
-        const li = el("li");
-        li.appendChild(el("span", null, `${i + 1}. ${mmss(s.debut_s)} · ${s.debut}`));
-        li.appendChild(el("span", "muted", `${s.huit_temps} × 8 · ${s.energie}`));
-        secs.appendChild(li);
-      });
-      card.appendChild(secs);
-
-      const chips = el("div", "chips");
-      for (const [label, n] of Object.entries(m.resume_evenements)) {
-        const type = Object.values(BS.EVENT_TYPES).find(t => t.label === label);
-        const c = el("span", "chip", `${label} ×${n}`);
-        c.style.background = type ? type.color : "#8b90a0";
-        chips.appendChild(c);
-      }
-      card.appendChild(chips);
+      card.appendChild(b);
       box.appendChild(card);
     }
 
     const text = BS.summaryText(songs);
+    const json = JSON.stringify(lastSummary, null, 2);
     const exp = el("div", "export");
-    const btn = (label, fn) => { const b = el("button", "btn", label); b.addEventListener("click", fn); exp.appendChild(b); return b; };
-    const copy = async (str, b) => {
-      try { await navigator.clipboard.writeText(str); b.textContent = "Copié ✓"; }
+    const btn = (label, fn) => { const b = el("button", "btn", label); b.dataset.label = label; b.addEventListener("click", () => fn(b)); exp.appendChild(b); return b; };
+    btn("Copier le résumé", async b => {
+      try { await navigator.clipboard.writeText(text); b.textContent = "Copié ✓"; }
       catch { b.textContent = "Copie impossible"; }
       setTimeout(() => (b.textContent = b.dataset.label), 1500);
-    };
-    const download = (str, name, type) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([str], { type }));
-      a.download = name;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    };
-    const json = JSON.stringify(lastSummary, null, 2);
-    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
-    const b1 = btn("Copier le texte", () => copy(text, b1)); b1.dataset.label = "Copier le texte";
-    const b2 = btn("Copier le JSON", () => copy(json, b2)); b2.dataset.label = "Copier le JSON";
-    btn("Télécharger .txt", () => download(text, `musicalite-${stamp}.txt`, "text/plain"));
-    btn("Télécharger .json", () => download(json, `musicalite-${stamp}.json`, "application/json"));
+    });
+    btn("Télécharger .json", () => download(new Blob([json], { type: "application/json" }), `musicalite-${stamp}.json`));
     if (navigator.share) {
       const b = btn("Partager", () => navigator.share({ title: "Musicalité", text }).catch(() => {}));
       b.style.gridColumn = "1 / -1";
@@ -279,7 +302,7 @@
     box.appendChild(exp);
     const det = el("details");
     det.style.marginTop = "12px";
-    det.appendChild(el("summary", "muted", "Voir la liste complète"));
+    det.appendChild(el("summary", "muted", "Résumé texte"));
     det.appendChild(el("pre", null, text));
     box.appendChild(det);
     box.className = "show";
