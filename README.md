@@ -15,13 +15,17 @@ Ouvre `musicalite/` sur ton téléphone, touche **Écouter** et mets ta musique 
 (ou analyse un fichier audio). Le micro demande une page en `https://` (GitHub Pages) :
 https://lretrain91.github.io/claude/musicalite/
 
-- **La carte du morceau**, dessinée au fil de l'écoute : un bâton par 8 temps
-  (hauteur = énergie, couleur = section), les phrases (4 × 8 temps) séparées par un espace,
-  une ligne toutes les 4 phrases, et les moments clés marqués au-dessus
-  (‖ break, ▲ drop, ↗ montée, T tag, ~ basse coupée, ● hit).
+- **La frise du morceau**, dessinée au fil de l'écoute : une ligne par phrase
+  (4 × 8 temps), un trait par temps ; le grand 1 de chaque phrase (trait blanc) et le 1 de
+  chaque 8 temps sont plus grands, et tous les 1 sont alignés d'une ligne à l'autre.
+  Couleur = section, intensité = énergie ; les moments clés sont marqués au temps près
+  (‖ break, ▲ drop, ↗ montée, T tag, ~ basse coupée, ● hit) et les temps d'un tag
+  dépassent en bout de ligne.
 - **La forme** en lettres, par exemple `A B A B C B` : les sections qui se ressemblent
   reçoivent la même lettre.
 - En direct : tempo, feeling (swing ou droit), compte de 1 à 8, position dans la phrase.
+  Rien ne s'affiche tant qu'on n'entend pas un rythme franc (bruit de la pièce, voix) ;
+  le morceau commence à l'entrée réelle de la musique.
   « Taper le 1 » et « Début de phrase » recalent les comptes si besoin.
 - Bilan : la carte s'enregistre en image, le résumé se copie en texte, et le détail
   complet se télécharge en JSON.
@@ -64,7 +68,7 @@ Chaque attaque détectée (pic d'énergie) dans une bande devient une note.
 - `js/analysis.js` : détection des attaques, choix des notes, tempo, capture audio.
 - `js/app.js` : menu, mode extraits, mode live.
 - `js/musicality.js` : analyse de musicalité (comptes, phrases, événements, bilan).
-- `musicalite/` : interface de l'appli Musicalité (web app installable), dont `map.js` pour la carte.
+- `musicalite/` : interface de l'appli Musicalité (web app installable), dont `map.js` pour la frise.
 
 ## Changer les titres
 

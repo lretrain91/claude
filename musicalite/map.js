@@ -27,69 +27,95 @@
     return n;
   }
 
+  // Frise chronologique : une ligne par phrase (4 × 8 temps), un trait par temps.
+  // Les 1 de toutes les phrases sont alignés : les passages qui se répètent se voient d'un coup d'œil.
   BS.renderMap = function (song) {
-    const eights = song.huit_temps;
-    const W = 14, GAP = 3, PH_GAP = 9, TOP = 34, BAR_H = 70, FONT = "system-ui, -apple-system, sans-serif";
-    const ROW_H = TOP + BAR_H + 26, ROW_EIGHTS = 16; // une ligne ≈ 4 phrases, comme une partition
+    const beats = song.temps || [];
+    // Chaque ligne : bande des symboles (12), traits (24), lettres (10), marge (10).
+    const BX = 10, LEFT = 34, COLS = 32, EXTRA = 4, ROW_H = 56, TOP = 18, FONT = "system-ui, -apple-system, sans-serif";
+    const TICK = { grand: 24, un: 16, cinq: 10, temps: 6 };
 
-    // Position de chaque 8-temps : espace entre deux phrases, retour à la ligne toutes les ~4 phrases.
-    const pos = [];
-    let x = 4, row = 0, inRow = 0, width = 60;
-    eights.forEach((e, i) => {
-      const newPhrase = i > 0 && e.huit === 1 && e.phrase !== eights[i - 1].phrase;
-      if (i > 0 && newPhrase && inRow >= ROW_EIGHTS) { row++; x = 4; inRow = 0; }
-      else if (i > 0) x += GAP + (newPhrase ? PH_GAP : 0);
-      pos.push({ x, base: row * ROW_H + TOP + BAR_H, row });
-      x += W;
-      inRow++;
-      width = Math.max(width, x + 4);
+    // Une ligne par phrase ; colonne = place du temps dans la phrase (les temps de tag vont au bout).
+    const rows = [];
+    let cur = null;
+    beats.forEach((b, i) => {
+      if (!cur || (!b.tag && b.phrase !== cur.phrase)) { cur = { phrase: b.phrase, beats: [] }; rows.push(cur); }
+      const col = b.tag ? COLS + b.compte - 1 : (b.huit - 1) * 8 + (b.compte - 1);
+      cur.beats.push({ ...b, i, col });
     });
-    const height = (row + 1) * ROW_H - 4;
 
+    const width = LEFT + (COLS + EXTRA) * BX + 6;
+    const height = TOP + Math.max(1, rows.length) * ROW_H + 4;
     const svg = node("svg", { viewBox: `0 0 ${width} ${height}`, width: "100%", role: "img",
-      "aria-label": `Carte du morceau, forme ${song.forme}`, "font-family": FONT });
+      "aria-label": `Frise du morceau, forme ${song.forme}`, "font-family": FONT });
     svg.style.display = "block";
-    svg.style.maxWidth = `${Math.round(width * 2.2)}px`; // un morceau court n'est pas agrandi à l'excès
     svg.appendChild(node("rect", { x: 0, y: 0, width, height, fill: "#181a21" }));
 
-    // Bâtons d'énergie.
-    eights.forEach((e, i) => {
-      const h = 8 + (BAR_H - 8) * e.niveau;
-      const r = node("rect", { x: pos[i].x, y: pos[i].base - h, width: W, height: h, rx: 2.5, fill: colorOf(e.section) });
-      r.appendChild(node("title", {}, `${mmss(e.debut_s)} · ${e.position} · section ${e.section} · énergie ${e.energie}`));
-      svg.appendChild(r);
+    // Règle du haut : numéro du 8-temps dans la phrase.
+    for (let e = 0; e < 4; e++) {
+      svg.appendChild(node("text", { x: LEFT + e * 8 * BX + 2, y: 12, "font-size": 9, fill: "#8b90a0" }, `${e + 1}/4`));
+      svg.appendChild(node("line", { x1: LEFT + e * 8 * BX - BX / 2, y1: 16, x2: LEFT + e * 8 * BX - BX / 2, y2: height - 4,
+        stroke: "#2a2d38", "stroke-width": e === 0 ? 0 : 0.8 }));
+    }
+
+    const xOf = col => LEFT + col * BX;
+    const where = new Map(); // indice du temps → position, pour placer les moments
+    rows.forEach((row, r) => {
+      const base = TOP + r * ROW_H + 38; // pied des traits
+      const first = row.beats[0];
+      svg.appendChild(node("text", { x: 2, y: base - 12, "font-size": 11, "font-weight": 800, fill: "#eceef3" }, `P${row.phrase}`));
+      svg.appendChild(node("text", { x: 2, y: base, "font-size": 8, fill: "#8b90a0" }, mmss(first.t_s)));
+
+      // Bande de couleur de la section, derrière les traits.
+      let segStart = null;
+      row.beats.forEach((b, j) => {
+        const next = row.beats[j + 1];
+        if (segStart == null) segStart = b;
+        if (!next || next.section !== b.section || next.col !== b.col + 1) {
+          svg.appendChild(node("rect", { x: xOf(segStart.col) - BX / 2 + 0.5, y: base - TICK.grand - 2, width: (b.col - segStart.col + 1) * BX - 1,
+            height: TICK.grand + 4, rx: 3, fill: colorOf(b.section), "fill-opacity": b.tag ? 0.05 : 0.1 }));
+          segStart = null;
+        }
+      });
+
+      row.beats.forEach((b, j) => {
+        const x = xOf(b.col);
+        where.set(b.i, { x, base });
+        const kind = b.tag ? "temps" : b.col === 0 ? "grand" : b.compte === 1 ? "un" : b.compte === 5 ? "cinq" : "temps";
+        const h = TICK[kind];
+        const color = b.tag ? "#b388ff" : colorOf(b.section);
+        const line = node("line", { x1: x, y1: base, x2: x, y2: base - h, stroke: kind === "grand" ? "#ffffff" : color,
+          "stroke-width": kind === "grand" ? 3 : kind === "un" ? 2.2 : 1.6, "stroke-linecap": "round",
+          "stroke-opacity": (0.3 + 0.7 * b.niveau).toFixed(2) });
+        line.appendChild(node("title", {}, `${mmss(b.t_s)} · ${b.tag ? "tag" : `P${b.phrase} · ${b.huit}/4 · ${b.compte}`} · section ${b.section}`));
+        svg.appendChild(line);
+        // Lettre de la section là où elle commence.
+        const prev = j > 0 ? row.beats[j - 1] : (r > 0 ? rows[r - 1].beats[rows[r - 1].beats.length - 1] : null);
+        if (!prev || prev.section !== b.section) {
+          svg.appendChild(node("text", { x: x + 2, y: base + 9, "font-size": 9, "font-weight": 800, fill: colorOf(b.section) }, b.section));
+        }
+      });
+      if (row.beats.some(b => b.tag)) {
+        const tb = row.beats.find(b => b.tag);
+        svg.appendChild(node("text", { x: xOf(tb.col) - 2, y: base + 9, "font-size": 8, "font-weight": 700, fill: "#b388ff" }, "tag"));
+      }
     });
 
-    // Lettre de section au début de chaque section (et en début de ligne pour s'y retrouver).
-    eights.forEach((e, i) => {
-      const starts = i === 0 || e.section !== eights[i - 1].section;
-      const rowStart = i > 0 && pos[i].row !== pos[i - 1].row;
-      if (!starts && !rowStart) return;
-      svg.appendChild(node("text", { x: pos[i].x + W / 2, y: pos[i].base + 16, "text-anchor": "middle", "font-size": 12,
-        "font-weight": 800, fill: colorOf(e.section), opacity: starts ? 1 : 0.45 }, e.section));
-    });
-
-    // Moments clés, placés au temps près au-dessus des bâtons.
-    const at = t => {
-      let i = eights.length - 1;
-      while (i > 0 && eights[i].debut_s > t) i--;
-      const len = eights[i + 1] ? eights[i + 1].debut_s - eights[i].debut_s
-        : i > 0 ? eights[i].debut_s - eights[i - 1].debut_s : 1;
-      const f = Math.max(0, Math.min(1, (t - eights[i].debut_s) / Math.max(0.01, len)));
-      return { x: pos[i].x + f * W, row: pos[i].row, base: pos[i].base };
-    };
-    const lanes = {};
+    // Moments clés, au temps près, au-dessus des traits.
+    const used = [];
     for (const ev of song.evenements) {
       const m = BS.MOMENT_MARKS[ev.code];
-      if (!m || !eights.length) continue;
-      const p = at(ev.t_s);
-      // Deux marques trop proches : la seconde monte d'un cran.
-      const L = (lanes[p.row] = lanes[p.row] || []);
-      let lane = 0;
-      while (L[lane] != null && p.x - L[lane] < 11) lane++;
-      L[lane] = p.x;
-      const t = node("text", { x: p.x, y: p.base - BAR_H - 8 - lane * 13, "text-anchor": "middle", "font-size": 12,
-        "font-weight": 700, fill: m.color }, m.sym);
+      if (!m || !beats.length) continue;
+      let i = beats.length - 1;
+      while (i > 0 && beats[i].t_s > ev.t_s + 0.05) i--;
+      const w = where.get(i);
+      if (!w) continue;
+      const P = beats[i + 1] ? beats[i + 1].t_s - beats[i].t_s : 0.5;
+      const x = w.x + Math.max(0, Math.min(0.9, (ev.t_s - beats[i].t_s) / P)) * BX;
+      let y = w.base - TICK.grand - 5;
+      while (used.some(u => Math.abs(u.x - x) < 9 && Math.abs(u.y - y) < 9)) y -= 9;
+      used.push({ x, y });
+      const t = node("text", { x, y, "text-anchor": "middle", "font-size": 10, "font-weight": 700, fill: m.color }, m.sym);
       t.appendChild(node("title", {}, `${mmss(ev.t_s)} · ${ev.type}${ev.position ? " · " + ev.position : ""}`));
       svg.appendChild(t);
     }

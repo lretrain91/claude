@@ -11,7 +11,7 @@
   const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
   let actx = null, capture = null, mus = null, wakeLock = null, raf = 0, evCount = 0;
-  let lastSummary = null;
+  let lastSummary = null, liveQueued = false;
 
   // ---------- Affichage des comptes ----------
   const countEl = $("count");
@@ -106,7 +106,7 @@
   function newAnalyzer(frameDur, live) {
     return new BS.MusicalityAnalyzer(frameDur, {
       onEvent: addEvent,
-      onBeat: b => { if (live && b.count === 8) renderLiveMap(); },
+      onBeat: () => { if (live && !liveQueued) { liveQueued = true; requestAnimationFrame(() => { liveQueued = false; renderLiveMap(); }); } },
     });
   }
 
@@ -228,7 +228,7 @@
     card.appendChild(map);
 
     const legend = el("div", "legend");
-    legend.appendChild(el("span", null, "hauteur = énergie · couleur = section · espace = phrase"));
+    legend.appendChild(el("span", null, "ligne = phrase · trait blanc = grand 1 · couleur = section · intensité = énergie"));
     for (const [, mark] of BS.mapLegend(m)) {
       const it = el("span");
       const sym = el("b", null, mark.sym);

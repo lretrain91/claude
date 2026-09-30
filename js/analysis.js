@@ -31,18 +31,26 @@
       this.alpha = frameDur / 3; // moyenne glissante sur ~3 s
       this.warm = Math.round(0.5 / frameDur);
       this.lastOdf = 0;
-      this.bands = [0, 1, 2, 3].map(() => ({ prevE: null, hist: [], m: 0, v: 0, frames: 0 }));
+      this.tempoOdf = 0;
+      this.bands = [0, 1, 2, 3].map(() => ({ prevE: null, hist: [], m: 0, v: 0, frames: 0, raw: [], ls: [] }));
     }
 
     push(energies, t) {
       const out = [];
-      let odf = 0;
+      let odf = 0, tOdf = 0;
       for (let b = 0; b < 4; b++) {
         const st = this.bands[b];
         const e = Math.log1p(1000 * energies[b]);
         const flux = st.prevE == null ? 0 : Math.max(0, e - st.prevE);
         st.prevE = e;
         odf += flux;
+        // Courbe pour le tempo, plus robuste au bruit de fond : énergie lissée sur 3 trames,
+        // comparée au maximum des trames précédentes (seules les vraies montées comptent).
+        st.raw.push(energies[b]);
+        if (st.raw.length > 3) st.raw.shift();
+        st.ls.push(Math.log1p(1000 * (st.raw.reduce((a, x) => a + x, 0) / st.raw.length)));
+        if (st.ls.length > 5) st.ls.shift();
+        if (st.ls.length === 5) tOdf += Math.max(0, st.ls[4] - Math.max(st.ls[0], st.ls[1]));
         st.hist.push({ v: flux, t });
         if (st.hist.length > 40) st.hist.shift();
         const diff = flux - st.m, incr = this.alpha * diff;
@@ -66,6 +74,7 @@
         }
       }
       this.lastOdf = odf;
+      this.tempoOdf = tOdf;
       return out;
     }
   };
@@ -110,7 +119,7 @@
       this.reset();
     }
 
-    reset() { this.odf = []; this.bpm = null; this.bar = null; this.conf = 0; this.cand = null; }
+    reset() { this.odf = []; this.bpm = null; this.bar = null; this.conf = 0; this.salience = 0; this.ok = false; this.weak = true; this.cand = null; }
 
     push(v) {
       this.odf.push(v);
@@ -141,8 +150,10 @@
 
       const lagMin = Math.floor(60 / 180 / fd), lagMax = Math.ceil(60 / 70 / fd);
       let best = -1, bestScore = -Infinity, bestAc = 0;
+      const all = [];
       for (let lag = lagMin; lag <= lagMax; lag++) {
         const r = ac(lag);
+        all.push(r);
         const bpm = 60 / (lag * fd);
         const w = Math.exp(-0.5 * Math.pow(Math.log2(bpm / this.center) / 0.7, 2));
         if (r * w > bestScore) { bestScore = r * w; best = lag; bestAc = r; }
@@ -160,6 +171,15 @@
 
       const bar = barLag * fd;
       this.conf = bestAc;
+      // Netteté du tempo : à quel point il ressort parmi tous les tempos possibles (écart en σ).
+      // Robuste au bruit de fond, qui abaisse `conf` mais pas le relief du pic.
+      const m = all.reduce((a, v) => a + v, 0) / all.length;
+      const sd = Math.sqrt(all.reduce((a, v) => a + (v - m) ** 2, 0) / all.length) || 1;
+      this.salience = (bestAc - m) / sd;
+      // Rythme franc : le bruit d'une pièce (voix, ventilation) reste sous ~0,12 ; la musique,
+      // même avec autant de bruit que de musique, reste au-dessus de ~0,4.
+      this.ok = this.conf >= 0.25;
+      this.weak = this.conf < 0.15;
       this.bpm = 240 / bar;
       // On ne change de tempo qu'après deux estimations concordantes.
       if (this.bar && Math.abs(bar - this.bar) / this.bar < 0.03) {

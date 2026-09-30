@@ -66,9 +66,9 @@
       if (!s) return;
 
       const cands = s.detector.push(f.e, f.t);
-      s.tempo.push(s.detector.lastOdf);
+      s.tempo.push(s.detector.tempoOdf);
       s.frames.push(f);
-      s.odf.push({ t: f.t, v: s.detector.lastOdf });
+      s.odf.push({ t: f.t - this.fd, v: s.detector.tempoOdf }); // le lissage retarde d'environ une trame
       for (const c of cands) s.onsets.push(c);
       // ~10 s de mémoire : quand le tempo est trouvé, on repart du début du morceau.
       while (s.frames.length && s.frames[0].t < f.t - 10) s.frames.shift();
@@ -94,7 +94,7 @@
         // Portions du morceau séparées par des tags, chacune avec son propre calage.
         regions: [], cur: { kStart: 0, num0: 1 },
         frames: [], odf: [], onsets: [], beats: [],
-        lastTempoAt: t, grid: null, bpms: [],
+        lastTempoAt: t, grid: null, bpms: [], okRun: 0, lostFor: 0, log: [],
         // comptes : quel temps est un « 1 », quel 8-temps commence une phrase
         oneOff: 0, oneVotes: 0, s8: new Array(8).fill(0), s8n: new Array(8).fill(0), manualOne: null,
         phraseOff: 0, s4: new Array(4).fill(0), manualPhrase: null,
@@ -118,7 +118,16 @@
     // ---------- Grille des temps ----------
     updateGrid(now) {
       const s = this.song;
-      if (!s.tempo.bar) return;
+      // Pas de comptes tant qu'on n'entend pas un rythme franc (bruit de la pièce, voix…).
+      if (s.grid) {
+        if (s.tempo.weak || !s.tempo.bar) {
+          if ((s.lostFor += 0.5) > 6) this.endSong(); // plus de rythme depuis 6 s : la musique s'est arrêtée
+          if (!s.tempo.bar) return;
+        } else s.lostFor = 0;
+      } else {
+        if (!s.tempo.ok || !s.tempo.bar) { s.okRun = 0; return; }
+        if (++s.okRun < 2) return; // deux mesures concordantes avant de se lancer
+      }
       const P = s.tempo.bar / 4;
       const nb = Math.max(8, Math.round(P / this.fd));
       const acc = new Float32Array(nb);
@@ -135,9 +144,13 @@
 
       const g = s.grid;
       if (!g) {
-        // Premier temps : on remonte au début du morceau (ou 9 s en arrière au plus).
-        const from = Math.max(s.start, now - 9) - P / 8;
+        // Premier temps : là où la musique a vraiment commencé (9 s en arrière au plus).
+        s.start = this.musicStart(s, now);
+        const from = s.start - P / 8;
         s.grid = { P, next: from + mod(phase - from, P), k: 0, miss: 0 };
+        // A priori : la musique commence presque toujours sur un 1, en début de phrase.
+        s.s8[0] += 1; s.s8n[0] += 1;
+        s.s4[0] += 1;
       } else {
         const diff = mod(phase - mod(g.next, P) + P / 2, P) - P / 2;
         if (Math.abs(P - g.P) / g.P < 0.04 && Math.abs(diff) < 0.15 * P) {
@@ -160,6 +173,27 @@
     region(s, k) {
       for (const r of s.regions) if (k < r.kEnd) return r;
       return s.cur;
+    }
+
+    // Début réel de la musique : dernier passage net du « bruit de fond » au niveau de la musique.
+    musicStart(s, now) {
+      const lv = s.frames.filter(x => x.t >= now - 9).map(x => ({ t: x.t, v: (x.e[0] + x.e[1] + x.e[2] + x.e[3]) / 4 }));
+      if (!lv.length) return Math.max(s.start, now - 9);
+      const sorted = lv.map(x => x.v).sort((a, b) => a - b);
+      const floor = sorted[Math.floor(sorted.length * 0.1)];
+      const music = median(lv.filter(x => x.t >= now - 3).map(x => x.v));
+      if (music < 1.8 * floor) return Math.max(s.start, lv[0].t); // pas de montée nette : la musique jouait déjà
+      const thr = Math.sqrt(floor * music);
+      // On remonte par blocs de 0,25 s jusqu'à trouver un bloc sous le seuil.
+      const blk = Math.round(0.25 / this.fd);
+      for (let i = lv.length - blk; i >= 0; i -= blk) {
+        const m = mean(lv.slice(i, i + blk).map(x => x.v));
+        if (m < thr) {
+          const first = lv.slice(i).find(x => x.v >= thr);
+          return first ? first.t : lv[i].t;
+        }
+      }
+      return Math.max(s.start, lv[0].t);
     }
 
     position(s, k, q = 0) {
@@ -196,6 +230,7 @@
       this.learnFeeling(s, beat);
 
       this.learnDownbeat(s, beat);
+      s.log.push({ k, t: T, Et: beat.Et }); // historique complet des temps, pour la frise
       const pos = this.position(s, k);
       beat.pos = pos;
       this.beatEvents(s, beat, pos);
@@ -475,7 +510,7 @@
     // Résumé du morceau en cours (pour la carte en direct).
     current() {
       const s = this.song;
-      return s && s.eights.length ? this.summarizeSong(s) : null;
+      return s && s.log.length ? this.summarizeSong(s) : null;
     }
 
     summarizeSong(s) {
@@ -527,6 +562,25 @@
         nb_phrases: Math.ceil(s.eights.length / 4),
         forme: sections.map(x => x.lettre).join(" "),
         sections: sections.map(({ levels, profs, prof, ...x }) => ({ ...x, energie: energyLabel(mean(levels)) })),
+        temps: (() => {
+          // Énergie de chaque temps, lissée sur ±2 temps et ramenée entre 0 et 1 (percentiles 5–95).
+          const E = s.log.map((b, i) => mean(s.log.slice(Math.max(0, i - 2), i + 3).map(x => x.Et)));
+          const sorted = [...E].sort((a, b) => a - b);
+          const p5 = sorted[Math.floor(sorted.length * 0.05)] || 0, p95 = sorted[Math.floor(sorted.length * 0.95)] || 1;
+          const starts = sections.map(x => x.debut_s);
+          // On retire les temps comptés après la fin de la musique (silence avant l'arrêt).
+          const med = median(s.log.map(b => b.Et));
+          let end = s.log.length;
+          while (end > 0 && s.log[end - 1].Et < 0.15 * med) end--;
+          return s.log.slice(0, end).map((b, i) => {
+            const pos = this.position(s, b.k), t = rel(b.t);
+            let si = 0;
+            while (si + 1 < starts.length && starts[si + 1] <= t + 0.01) si++;
+            return { t_s: t, compte: pos.count, huit: pos.eight, phrase: pos.phrase, tag: !!pos.tag,
+              section: sections[si] ? sections[si].lettre : "A",
+              niveau: +Math.max(0, Math.min(1, (E[i] - p5) / Math.max(1e-9, p95 - p5))).toFixed(2) };
+          });
+        })(),
         huit_temps: s.eights.map(e => {
           const pos = this.position(s, e.pos.k);
           return { debut_s: rel(e.t), position: label(e.pos.k).replace(/ · \d+$/, ""), phrase: pos.phrase, huit: pos.eight,
