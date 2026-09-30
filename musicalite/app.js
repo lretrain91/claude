@@ -52,12 +52,6 @@
   const latency = () => (Number($("latency").value) || 0) / 1000;
   $("latency").value = store.get("mu:latency") ?? 60;
   $("latency-v").textContent = `${$("latency").value} ms`;
-  const ideas = $("ideas");
-  ideas.checked = store.get("mu:ideas") ?? true;
-  const applyIdeas = () => document.body.classList.toggle("no-ideas", !ideas.checked);
-  ideas.addEventListener("change", () => { store.set("mu:ideas", ideas.checked); applyIdeas(); });
-  applyIdeas();
-
   $("latency").addEventListener("input", e => {
     $("latency-v").textContent = `${e.target.value} ms`;
     store.set("mu:latency", Number(e.target.value));
@@ -82,15 +76,13 @@
     if (ev.type === "tempo" && evCount > 0 && !/avant/.test(ev.detail)) return;
     const info = BS.EVENT_TYPES[ev.type];
     const li = document.createElement("li");
-    li.innerHTML = `<div class="ev-time"></div><div class="ev-main"><span class="chip"></span><span class="pos"></span><span class="detail"></span><span class="idee"></span></div>`;
+    li.innerHTML = `<div class="ev-time"></div><div class="ev-main"><span class="chip"></span><span class="pos"></span><span class="detail"></span></div>`;
     li.querySelector(".ev-time").textContent = mmss(ev.t);
     const chip = li.querySelector(".chip");
     chip.textContent = ev.label;
     chip.style.background = info.color;
     li.querySelector(".pos").textContent = ev.position;
     li.querySelector(".detail").textContent = ev.detail;
-    if (ev.idee) li.querySelector(".idee").textContent = ev.idee;
-    else li.querySelector(".idee").remove();
     const list = $("events");
     list.insertBefore(li, list.firstChild);
     while (list.children.length > 300) list.removeChild(list.lastChild);
@@ -259,7 +251,7 @@
       box.appendChild(card);
     }
 
-    const text = BS.summaryText(songs, $("ideas").checked);
+    const text = BS.summaryText(songs);
     const exp = el("div", "export");
     const btn = (label, fn) => { const b = el("button", "btn", label); b.addEventListener("click", fn); exp.appendChild(b); return b; };
     const copy = async (str, b) => {

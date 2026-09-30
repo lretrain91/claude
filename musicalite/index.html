@@ -43,8 +43,6 @@
   .where b { color: var(--text); font-size: 18px; }
   .feel { font-size: 13px; color: var(--muted); margin-top: 6px; min-height: 16px; }
   #to-phrase.soon { color: var(--accent); font-weight: 700; }
-  .idee { font-size: 13px; color: #c9ccd6; width: 100%; border-left: 2px solid var(--line); padding-left: 8px; margin-top: 2px; }
-  .no-ideas .idee { display: none; }
   .count { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 18px 0 6px; }
   .count div { aspect-ratio: 1; border-radius: 10px; background: var(--panel2); display: flex; align-items: center;
     justify-content: center; font-weight: 800; font-size: clamp(16px, 5vw, 26px); color: var(--muted);
@@ -133,7 +131,6 @@
     <details class="settings">
       <summary>Réglages</summary>
       <label>Latence <input type="range" id="latency" min="0" max="300" step="10" value="60"> <span id="latency-v">60 ms</span></label>
-      <label><input type="checkbox" id="ideas" checked> Afficher les idées d'interprétation WCS</label>
       <p>Si les comptes s'affichent en retard ou en avance sur ce que tu entends, ajuste la latence.
       « Taper le 1 » : tape pile sur un 1 pour recaler les comptes. « Début de phrase » : tape sur le 1 qui ouvre une phrase.
       Les tags (phrase rallongée) sont détectés quand la musique repart après un break ailleurs que sur un 1 ; les comptes se recalent alors tout seuls.</p>
