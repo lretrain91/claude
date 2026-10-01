@@ -58,6 +58,8 @@
   .phrase div.unsure { opacity: .35; }
   .learn { margin-top: 12px; font-size: 13px; color: var(--muted); line-height: 1.5; background: var(--panel2); border-radius: 10px; padding: 10px 12px; }
   .learn b { color: var(--text); }
+  .huit-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .huit-btn { font-size: 20px; font-weight: 800; }
   kbd { background: var(--bg); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font-size: 12px; color: var(--text); }
   .tap-row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; color: var(--text); }
   .tap-flash { font-weight: 800; color: var(--accent); opacity: 0; }
@@ -135,7 +137,10 @@
       <button class="btn file-row" id="listen-tab" hidden>Écouter l'onglet Spotify (PC, sans micro)</button>
       <button class="btn" id="tap-one" disabled>Taper le 1</button>
       <button class="btn" id="tap-phrase" disabled>Début de phrase</button>
-      <button class="btn file-row" id="tap-beat" disabled>Taper le temps</button>
+      <div class="huit-row file-row">
+        <button class="btn huit-btn" data-h="1" disabled>1</button><button class="btn huit-btn" data-h="2" disabled>2</button>
+        <button class="btn huit-btn" data-h="3" disabled>3</button><button class="btn huit-btn" data-h="4" disabled>4</button>
+      </div>
       <button class="btn ghost file-row" id="pick-file">Analyser un fichier audio</button>
     </div>
     <details class="settings">
@@ -146,7 +151,9 @@
       Les tags (phrase rallongée) sont détectés quand la musique repart après un break ailleurs que sur un 1 ; les comptes se recalent alors tout seuls.</p>
     </details>
     <div id="learn" class="learn" hidden>
-      <div><b>Apprentissage</b> — tape en rythme pour m'apprendre : <kbd>Espace</kbd> chaque temps · <kbd>1</kbd> chaque 1 · <kbd>Entrée</kbd> chaque grand 1 (début de phrase).
+      <div><b>Apprentissage</b> — tape <b>chaque temps</b> avec le numéro du 8-temps de la phrase :
+      <kbd>1</kbd> pendant les 8 premiers temps, <kbd>2</kbd> pendant les 8 suivants, puis <kbd>3</kbd>, <kbd>4</kbd>, et <kbd>1</kbd> à nouveau
+      (ou les boutons 1 à 4). <kbd>Espace</kbd> si tu ne sais pas où tu en es.
       En fin d'écoute, télécharge les « données d'apprentissage » et envoie-les.</div>
       <div class="tap-row"><span id="tap-count"></span><span id="tap-flash" class="tap-flash"></span></div>
     </div>

@@ -40,8 +40,10 @@ deux premières phrases ; le compte de 1 à 8 reste affiché.
 
 Sur PC, avec Chrome ou Edge : ouvre ta playlist sur open.spotify.com, puis dans Musicalité
 « Écouter l'onglet Spotify » (choisis l'onglet et coche « Partager aussi l'audio de l'onglet » ;
-la musique continue de jouer normalement). Pendant l'écoute, tape en rythme :
-**Espace** sur chaque temps, **1** sur chaque 1, **Entrée** sur chaque grand 1.
+la musique continue de jouer normalement). Pendant l'écoute, tape **chaque temps** avec le
+numéro du 8-temps de la phrase : **1** pendant les 8 premiers temps, **2** pendant les 8 suivants,
+puis **3**, **4**, et **1** à nouveau (Espace si tu ne sais pas où tu en es). Chaque changement de
+chiffre marque un 1, chaque retour à 1 un grand 1 ; les comptes affichés se recalent dessus.
 En fin d'écoute, « Données d'apprentissage » télécharge un fichier (empreinte rythmique +
 taps, sans l'audio) à déposer dans le dossier `apprentissage/` du dépôt.
 `outils/evaluer.html` compare l'analyse à tes taps.

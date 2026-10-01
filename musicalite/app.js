@@ -126,14 +126,30 @@
   let rec = null;
   const r4 = x => +x.toPrecision(4);
 
-  function recordTap(type) {
+  // `huit` : numéro du 8-temps dans la phrase (1 à 4) que l'utilisateur tape sur chaque temps.
+  function recordTap(type, huit = null, flash = "•") {
     if (!rec || !capture) return;
-    rec.taps.push({ t: +clockNow().toFixed(3), type });
-    const n = c => rec.taps.filter(x => x.type === c).length;
-    $("tap-count").textContent = `Taps : ${n("temps")} temps · ${n("1")} « 1 » · ${n("grand1")} grands 1`;
+    rec.taps.push(huit ? { t: +clockNow().toFixed(3), type, huit } : { t: +clockNow().toFixed(3), type });
+    const beats = rec.taps.filter(x => x.type === "temps").length;
+    const phrases = rec.taps.filter((x, i) => x.huit === 1 && i > 0 && rec.taps[i - 1].huit === 4).length;
+    $("tap-count").textContent = `Taps : ${beats} temps · ${phrases} grands 1`;
     const el = $("tap-flash");
-    el.textContent = type === "grand1" ? "GRAND 1" : type === "1" ? "1" : "•";
+    el.textContent = flash;
     el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+  }
+
+  // Tap d'un temps avec le numéro du 8-temps : quand le chiffre change, ce temps est un 1 ;
+  // quand on repasse à 1, c'est un grand 1. Les comptes affichés se recalent dessus.
+  let lastHuit = null, lastHuitAt = 0;
+  function tapHuit(n) {
+    if (!mus || !capture) return;
+    const now = clockNow();
+    const prev = now - lastHuitAt < 3 ? lastHuit : null; // après une pause, on ne déduit rien
+    lastHuit = n; lastHuitAt = now;
+    if (prev == null || prev === n) return recordTap("temps", n, String(n));
+    const grand = n === 1;
+    recordTap("temps", n, grand ? "GRAND 1" : `1 (${n}/4)`);
+    mus.tapOne(now + latency(), grand);
   }
 
   async function startListening(kind = "mic") {
@@ -189,7 +205,9 @@
     if (!cut.shown) setStatus("À l'écoute. Le tempo et les comptes apparaissent quand un rythme est bien audible.");
     $("listen").textContent = "Arrêter et voir le bilan";
     $("listen").classList.add("stop");
-    $("tap-one").disabled = $("tap-phrase").disabled = $("tap-beat").disabled = false;
+    $("tap-one").disabled = $("tap-phrase").disabled = false;
+    document.querySelectorAll(".huit-btn").forEach(b => (b.disabled = false));
+    lastHuit = null;
     $("pick-file").disabled = true;
     $("listen-tab").hidden = true;
     $("learn").hidden = false;
@@ -206,7 +224,8 @@
     renderPosition(null);
     $("listen").textContent = "Écouter";
     $("listen").classList.remove("stop");
-    $("tap-one").disabled = $("tap-phrase").disabled = $("tap-beat").disabled = true;
+    $("tap-one").disabled = $("tap-phrase").disabled = true;
+    document.querySelectorAll(".huit-btn").forEach(b => (b.disabled = true));
     $("pick-file").disabled = false;
     $("listen-tab").hidden = !canTab;
     $("learn").hidden = true;
@@ -226,14 +245,15 @@
   $("listen").addEventListener("click", () => (capture ? stopListening() : startListening("mic")));
   $("listen-tab").addEventListener("click", () => startListening("tab"));
 
-  // Clavier (sur ordinateur) : Espace = un temps, 1 = un « 1 », Entrée = un grand 1 (début de phrase).
+  // Clavier (sur ordinateur) : sur chaque temps, la touche 1, 2, 3 ou 4 selon le 8-temps de la
+  // phrase (1 pour le premier, 2 pour le deuxième…). Espace = un temps sans savoir où on en est.
   window.addEventListener("keydown", e => {
     if (!capture || e.repeat) return;
-    if (e.code === "Space") { e.preventDefault(); recordTap("temps"); }
-    else if (e.code === "Digit1" || e.code === "Numpad1" || e.key === "1" || e.key === "&") { e.preventDefault(); tap(false); }
-    else if (e.code === "Enter" || e.code === "NumpadEnter") { e.preventDefault(); tap(true); }
+    const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
+    if (m) { e.preventDefault(); tapHuit(+m[1]); }
+    else if (e.code === "Space") { e.preventDefault(); recordTap("temps"); }
   });
-  $("tap-beat").addEventListener("pointerdown", () => recordTap("temps"));
+  document.querySelectorAll(".huit-btn").forEach(b => b.addEventListener("pointerdown", () => tapHuit(+b.dataset.h)));
 
   function tap(phraseStart) {
     if (!mus || !capture) return;
