@@ -678,6 +678,7 @@
       for (const ev of s.events) if (!["tempo", "fin", "feeling"].includes(ev.type)) resume[ev.label] = (resume[ev.label] || 0) + 1;
       return {
         morceau: s.n,
+        horloge_debut: +s.start.toFixed(3), // pour recaler les taps des données d'apprentissage
         duree_s: +(s.lastT - s.start).toFixed(1),
         tempo_bpm: +bpm.toFixed(1),
         tempo_categorie: BS.tempoCategory(bpm),

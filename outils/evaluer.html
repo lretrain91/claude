@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Évaluer Musicalité</title>
+<style>
+  :root { --bg: #0e0f13; --panel: #181a21; --line: #2a2d38; --text: #eceef3; --muted: #8b90a0; --accent: #1ed760; --warn: #ff5c7a; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p, li { color: var(--muted); line-height: 1.5; font-size: 14px; }
+  .drop { border: 2px dashed var(--line); border-radius: 14px; padding: 28px 16px; text-align: center; color: var(--muted); cursor: pointer; margin: 16px 0; }
+  .drop.over { border-color: var(--accent); color: var(--text); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+  .card h2 { font-size: 16px; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .good { color: var(--accent); } .bad { color: var(--warn); }
+  pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Évaluer l'analyse sur tes taps</h1>
+  <p>Glisse ici un ou plusieurs fichiers « données d'apprentissage » exportés par Musicalité.
+  L'empreinte rythmique enregistrée est rejouée dans la version actuelle de l'analyse, puis comparée à tes taps
+  (chaque temps tapé avec le numéro du 8-temps de la phrase : 1, 2, 3, 4, puis 1… ; un changement de chiffre
+  marque un 1, le retour à 1 un grand 1).</p>
+  <div class="drop" id="drop">Déposer les fichiers .json.gz / .json ici, ou cliquer pour choisir</div>
+  <input type="file" id="file" accept=".gz,.json,application/json,application/gzip" multiple hidden>
+  <div id="out"></div>
+</main>
+<script src="../js/analysis.js"></script>
+<script src="../js/musicality.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const pct = (a, b) => (b ? Math.round((100 * a) / b) + " %" : "—");
+  const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : 0; };
+
+  async function readFile(f) {
+    let stream = f.stream();
+    if (/\.gz$/.test(f.name)) stream = stream.pipeThrough(new DecompressionStream("gzip"));
+    return JSON.parse(await new Response(stream).text());
+  }
+
+  // Rejoue l'empreinte rythmique dans l'analyse actuelle et compare aux taps.
+  window.evaluate = function (data) {
+    const an = new BS.MusicalityAnalyzer(data.frameDur, {});
+    for (const fr of data.frames) an.push({ t: fr[0], e: fr.slice(1, 5), z: fr.slice(5, 9) });
+    const songs = an.finish();
+    const beats = [];
+    for (const m of songs) for (const b of m.temps) beats.push({ ...b, abs: m.horloge_debut + b.t_s, P: 60 / m.tempo_bpm });
+    beats.sort((a, b) => a.abs - b.abs);
+    const nearest = t => {
+      let lo = 0, hi = beats.length - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (beats[m].abs < t) lo = m; else hi = m; }
+      return [beats[lo], beats[hi]].filter(Boolean).sort((a, b) => Math.abs(a.abs - t) - Math.abs(b.abs - t))[0];
+    };
+    // Taps chiffrés (1 à 4 = 8-temps de la phrase) : un changement de chiffre marque un 1,
+    // le retour à 1 un grand 1 (pas de déduction après une pause de plus de 3 s).
+    const taps = [];
+    let prev = null;
+    for (const tap of data.taps) {
+      if (tap.huit) {
+        const p = prev && tap.t - prev.t < 3 ? prev.huit : null;
+        taps.push({ ...tap, type: "temps" });
+        if (p != null && p !== tap.huit) taps.push({ t: tap.t, type: tap.huit === 1 ? "grand1" : "1" });
+        if (p != null && p !== tap.huit && tap.huit === 1) taps.push({ t: tap.t, type: "1" });
+        prev = tap;
+      } else taps.push(tap);
+    }
+    const res = { songs, taps: data.taps.length, temps: [0, 0], un: [0, 0], grand: [0, 0], huit: [0, 0], ecarts: [] };
+    for (const tap of taps) {
+      const b = nearest(tap.t);
+      if (!b || Math.abs(b.abs - tap.t) > b.P / 2) continue; // tap hors musique analysée
+      const d = tap.t - b.abs;
+      res.ecarts.push(d * 1000);
+      if (tap.type === "temps") {
+        res.temps[1]++; if (Math.abs(d) < 0.07) res.temps[0]++;
+        if (tap.huit && !b.tag) { res.huit[1]++; if (b.huit === tap.huit) res.huit[0]++; }
+      }
+      if (tap.type === "1") { res.un[1]++; if (!b.tag && b.compte === 1) res.un[0]++; }
+      if (tap.type === "grand1") { res.grand[1]++; if (!b.tag && b.compte === 1 && b.huit === 1) res.grand[0]++; }
+    }
+    res.latence = median(res.ecarts);
+    // Tempo tapé (médiane des écarts entre taps de temps consécutifs) vs tempo trouvé.
+    const tt = taps.filter(t => t.type === "temps").map(t => t.t);
+    const gaps = tt.slice(1).map((t, i) => t - tt[i]).filter(g => g > 0.25 && g < 1.2);
+    res.tempoTape = gaps.length ? 60 / median(gaps) : null;
+    return res;
+  };
+
+  function show(name, data, r) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const cls = (a, b) => (b ? (a / b >= 0.8 ? "good" : a / b < 0.5 ? "bad" : "") : "");
+    card.innerHTML = `<h2></h2><table>
+      <tr><td>Tempo trouvé / tapé</td><td>${r.songs.map(m => Math.round(m.tempo_bpm)).join(", ") || "—"} / ${r.tempoTape ? Math.round(r.tempoTape) : "—"} BPM</td></tr>
+      <tr><td>Temps tapés tombant sur un temps trouvé (±70 ms)</td><td class="${cls(...r.temps)}">${pct(...r.temps)} (${r.temps[1]})</td></tr>
+      <tr><td>« 1 » tapés tombant sur un 1 trouvé</td><td class="${cls(...r.un)}">${pct(...r.un)} (${r.un[1]})</td></tr>
+      <tr><td>Grands 1 tapés tombant sur un grand 1 trouvé</td><td class="${cls(...r.grand)}">${pct(...r.grand)} (${r.grand[1]})</td></tr>
+      <tr><td>Temps tapés dans le même 8-temps de la phrase</td><td class="${cls(...r.huit)}">${pct(...r.huit)} (${r.huit[1]})</td></tr>
+      <tr><td>Décalage médian de tes taps (latence de réaction)</td><td>${Math.round(r.latence)} ms</td></tr>
+    </table><pre></pre>`;
+    card.querySelector("h2").textContent = `${name} — ${data.source}, ${Math.round(data.frames.length * data.frameDur)} s, ${r.taps} taps`;
+    card.querySelector("pre").textContent = BS.summaryText(r.songs);
+    $("out").appendChild(card);
+  }
+
+  async function handle(files) {
+    for (const f of files) {
+      try {
+        const data = await readFile(f);
+        show(f.name, data, window.evaluate(data));
+      } catch (err) {
+        const p = document.createElement("p");
+        p.className = "bad";
+        p.textContent = `${f.name} : impossible de lire ce fichier (${err.message})`;
+        $("out").appendChild(p);
+      }
+    }
+  }
+  const drop = $("drop");
+  drop.addEventListener("click", () => $("file").click());
+  $("file").addEventListener("change", e => handle([...e.target.files]));
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); handle([...e.dataTransfer.files]); });
+})();
+</script>
+</body>
+</html>
