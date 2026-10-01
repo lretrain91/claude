@@ -121,13 +121,29 @@
   // Horloge de la source audio en cours (temps des trames d'analyse).
   const clockNow = () => (capture ? capture.clock() : actx ? actx.currentTime : 0);
 
-  async function startListening() {
+  // Enregistrement pour l'apprentissage : empreinte rythmique (énergie par bande, ~86 fois par
+  // seconde, pas l'audio) + taps de l'utilisateur, à télécharger en fin d'écoute.
+  let rec = null;
+  const r4 = x => +x.toPrecision(4);
+
+  function recordTap(type) {
+    if (!rec || !capture) return;
+    rec.taps.push({ t: +clockNow().toFixed(3), type });
+    const n = c => rec.taps.filter(x => x.type === c).length;
+    $("tap-count").textContent = `Taps : ${n("temps")} temps · ${n("1")} « 1 » · ${n("grand1")} grands 1`;
+    const el = $("tap-flash");
+    el.textContent = type === "grand1" ? "GRAND 1" : type === "1" ? "1" : "•";
+    el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+  }
+
+  async function startListening(kind = "mic") {
     let cap;
     try {
-      setStatus("Autorise l'accès au micro…");
-      cap = await BS.openCapture("mic");
+      setStatus(kind === "tab" ? "Choisis l'onglet Spotify et coche « Partager aussi l'audio de l'onglet »…" : "Autorise l'accès au micro…");
+      cap = await BS.openCapture(kind);
     } catch (err) {
-      return setStatus(err.name === "NotAllowedError" ? "Accès au micro refusé." : `Micro indisponible : ${err.message}`, true);
+      if (err.name === "NotAllowedError") return setStatus(kind === "tab" ? "Partage annulé." : "Accès au micro refusé.", true);
+      return setStatus(kind === "tab" ? `Impossible de capter l'onglet : ${err.message}` : `Micro indisponible : ${err.message}`, true);
     }
     clearEvents();
     $("summary").className = "";
@@ -137,6 +153,8 @@
     const pending = [];
     const onFrame = f => {
       level = (f.e[0] + f.e[1] + f.e[2] + f.e[3]) / 4;
+      if (rec) rec.frames.push([+f.t.toFixed(3), ...f.e.map(r4), ...(f.z || [0, 0, 0, 0]).map(r4)]);
+      if (kind === "tab") { if (mus) mus.push(f); else pending.push(f); return; }
       if (cut.start == null) cut.start = f.t;
       const since = f.t - cut.start;
       if (since < 0.6) cut.ref.push(level);
@@ -150,6 +168,8 @@
       }
       if (mus) mus.push(f); else pending.push(f);
     };
+    rec = { version: 1, source: kind === "tab" ? "onglet" : "micro", date: new Date().toISOString(),
+      frameDur: null, frames: [], taps: [] };
     try {
       // Lecture directe du micro si possible (aucun son produit par la page), sinon moteur audio.
       capture = await BS.openMicFrames(cap.stream, onFrame);
@@ -157,16 +177,23 @@
     } catch (err) {
       cap.stream.getTracks().forEach(t => t.stop());
       capture = null;
+      rec = null;
       return setStatus(`Impossible d'analyser le son : ${err.message}`, true);
     }
+    rec.frameDur = capture.frameDur;
     mus = newAnalyzer(capture.frameDur, true);
     pending.forEach(f => mus.push(f));
+    listenKind = kind;
+    cap.stream.getAudioTracks().forEach(t => t.addEventListener("ended", () => { if (capture) stopListening(); }));
     renderLiveMap();
     if (!cut.shown) setStatus("À l'écoute. Le tempo et les comptes apparaissent quand un rythme est bien audible.");
     $("listen").textContent = "Arrêter et voir le bilan";
     $("listen").classList.add("stop");
-    $("tap-one").disabled = $("tap-phrase").disabled = false;
+    $("tap-one").disabled = $("tap-phrase").disabled = $("tap-beat").disabled = false;
     $("pick-file").disabled = true;
+    $("listen-tab").hidden = true;
+    $("learn").hidden = false;
+    $("tap-count").textContent = "Taps : aucun pour l'instant";
     try { wakeLock = await navigator.wakeLock.request("screen"); } catch {}
   }
 
@@ -179,18 +206,38 @@
     renderPosition(null);
     $("listen").textContent = "Écouter";
     $("listen").classList.remove("stop");
-    $("tap-one").disabled = $("tap-phrase").disabled = true;
+    $("tap-one").disabled = $("tap-phrase").disabled = $("tap-beat").disabled = true;
     $("pick-file").disabled = false;
+    $("listen-tab").hidden = !canTab;
+    $("learn").hidden = true;
     try { wakeLock && wakeLock.release(); } catch {}
     wakeLock = null;
     setStatus("");
-    showSummary(songs, "micro");
+    if (rec) rec.analyse = songs;
+    lastRec = rec && rec.frames.length ? rec : null;
+    rec = null;
+    showSummary(songs, listenKind === "tab" ? "onglet" : "micro");
   }
 
-  $("listen").addEventListener("click", () => (capture ? stopListening() : startListening()));
+  let listenKind = "mic", lastRec = null;
+  // Sur ordinateur (Chrome/Edge) : écouter directement l'onglet Spotify, sans micro.
+  const canTab = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && matchMedia("(pointer: fine)").matches;
+  $("listen-tab").hidden = !canTab;
+  $("listen").addEventListener("click", () => (capture ? stopListening() : startListening("mic")));
+  $("listen-tab").addEventListener("click", () => startListening("tab"));
+
+  // Clavier (sur ordinateur) : Espace = un temps, 1 = un « 1 », Entrée = un grand 1 (début de phrase).
+  window.addEventListener("keydown", e => {
+    if (!capture || e.repeat) return;
+    if (e.code === "Space") { e.preventDefault(); recordTap("temps"); }
+    else if (e.code === "Digit1" || e.code === "Numpad1" || e.key === "1" || e.key === "&") { e.preventDefault(); tap(false); }
+    else if (e.code === "Enter" || e.code === "NumpadEnter") { e.preventDefault(); tap(true); }
+  });
+  $("tap-beat").addEventListener("pointerdown", () => recordTap("temps"));
 
   function tap(phraseStart) {
     if (!mus || !capture) return;
+    recordTap(phraseStart ? "grand1" : "1");
     if (mus.tapOne(clockNow() + latency(), phraseStart)) {
       setStatus(phraseStart ? "Début de phrase recalé." : "Le 1 est recalé.");
       navigator.vibrate && navigator.vibrate(30);
@@ -324,6 +371,20 @@
       setTimeout(() => (b.textContent = b.dataset.label), 1500);
     });
     btn("Télécharger .json", () => download(new Blob([json], { type: "application/json" }), `musicalite-${stamp}.json`));
+    if (lastRec) {
+      const data = lastRec;
+      const b = btn(`Données d'apprentissage (${data.taps.length} taps)`, async () => {
+        const text = JSON.stringify(data);
+        let blob = new Blob([text], { type: "application/json" }), ext = "json";
+        if (typeof CompressionStream !== "undefined") {
+          blob = await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).blob();
+          ext = "json.gz";
+        }
+        download(blob, `apprentissage-${stamp}.${ext}`);
+      });
+      b.style.gridColumn = "1 / -1";
+      b.classList.add("primary");
+    }
     if (navigator.share) {
       const b = btn("Partager", () => navigator.share({ title: "Musicalité", text }).catch(() => {}));
       b.style.gridColumn = "1 / -1";

@@ -36,8 +36,19 @@ claire sur 2 et 4) et garde la plus cohérente. Si l'écoute a commencé en cour
 grand 1 ne peut se déduire qu'au prochain changement : l'appli affiche « Phrase ? » pendant les
 deux premières phrases ; le compte de 1 à 8 reste affiché.
 
+## Apprendre sur ta musique (ordinateur)
+
+Sur PC, avec Chrome ou Edge : ouvre ta playlist sur open.spotify.com, puis dans Musicalité
+« Écouter l'onglet Spotify » (choisis l'onglet et coche « Partager aussi l'audio de l'onglet » ;
+la musique continue de jouer normalement). Pendant l'écoute, tape en rythme :
+**Espace** sur chaque temps, **1** sur chaque 1, **Entrée** sur chaque grand 1.
+En fin d'écoute, « Données d'apprentissage » télécharge un fichier (empreinte rythmique +
+taps, sans l'audio) à déposer dans le dossier `apprentissage/` du dépôt.
+`outils/evaluer.html` compare l'analyse à tes taps.
+
 ## Code
 
 - `js/analysis.js` : bandes de fréquence, attaques, tempo, lecture du micro.
 - `js/musicality.js` : analyse de musicalité (comptes, phrases, calage des grands 1, sections, événements, bilan).
 - `musicalite/` : interface de l'appli (web app installable), dont `map.js` pour la frise.
+- `outils/evaluer.html` : rejoue des données d'apprentissage et note l'analyse par rapport aux taps.

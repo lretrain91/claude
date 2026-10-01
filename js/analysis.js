@@ -189,35 +189,31 @@
 
   const loadedCtx = new WeakSet();
 
-  // Ouvre la source audio. `kind` : "tab" (partage d'onglet / d'écran) ou "mic".
-  // mode "delay"   : on peut couper le son d'origine et le rejouer en retard → notes exactes.
-  // mode "predict" : on entend la musique en direct → on prédit la mesure suivante.
+  // Ouvre la source audio. `kind` : "mic" (micro) ou "tab" (son d'un onglet, ex. open.spotify.com
+  // dans Chrome ou Edge sur ordinateur). L'onglet continue de jouer normalement : on l'écoute en même temps.
   BS.openCapture = async function (kind) {
     const md = navigator.mediaDevices;
     const raw = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
     if (kind === "mic") {
       if (!md || !md.getUserMedia) throw new Error("micro non disponible dans ce navigateur");
       const stream = await md.getUserMedia({ audio: raw });
-      return { stream, mode: "predict", label: "micro" };
+      return { stream, label: "micro" };
     }
     if (!md || !md.getDisplayMedia) throw new Error("partage d'onglet non disponible (utilise Chrome ou Edge sur ordinateur)");
     const stream = await md.getDisplayMedia({
       video: true,
-      audio: { ...raw, suppressLocalAudioPlayback: true },
+      audio: { ...raw, suppressLocalAudioPlayback: false },
       systemAudio: "include",
       selfBrowserSurface: "exclude",
     });
     const video = stream.getVideoTracks()[0];
     const surface = video && video.getSettings().displaySurface;
     stream.getVideoTracks().forEach(t => t.stop());
-    const audio = stream.getAudioTracks()[0];
-    if (!audio) {
+    if (!stream.getAudioTracks()[0]) {
       stream.getTracks().forEach(t => t.stop());
-      throw new Error("aucun son partagé — coche « Partager aussi l'audio de l'onglet »");
+      throw new Error("aucun son partagé — choisis l'onglet Spotify et coche « Partager aussi l'audio de l'onglet »");
     }
-    const suppressed = audio.getSettings().suppressLocalAudioPlayback === true;
-    if (surface === "browser" && suppressed) return { stream, mode: "delay", label: "onglet" };
-    return { stream, mode: "predict", label: surface === "browser" ? "onglet" : "écran" };
+    return { stream, label: surface === "browser" ? "onglet" : "écran" };
   };
 
   // Filtre biquad (mêmes formules que le BiquadFilterNode du Web Audio).
