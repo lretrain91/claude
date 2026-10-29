@@ -159,6 +159,30 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .biome { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--verdigris); }
 @media (max-width: 860px) { .mapwrap { grid-template-columns: 1fr; } .mapbox { height: clamp(340px, 62vh, 560px); } }
 
+/* Themes */
+.modal-card.wide { width: min(780px, 100%); }
+.themes:empty, .tsec .status:empty { display: none; }
+.tsec { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.theme { display: grid; gap: 6px; text-align: left; background: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px; cursor: pointer; min-width: 0; align-content: start; }
+.theme:hover:not(:disabled) { border-color: var(--verdigris); }
+.theme:disabled { cursor: default; }
+.theme b { font-weight: 700; }
+.theme small { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.swatches { display: flex; height: 22px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+.swatches span { flex: 1; }
+.mini { display: inline-flex; vertical-align: -1px; margin-right: 6px; border-radius: 3px; overflow: hidden; }
+.mini i { width: 7px; height: 12px; display: block; }
+.themebar { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.themebar .swatches { width: 120px; flex: none; }
+.themebar b { font-weight: 700; }
+.drop { border: 1px dashed var(--line); border-radius: 8px; padding: 18px; text-align: center; color: var(--muted); cursor: pointer; display: block; }
+.drop.over, .drop:hover { border-color: var(--verdigris); color: var(--fg); }
+.refs { display: flex; flex-wrap: wrap; gap: 8px; }
+.refs img { width: 92px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); display: block; }
+.field input[type="color"] { width: 46px; height: 36px; padding: 2px; }
+@media (max-width: 560px) { .themebar .swatches { width: 70px; } }
+
 /* Drawer */
 .scrim { position: fixed; inset: 0; background: rgba(5, 8, 11, .6); z-index: 40; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--plate); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; display: grid; align-content: start;
@@ -241,7 +265,8 @@ const EXAMPLE = {
   id: "w_example", example: true,
   name: "Vasterre, la Mer Figée",
   genre: "Dark fantasy", tone: "Mélancolique, survie, merveilleux froid",
-  artStyle: "peinture numérique, palette bleu nuit et laiton, brume, lumière de lanterne",
+  artStyle: "moody digital painting, frozen sea, lantern light, cold mist, blue night and brass tones",
+  themeName: "Nuit de givre", themeDesc: "Peinture numérique brumeuse, bleu nuit et lueurs de laiton.", palette: ["#0f1a24", "#2f5566", "#9fc3cf", "#c9a35a", "#e6e0d2"], svgGuide: "ciel en dégradé bleu nuit, brume en couches semi-transparentes, une seule lueur chaude de lanterne",
   pitch: "Il y a trois siècles, l'océan de Vasterre a gelé en une seule nuit. Les îles sont devenues des montagnes au milieu d'une plaine de glace, et sous la glace, quelque chose respire encore.",
   eras: [
     { name: "L'Âge des Marées", desc: "Archipel marchand, cités-ports rivales, culte de la Mère-Houle." },
@@ -271,6 +296,8 @@ const EXAMPLE = {
 /* ---------- state & storage ---------- */
 let worlds = [];            // array of world objects
 let sketches = {};          // entityId -> svg string
+let refs = {};              // worldId -> [small JPEG data URLs] used as style references
+let imgLimits = null;
 let currentId = null;
 let tab = "map";
 let sample = null, db = null, userId = null, downloads = null;
@@ -278,8 +305,8 @@ const LS = "forge-de-lore-v1";
 
 const cur = () => worlds.find(w => w.id === currentId) || worlds[0];
 
-function lsSave() { try { localStorage.setItem(LS, JSON.stringify({ worlds, sketches, currentId })); } catch {} }
-function lsLoad() { try { const d = JSON.parse(localStorage.getItem(LS) || "null"); if (d && Array.isArray(d.worlds)) { worlds = d.worlds; sketches = d.sketches || {}; currentId = d.currentId; } } catch {} }
+function lsSave() { try { localStorage.setItem(LS, JSON.stringify({ worlds, sketches, refs, currentId })); } catch {} }
+function lsLoad() { try { const d = JSON.parse(localStorage.getItem(LS) || "null"); if (d && Array.isArray(d.worlds)) { worlds = d.worlds; sketches = d.sketches || {}; refs = d.refs || {}; currentId = d.currentId; } } catch {} }
 
 const col = () => db.collection("data/users/" + userId);
 const pending = new Map();
@@ -295,6 +322,11 @@ function persistSketch(id, svg) {
   sketches[id] = svg; lsSave(); thumbs.delete(id); if (tab === "map") drawMap();
   if (db && userId) col().doc("sketch_" + id).set({ svg }).catch(e => console.warn(e));
 }
+function persistRefs(wid, list) {
+  if (list && list.length) refs[wid] = list; else delete refs[wid];
+  lsSave();
+  if (db && userId) { const ref = col().doc("refs_" + wid); (list && list.length ? ref.set({ json: JSON.stringify(list) }) : ref.delete()).catch(e => console.warn(e)); }
+}
 function deleteDoc(key) { if (db && userId) col().doc(key).delete().catch(() => {}); }
 
 async function cloudLoad() {
@@ -305,6 +337,7 @@ async function cloudLoad() {
       const v = d.data() || {};
       if (d.id.startsWith("world_")) { try { ws.push(JSON.parse(v.json)); } catch {} }
       else if (d.id.startsWith("sketch_")) sk[d.id.slice(7)] = v.svg;
+      else if (d.id.startsWith("refs_")) { try { refs[d.id.slice(5)] = JSON.parse(v.json); } catch {} }
     }
     if (ws.length) {
       const ex = worlds.find(w => w.example);
@@ -335,7 +368,8 @@ function proceduralSVG(seed, kind) {
   // stars
   for (let i = 0; i < 26; i++) s += `<circle cx="${(r(100 + i) * W).toFixed(1)}" cy="${(r(200 + i) * H).toFixed(1)}" r="${(r(300 + i) * 1.4 + .3).toFixed(2)}" fill="var(--muted)" opacity=".5"/>`;
   // emblem by kind
-  const ec = `var(--brass)`;
+  const pal = (cur() && cur().palette) || [];
+  const ec = pal[3] || `var(--brass)`;
   if (kind === "place") s += `<path d="M${cx - 16} ${cy + 10} L${cx} ${cy - 22} L${cx + 16} ${cy + 10} Z" fill="none" stroke="${ec}" stroke-width="2"/><circle cx="${cx}" cy="${cy - 30}" r="3" fill="var(--verdigris)"/>`;
   else if (kind === "character") s += `<circle cx="${cx}" cy="${cy - 10}" r="11" fill="none" stroke="${ec}" stroke-width="2"/><path d="M${cx - 18} ${cy + 22} Q${cx} ${cy - 2} ${cx + 18} ${cy + 22}" fill="none" stroke="${ec}" stroke-width="2"/>`;
   else if (kind === "story") s += `<path d="M${cx - 18} ${cy - 16} h36 v32 h-36 Z M${cx} ${cy - 16} v32" fill="none" stroke="${ec}" stroke-width="2"/>`;
@@ -418,6 +452,7 @@ function renderPlate() {
         ${w.example ? '<span class="chip example">Monde d\'exemple</span>' : ""}
         <span class="chip accent">${esc(w.genre)}</span>
         ${w.tone ? `<span class="chip">${esc(w.tone)}</span>` : ""}
+        <button class="chip" data-act="theme" title="Changer le thème graphique"><span class="mini">${(w.palette || []).map(c => `<i style="background:${safeHex(c)}"></i>`).join("")}</span>Thème : ${esc(curTheme(w).name)}</button>
       </div>
       <h2>${esc(w.name)}</h2>
       <p class="pitch">${esc(w.pitch)}</p>
@@ -443,13 +478,13 @@ function renderForge() {
   f.hidden = tab === "map";
   if (tab === "map") { f.innerHTML = ""; return; }
   if (tab === "art") {
-    const w = cur();
+    const w = cur(), t = curTheme(w), nr = (refs[w.id] || []).length;
     f.innerHTML = `
-      <div class="field hint"><label class="label" for="artStyle">Style visuel du jeu (utilisé dans tous les prompts d'image)</label>
-        <input id="artStyle" value="${esc(w.artStyle || "")}" placeholder="ex : pixel art 16 bits, aquarelle sombre, cel-shading..."></div>
-      <button class="btn" id="saveStyle">Enregistrer le style</button>
+      <div class="field hint"><span class="label">Thème graphique</span>
+        <div class="themebar">${swatches(t.palette)}<div style="min-width:0"><b>${esc(t.name)}</b> <span class="note">${esc(t.desc)}${nr ? ` · ${nr} image${nr > 1 ? "s" : ""} de référence` : ""}</span></div></div></div>
+      <button class="btn" id="themeBtn">Changer de thème</button>
       <button class="btn primary" id="sketchAll">Esquisser tout ce qui manque</button>
-      <p class="status" id="forgeStatus">Chaque élément a un prompt prêt pour Midjourney, DALL·E ou Stable Diffusion, et une esquisse vectorielle dessinée par Claude.</p>`;
+      <div class="status row" style="justify-content:space-between"><span id="forgeStatus">Chaque élément a un prompt prêt pour Midjourney, DALL·E ou Stable Diffusion, et une esquisse dessinée par Claude dans le thème choisi.</span><button class="btn small ghost" id="redrawAll">Tout redessiner avec ce thème</button></div>`;
     return;
   }
   const ph = { places: "ex : une cité souterraine tenue par des contrebandiers", characters: "ex : un antagoniste lié aux Foreurs de Nacre", stories: "ex : une quête secondaire courte autour du Phare Muet" }[tab];
@@ -661,14 +696,18 @@ async function sketch(id, btn, statusEl) {
 Sujet (${e.sub}) : ${e.title}
 Description : ${desc}
 Univers : ${w.name} — ${w.genre}, ton ${w.tone}
+Thème graphique : ${curTheme(w).name}
 Style visuel souhaité : ${w.artStyle || "atmosphérique, silhouettes, profondeur"}
+${(w.palette || []).length ? `Palette imposée : ${w.palette.join(", ")} (utilise uniquement ces couleurs, leurs nuances et transparences)` : ""}
+${w.svgGuide ? `Technique à respecter : ${w.svgGuide}` : ""}
+${refOpts(w).images ? "Les images jointes sont des références de style : imite leur technique, leur palette et leur ambiance, pas leur contenu." : ""}
 
 Contraintes techniques :
 - Un seul élément <svg> avec viewBox="0 0 400 240" et xmlns.
 - Scène composée : ciel ou fond en dégradé, plans successifs pour la profondeur, silhouettes, éclairage (halo, rayons, lueurs).
 - Utilise <linearGradient>/<radialGradient>, <path>, <polygon>, <circle>, opacité. Aucun texte, aucune image externe, aucun script.
 - Couleurs cohérentes avec le style et l'ambiance. Moins de 7000 caractères.
-Réponds uniquement avec le code SVG.`, { cache: false });
+Réponds uniquement avec le code SVG.`, { cache: false, ...refOpts(w) });
     const svg = cleanSVG(text);
     if (!svg) throw { code: "invalid_json" };
     const target = ensureEditable();
@@ -683,14 +722,14 @@ Réponds uniquement avec le code SVG.`, { cache: false });
   } finally { busy(btn, false); if (btn && document.body.contains(btn)) btn.innerHTML = btn.innerHTML.replace("Esquisser", sketches[id] ? "Redessiner" : "Esquisser"); }
 }
 
-async function sketchAll() {
-  const btn = $("#sketchAll"), st = $("#forgeStatus");
-  const todo = allEntities(cur()).filter(e => !sketches[e.id]);
+async function sketchAll(force, btn) {
+  const st = $("#forgeStatus");
+  const todo = allEntities(cur()).filter(e => force || !sketches[e.id]);
   if (!todo.length) { st.textContent = "Tout est déjà illustré."; return; }
   busy(btn, true, "Dessin en cours…");
   let i = 0;
   for (const e of todo) {
-    i++; st.className = "status"; st.textContent = `Esquisse ${i} sur ${todo.length} : ${e.title}`;
+    i++; st.textContent = `Esquisse ${i} sur ${todo.length} : ${e.title}`;
     await sketch(e.id, null, null);
     if ($("#aiWarn").hidden === false) break;
   }
@@ -784,7 +823,7 @@ async function doExport() {
   $("#exMd").onclick = () => downloads.save({ filename: name + "-bible.md", data: bible(w) }).then(closeModal, () => {});
   $("#exJson").onclick = () => {
     const sk = {}; for (const e of allEntities(w)) if (sketches[e.id]) sk[e.id] = sketches[e.id];
-    downloads.save({ filename: name + ".json", data: JSON.stringify({ forgeDeLore: 1, world: w, sketches: sk }, null, 2) }).then(closeModal, () => {});
+    downloads.save({ filename: name + ".json", data: JSON.stringify({ forgeDeLore: 1, world: w, sketches: sk, refs: refs[w.id] || [] }, null, 2) }).then(closeModal, () => {});
   };
 }
 function openExportFallback(w) {
@@ -803,11 +842,145 @@ function doImport(file) {
       const map = {}; w.id = uid("w"); w.example = false;
       for (const k of ["places", "characters", "stories"]) for (const it of (w[k] = w[k] || [])) { const n = uid(k[0]); map[it.id] = n; it.id = n; }
       worlds.push(w); currentId = w.id; persistWorld(w);
+      if (Array.isArray(d.refs)) persistRefs(w.id, d.refs.filter(u => typeof u === "string" && u.startsWith("data:image/")).slice(0, 4));
       for (const [old, svg] of Object.entries(d.sketches || {})) { const c = cleanSVG(svg); if (c && map[old]) persistSketch(map[old], c); }
       render(); toast("Monde importé");
     } catch { toast("Ce fichier n'est pas une sauvegarde de la Forge de Lore."); }
   };
   r.readAsText(file);
+}
+
+/* ---------- graphic themes ---------- */
+const THEMES = [
+  { name: "Pixel art 16 bits", desc: "Pixels nets et palette réduite, façon consoles des années 90.", style: "16-bit pixel art, limited palette, crisp pixels, SNES era game art, no anti-aliasing", palette: ["#1b1f3b", "#3e5c76", "#8cb369", "#f4a259", "#bc4b51"], guide: "aplats sans dégradés, construits uniquement avec des <rect> alignés sur une grille de 8 px, contours sombres" },
+  { name: "Aquarelle de carnet", desc: "Lavis translucides et trait d'encre, comme un carnet de voyage.", style: "loose watercolor, fine ink linework, paper texture, travel sketchbook illustration", palette: ["#f2e8d5", "#7a9e9f", "#3d4a5c", "#d9b26f", "#b5654a"], guide: "taches translucides superposées (opacité 0.3 à 0.6), contours d'encre fins et irréguliers, beaucoup de papier blanc" },
+  { name: "Gravure ancienne", desc: "Hachures sépia d'atlas du XVIIIe siècle.", style: "antique copperplate engraving, cross-hatching, sepia ink, 18th century atlas plate", palette: ["#efe3c8", "#d8c39a", "#a3865f", "#6b4f36", "#2b2118"], guide: "monochrome sépia, volumes rendus par des hachures de lignes parallèles fines, cadre ornemental" },
+  { name: "Cel-shading", desc: "Aplats francs, ombres dures et contours épais.", style: "cel-shaded, bold black outlines, flat colors with hard shadows, anime game key art", palette: ["#2d3047", "#3185fc", "#efbcd5", "#f9dc5c", "#e84855"], guide: "aplats francs, une seule teinte d'ombre dure par couleur, contours noirs épais" },
+  { name: "Low poly", desc: "Géométrie à facettes et ciel en dégradé doux.", style: "low poly 3D render, faceted geometry, soft gradient sky, isometric diorama", palette: ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51"], guide: "uniquement des polygones triangulaires à facettes, teinte légèrement différente pour chaque facette" },
+  { name: "Peinture sombre", desc: "Clair-obscur dramatique, une seule lumière chaude.", style: "dark oil painting, chiaroscuro, dramatic rim light, grimdark concept art", palette: ["#0d0d0f", "#3a2e2a", "#5e6b73", "#8c5a3c", "#c9a35a"], guide: "fond très sombre, une source de lumière chaude unique en dégradé radial, silhouettes" },
+  { name: "Néon synthwave", desc: "Lignes lumineuses magenta et cyan sur nuit profonde.", style: "neon synthwave, glowing outlines, magenta and cyan, retro-futuristic, perspective grid", palette: ["#0b0221", "#7a04eb", "#05d9e8", "#d1f7ff", "#ff2a6d"], guide: "fond nuit, lignes lumineuses (trait épais à faible opacité sous un trait fin), grille en perspective" },
+  { name: "Encre sumi-e", desc: "Lavis d'encre minimaliste avec un accent rouge.", style: "japanese sumi-e ink wash painting, minimalist, rice paper, expressive brush strokes", palette: ["#f3efe6", "#a8a8a8", "#5c5c5c", "#1a1a1a", "#b23a2e"], guide: "lavis d'encre en dégradés de gris, beaucoup de vide, un seul accent rouge" }
+];
+const THEME_SHAPE = `{"name": string (nom court en français), "desc": string (une phrase en français), "style": string (15 à 30 mots-clés en anglais pour un générateur d'images), "palette": [5 couleurs hexadécimales "#rrggbb", du plus sombre au plus clair ou par importance], "guide": string (consignes en français pour dessiner une illustration SVG dans ce style : aplats ou dégradés, traits, transparences, composition)}`;
+const safeHex = (c) => /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(String(c || "").trim()) ? String(c).trim() : "#777777";
+const hex6 = (c) => { const h = safeHex(c); return h.length === 4 ? "#" + [...h.slice(1)].map(x => x + x).join("") : h; };
+function swatches(pal) { return `<span class="swatches">${(pal && pal.length ? pal : ["#3a4652", "#56636e", "#77838c"]).map(c => `<span style="background:${safeHex(c)}"></span>`).join("")}</span>`; }
+function curTheme(w) {
+  return { name: w.themeName || (w.artStyle ? "Style personnalisé" : "Aucun thème"), desc: w.themeDesc || w.artStyle || "Choisis un thème pour harmoniser tes visuels.", style: w.artStyle || "", palette: w.palette || [], guide: w.svgGuide || "" };
+}
+function themeCard(t, attrs) { return `<button type="button" class="theme" ${attrs}>${swatches(t.palette)}<b>${esc(t.name)}</b><small>${esc(t.desc || t.style)}</small></button>`; }
+function dataURLtoBlob(u) {
+  const [h, b] = u.split(","), bin = atob(b), a = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+  return new Blob([a], { type: (h.match(/:(.*?);/) || [])[1] || "image/jpeg" });
+}
+async function shrink(file, max = 448) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", .8);
+}
+function refOpts(w) {
+  const list = refs[w.id] || [];
+  if (!imgLimits || !list.length) return {};
+  return { images: list.slice(0, imgLimits.maxCount || 4).map(dataURLtoBlob) };
+}
+function applyTheme(t, refUrls) {
+  const w = ensureEditable();
+  w.themeName = String(t.name || "Thème"); w.themeDesc = String(t.desc || ""); w.artStyle = String(t.style || "");
+  w.palette = (Array.isArray(t.palette) ? t.palette : []).map(safeHex).slice(0, 6); w.svgGuide = String(t.guide || "");
+  persistWorld(w); persistRefs(w.id, refUrls || []);
+  thumbs.clear(); closeModal(); render(); wireForge();
+  toast(`Thème « ${w.themeName} » appliqué`);
+}
+
+let themeSuggestions = [], refDraft = [], refResult = null;
+function openThemeModal() {
+  const w = cur(), t = curTheme(w), cur_refs = refs[w.id] || [], max = Math.min(4, (imgLimits && imgLimits.maxCount) || 4);
+  refDraft = []; refResult = null;
+  const m = $("#modal");
+  m.innerHTML = `<div class="modal-card wide" role="dialog" aria-label="Thème graphique">
+    <div class="drawer-head"><h2>Thème graphique</h2><button class="x" id="thClose" aria-label="Fermer">×</button></div>
+    <p class="note">Le thème fixe le style des prompts d'image, la palette et la technique des esquisses de tout le monde.</p>
+    <section class="tsec"><div class="label">Thème actuel</div><div class="themes">${themeCard(t, "disabled")}</div></section>
+    <section class="tsec">
+      <div class="row" style="justify-content:space-between"><div class="label">Proposés pour ce monde</div><button class="btn small" id="thSuggest">${themeSuggestions.length ? "Proposer d'autres thèmes" : "Proposer 4 thèmes"}</button></div>
+      <div class="themes" id="thSugg">${themeSuggestions.map((s, i) => themeCard(s, `data-sugg="${i}"`)).join("")}</div>
+      <p class="status" id="thSugStatus"></p>
+    </section>
+    <section class="tsec">
+      <div class="label">À partir d'images de référence</div>
+      ${imgLimits ? `
+        <label class="drop" id="thDrop" for="thFiles"><input type="file" id="thFiles" accept="${esc((imgLimits.mediaTypes || ["image/*"]).join(","))}" multiple hidden>
+          Dépose ou choisis 1 à ${max} images : captures de jeux, artworks, photos d'ambiance.</label>
+        <div class="refs" id="thRefs"></div>
+        <div class="row"><button class="btn primary" id="thAnalyze" disabled>Analyser le style</button></div>
+        <div class="themes" id="thRefResult"></div><p class="status" id="thRefStatus"></p>
+        ${cur_refs.length ? `<div class="row"><span class="note">Références actuelles, envoyées avec chaque esquisse :</span><button class="btn small ghost" id="thClearRefs">Retirer</button></div><div class="refs">${cur_refs.map(u => `<img src="${esc(u)}" alt="Image de référence">`).join("")}</div>` : ""}`
+      : `<p class="note">L'envoi d'images à Claude n'est pas disponible dans cet affichage. Les thèmes proposés et classiques restent utilisables.</p>`}
+    </section>
+    <section class="tsec"><div class="label">Classiques</div><div class="themes">${THEMES.map((s, i) => themeCard(s, `data-preset="${i}"`)).join("")}</div></section>
+    <section class="tsec">
+      <div class="label">Personnaliser</div>
+      <div class="field"><label class="label" for="thName">Nom</label><input id="thName" value="${esc(t.name === "Aucun thème" ? "" : t.name)}" placeholder="ex : Nuit de givre"></div>
+      <div class="field"><label class="label" for="thStyle">Mots-clés de style pour les générateurs d'images</label><textarea id="thStyle" rows="2" placeholder="ex : moody digital painting, cold mist, lantern light">${esc(t.style)}</textarea></div>
+      <div class="field"><span class="label">Palette</span><div class="row">${[0, 1, 2, 3, 4].map(i => `<input type="color" id="thC${i}" aria-label="Couleur ${i + 1}" value="${hex6(t.palette[i] || ["#1b2630", "#3e5c76", "#8aa3a8", "#c9a35a", "#e6e0d2"][i])}">`).join("")}</div></div>
+      <div class="field"><label class="label" for="thGuide">Technique des esquisses</label><textarea id="thGuide" rows="2" placeholder="ex : aplats sans dégradés, contours épais">${esc(t.guide)}</textarea></div>
+      <div class="row"><button class="btn" id="thSave">Appliquer ce thème</button></div>
+    </section>
+  </div>`;
+  m.hidden = false; $("#scrim").hidden = false;
+  $("#thClose").onclick = closeModal;
+  m.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => applyTheme(THEMES[+b.dataset.preset]));
+  const wireSugg = () => m.querySelectorAll("[data-sugg]").forEach(b => b.onclick = () => applyTheme(themeSuggestions[+b.dataset.sugg]));
+  wireSugg();
+  $("#thSave").onclick = () => applyTheme({ name: $("#thName").value.trim() || "Style personnalisé", desc: "", style: $("#thStyle").value.trim(), palette: [0, 1, 2, 3, 4].map(i => $("#thC" + i).value), guide: $("#thGuide").value.trim() }, refs[w.id]);
+  $("#thSuggest").onclick = async (e) => {
+    const btn = e.currentTarget, st = $("#thSugStatus");
+    if (!sample) { st.className = "status err"; st.textContent = "La génération par IA n'est pas disponible dans cet affichage."; return; }
+    busy(btn, true, "Réflexion…"); st.className = "status"; st.textContent = "Claude imagine des directions artistiques pour ce monde…";
+    try {
+      const out = await sample.json(`Tu es directeur artistique de jeu vidéo.\n\nCONTEXTE DU MONDE :\n${worldContext(w, 2500)}\n\nTÂCHE : propose 4 thèmes graphiques nettement différents et adaptés à ce monde (de l'audacieux au classique). Pense à ce qui rendrait le jeu reconnaissable.\nRéponds uniquement avec un tableau JSON de 4 objets de la forme :\n${THEME_SHAPE}`, { cache: false });
+      themeSuggestions = (Array.isArray(out) ? out : []).filter(x => x && x.name).slice(0, 4);
+      if (!themeSuggestions.length) throw { code: "invalid_json" };
+      $("#thSugg").innerHTML = themeSuggestions.map((s, i) => themeCard(s, `data-sugg="${i}"`)).join(""); wireSugg();
+      st.textContent = "Touche un thème pour l'appliquer.";
+    } catch (err) { st.className = "status err"; st.textContent = aiError(err); }
+    finally { busy(btn, false); }
+  };
+  if (!imgLimits) return;
+  const clr = $("#thClearRefs"); if (clr) clr.onclick = () => { persistRefs(w.id, []); openThemeModal(); toast("Références retirées"); };
+  const drop = $("#thDrop"), input = $("#thFiles");
+  const take = async (files) => {
+    const st = $("#thRefStatus");
+    const imgs = [...files].filter(f => /^image\//.test(f.type)).slice(0, max);
+    if (!imgs.length) { st.className = "status err"; st.textContent = "Choisis des fichiers image (JPEG, PNG, WebP)."; return; }
+    st.className = "status"; st.textContent = "";
+    refDraft = [];
+    for (const f of imgs) { try { refDraft.push({ file: f, url: await shrink(f) }); } catch { st.className = "status err"; st.textContent = `« ${f.name} » n'a pas pu être lue.`; } }
+    $("#thRefs").innerHTML = refDraft.map(r => `<img src="${r.url}" alt="${esc(r.file.name)}">`).join("");
+    $("#thAnalyze").disabled = !refDraft.length;
+  };
+  input.onchange = () => take(input.files);
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); take(e.dataTransfer.files); });
+  $("#thAnalyze").onclick = async (e) => {
+    const btn = e.currentTarget, st = $("#thRefStatus");
+    busy(btn, true, "Analyse…"); st.className = "status"; st.textContent = "Claude étudie tes images…";
+    try {
+      const t2 = await sample.json(`Tu es directeur artistique de jeu vidéo. Les ${refDraft.length} images jointes sont des références visuelles choisies par l'auteur pour le jeu « ${w.name} » (${w.genre}, ton ${w.tone}).\nAnalyse leur technique de rendu, leur palette dominante, leur lumière et leur ambiance, puis définis un thème graphique qui en reprend l'esprit et l'adapte à ce monde.\nRéponds uniquement avec un objet JSON de la forme :\n${THEME_SHAPE}`, { cache: false, images: refDraft.map(r => r.file) });
+      if (!t2 || !t2.name) throw { code: "invalid_json" };
+      refResult = t2;
+      $("#thRefResult").innerHTML = themeCard(t2, 'id="thRefApply"');
+      $("#thRefApply").onclick = () => applyTheme(refResult, refDraft.map(r => r.url));
+      st.textContent = "Touche le thème pour l'appliquer. Tes images serviront aussi de références pour chaque esquisse.";
+    } catch (err) {
+      st.className = "status err";
+      st.textContent = err && err.code === "image_rejected" ? "Une image a été refusée (format ou taille). Essaie avec d'autres fichiers." : aiError(err);
+    } finally { busy(btn, false); }
+  };
 }
 
 /* ---------- world map ---------- */
@@ -1251,10 +1424,12 @@ document.addEventListener("click", (ev) => {
   else if (t.dataset.copy) { const e = allEntities(cur()).find(x => x.id === t.dataset.copy); copy(promptFor(e, cur()), $("#pr_" + CSS.escape(e.id))); }
   else if (t.dataset.sketch) sketch(t.dataset.sketch, t, null);
   else if (t.dataset.act === "editWorld") openModal(true);
+  else if (t.dataset.act === "theme") openThemeModal();
   else if (t.dataset.act === "delWorld") {
     if (t.dataset.confirm) {
       const w = cur(); worlds = worlds.filter(x => x.id !== w.id); deleteDoc("world_" + w.id);
       for (const e of allEntities(w)) { if (sketches[e.id]) deleteDoc("sketch_" + e.id); delete sketches[e.id]; }
+      if (refs[w.id]) persistRefs(w.id, []);
       if (!worlds.length) worlds = [JSON.parse(JSON.stringify(EXAMPLE))];
       currentId = worlds[0].id; lsSave(); render(); wireForge(); toast("Monde supprimé");
     } else { t.dataset.confirm = "1"; t.textContent = "Confirmer la suppression"; }
@@ -1263,8 +1438,12 @@ document.addEventListener("click", (ev) => {
 function wireForge() {
   const g = $("#genBtn"); if (g) g.onclick = generate;
   const h = $("#hint"); if (h) h.onkeydown = (e) => { if (e.key === "Enter") generate(); };
-  const s = $("#saveStyle"); if (s) s.onclick = () => { const w = ensureEditable(); w.artStyle = $("#artStyle").value.trim(); persistWorld(w); renderList(); toast("Style enregistré"); };
-  const a = $("#sketchAll"); if (a) a.onclick = sketchAll;
+  const tb = $("#themeBtn"); if (tb) tb.onclick = openThemeModal;
+  const a = $("#sketchAll"); if (a) a.onclick = () => sketchAll(false, a);
+  const rd = $("#redrawAll"); if (rd) rd.onclick = () => {
+    if (!rd.dataset.confirm) { rd.dataset.confirm = "1"; rd.textContent = "Remplacer toutes les esquisses ?"; return; }
+    sketchAll(true, rd);
+  };
 }
 $("#worldSel").onchange = (e) => { currentId = e.target.value; lsSave(); render(); wireForge(); };
 $("#newWorldBtn").onclick = () => openModal(false);
@@ -1285,6 +1464,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw
   if (!window.claude || !claude.use) { aiOff("Ouvre cette page dans Claude pour activer la génération par IA."); return; }
   const [s, d, u, dl] = await Promise.all([claude.use("sample"), claude.use("db"), claude.use("user"), claude.use("downloads")].map(p => p.catch(() => null)));
   sample = s; downloads = dl;
+  if (sample && sample.limits) { try { const lim = await sample.limits(); imgLimits = lim && lim.images || null; } catch {} }
   if (!sample) aiOff("La génération par IA n'est pas disponible dans cet affichage. Tu peux quand même consulter et modifier ton lore.");
   if (d && u) { try { userId = await u.id(); db = d; await cloudLoad(); wireForge(); } catch (e) { console.warn(e); } }
 })();

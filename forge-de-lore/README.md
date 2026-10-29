@@ -6,6 +6,7 @@ Outil de création de lore pour jeu vidéo, propulsé par l'IA générative (Cla
 - **Lieux, personnages, histoires** : génération cohérente avec le monde existant, fiches modifiables, bouton « Approfondir », liens automatiques entre éléments.
 - **Carte interactive** : une carte du monde générée pour chaque univers (côtes, montagnes, forêts, marais), navigable comme Maps. Les lieux y apparaissent avec la miniature de leur visuel, entourés des portraits des personnages qui en sont originaires. Toucher un lieu permet de lui rattacher des personnages comme lieu d'origine ; toucher une zone vide permet d'y fonder un lieu, créé à la main ou par l'IA selon le terrain et les voisins.
 - **Illustrations** : un prompt d'image prêt pour Midjourney, DALL·E ou Stable Diffusion pour chaque élément (avec un style visuel global), et une esquisse vectorielle SVG dessinée par Claude.
+- **Thèmes graphiques** : 8 thèmes classiques (pixel art, aquarelle, gravure, cel-shading, low poly, peinture sombre, synthwave, sumi-e), 4 thèmes proposés par l'IA pour le monde en cours, ou un thème déduit d'images de référence importées (style, palette, technique). Le thème s'applique aux prompts d'image et aux esquisses ; les images de référence accompagnent chaque esquisse.
 - **Export** : bible du monde en Markdown, sauvegarde JSON réimportable.
 
 ## Utilisation
