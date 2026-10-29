@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>Forge de Lore</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an atlas at night — a world plate on top, then a ledger of tabs; cards are folio entries with a generated vignette. */
+:root {
+  --ink: #10161c;          /* page ground */
+  --plate: #17202a;        /* raised surfaces */
+  --plate-2: #1e2935;
+  --line: #2c3a48;
+  --fg: #e6e0d2;
+  --muted: #9aa6ae;
+  --verdigris: #4fb39a;    /* accent: oxidised brass */
+  --brass: #c9a35a;        /* secondary accent, used sparingly */
+  --danger: #d9766a;
+  --on-accent: #0c1512;
+  --display: "IM Fell English SC", "Cormorant SC", Georgia, serif;
+  --serif: "IM Fell English", Georgia, serif;
+  --body: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ink: #eef0ec; --plate: #f8f8f4; --plate-2: #e6e9e3; --line: #c7cec8;
+    --fg: #1a2229; --muted: #5a6670; --verdigris: #1f7a66; --brass: #8a6420;
+    --danger: #b0473a; --on-accent: #ffffff; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --ink: #eef0ec; --plate: #f8f8f4; --plate-2: #e6e9e3; --line: #c7cec8;
+  --fg: #1a2229; --muted: #5a6670; --verdigris: #1f7a66; --brass: #8a6420;
+  --danger: #b0473a; --on-accent: #ffffff; color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--ink); color: var(--fg);
+  font: 16px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 60px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 22px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; text-wrap: balance; margin: 0; letter-spacing: .01em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--verdigris); outline-offset: 2px; }
+.label { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+
+/* Top bar */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; justify-content: space-between; }
+.brand { display: flex; align-items: baseline; gap: 12px; }
+.brand h1 { font-size: 26px; }
+.brand .label { color: var(--brass); }
+.top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+select.worlds { background: var(--plate); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; max-width: 240px; }
+
+.btn { border: 1px solid var(--line); background: var(--plate); padding: 8px 14px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; line-height: 1.2; }
+.btn:hover { border-color: var(--verdigris); }
+.btn.primary { background: var(--verdigris); color: var(--on-accent); border-color: var(--verdigris); font-weight: 700; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .55; cursor: progress; }
+.btn.small { padding: 5px 10px; font-size: 14px; }
+
+/* World plate */
+.plate { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+.plate-main { padding: 26px 28px; display: grid; gap: 14px; min-width: 0; }
+.plate-main h2 { font-size: clamp(30px, 5vw, 46px); line-height: 1.05; }
+.pitch { font-family: var(--serif); font-style: italic; font-size: 19px; max-width: 62ch; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 13px/1 var(--body); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: transparent; }
+.chip.accent { color: var(--verdigris); border-color: color-mix(in srgb, var(--verdigris) 50%, transparent); }
+.chip.example { color: var(--brass); border-color: color-mix(in srgb, var(--brass) 50%, transparent); }
+button.chip { cursor: pointer; }
+button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
+.plate-art { border-left: 1px solid var(--line); background: var(--plate-2); min-height: 220px; position: relative; }
+.plate-art svg { width: 100%; height: 100%; display: block; }
+
+.eras { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 14px; }
+.era { padding-right: 14px; position: relative; min-width: 0; }
+.era::before { content: ""; position: absolute; top: -19px; left: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--brass); }
+.era h4 { margin: 4px 0 2px; font: 700 15px/1.3 var(--body); }
+.era p { margin: 0; font-size: 14px; color: var(--muted); }
+.factions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; }
+.faction h4 { margin: 0; font: 700 15px/1.3 var(--body); color: var(--verdigris); }
+.faction p { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; font-family: var(--display); font-size: 19px; color: var(--muted); white-space: nowrap; display: flex; gap: 8px; align-items: baseline; }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--verdigris); }
+.tab .count { font: 600 11px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Generator bar */
+.forge { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: end; background: var(--plate); border: 1px dashed var(--line); border-radius: 10px; padding: 14px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field input, .field select, .field textarea { background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; width: 100%; }
+.field textarea { resize: vertical; min-height: 70px; }
+.status { font-size: 14px; color: var(--muted); min-height: 1.2em; grid-column: 1 / -1; }
+.status.err { color: var(--danger); }
+
+/* Cards */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.card { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; cursor: pointer; text-align: left; padding: 0; transition: border-color .15s, transform .15s; }
+.card:hover { border-color: var(--verdigris); transform: translateY(-2px); }
+.vignette { aspect-ratio: 400 / 240; background: var(--plate-2); border-bottom: 1px solid var(--line); max-width: 100%; overflow: hidden; }
+.vignette svg { width: 100%; height: 100%; display: block; }
+.card-body { padding: 14px 16px 16px; display: grid; gap: 6px; align-content: start; }
+.card-body h3 { font-size: 22px; line-height: 1.15; }
+.card-body .sub { font: 600 11px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--brass); }
+.card-body p { margin: 0; font-size: 15px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.empty { border: 1px dashed var(--line); border-radius: 10px; padding: 28px; text-align: center; color: var(--muted); }
+
+.story { display: grid; grid-template-columns: 140px minmax(0, 1fr); }
+.story .vignette { aspect-ratio: auto; border-bottom: 0; border-right: 1px solid var(--line); }
+
+/* Illustrations tab */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.shot { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; }
+.shot-body { padding: 12px 14px 14px; display: grid; gap: 8px; }
+.prompt { font: 13px/1.5 var(--mono); background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 10px; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow: auto; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Drawer */
+.scrim { position: fixed; inset: 0; background: rgba(5, 8, 11, .6); z-index: 40; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--plate); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; display: grid; align-content: start;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.drawer .vignette { aspect-ratio: 400 / 240; }
+.drawer-body { padding: 18px 20px 28px; display: grid; gap: 14px; }
+.drawer-head { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.drawer-head input { font-family: var(--display); font-size: 28px; background: transparent; border: 0; border-bottom: 1px dashed var(--line); width: 100%; padding: 2px 0; }
+.x { background: none; border: 1px solid var(--line); border-radius: 6px; width: 36px; height: 36px; cursor: pointer; flex: none; font-size: 18px; }
+
+.modal { position: fixed; z-index: 41; inset: 0; display: grid; place-items: center; padding: 16px; pointer-events: none; }
+.modal-card { pointer-events: auto; background: var(--plate); border: 1px solid var(--line); border-radius: 12px; width: min(560px, 100%); max-height: 92vh; overflow: auto; padding: 22px; display: grid; gap: 14px; }
+.modal-card h2 { font-size: 28px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--ink); padding: 9px 16px; border-radius: 999px; z-index: 60; font-weight: 500; }
+.note { font-size: 13px; color: var(--muted); }
+.spin { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .8s linear infinite; display: inline-block; }
+@keyframes s { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } .card { transition: none; } .card:hover { transform: none; } }
+
+@media (max-width: 760px) {
+  .plate { grid-template-columns: 1fr; }
+  .plate-art { border-left: 0; border-top: 1px solid var(--line); min-height: 0; aspect-ratio: 400 / 200; }
+  .plate-main { padding: 20px 18px; }
+  .forge { grid-template-columns: 1fr 1fr; }
+  .forge .field.hint { grid-column: 1 / -1; }
+  .story { grid-template-columns: 1fr; }
+  .story .vignette { aspect-ratio: 400 / 200; border-right: 0; border-bottom: 1px solid var(--line); }
+  .two { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>Forge de Lore</h1><span class="label">Atelier d'univers</span></div>
+    <div class="top-actions">
+      <label class="label" for="worldSel" style="position:absolute;left:-9999px">Monde</label>
+      <select id="worldSel" class="worlds"></select>
+      <button class="btn primary" id="newWorldBtn">+ Nouveau monde</button>
+      <button class="btn ghost" id="exportBtn" title="Télécharger la bible du monde">Exporter</button>
+      <button class="btn ghost" id="importBtn">Importer</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <p class="status err" id="aiWarn" hidden></p>
+
+  <section class="plate" id="plate"></section>
+
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+
+  <section id="forge" class="forge"></section>
+
+  <section id="list"></section>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Détail"></aside>
+<div class="modal" id="modal" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = (p) => p + "_" + Math.random().toString(36).slice(2, 9);
+const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2400); }
+async function copy(text, el) {
+  try { await navigator.clipboard.writeText(text); toast("Copié"); }
+  catch { if (el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } toast("Texte sélectionné, copie-le avec Ctrl+C"); }
+}
+
+/* ---------- example world ---------- */
+const EXAMPLE = {
+  id: "w_example", example: true,
+  name: "Vasterre, la Mer Figée",
+  genre: "Dark fantasy", tone: "Mélancolique, survie, merveilleux froid",
+  artStyle: "peinture numérique, palette bleu nuit et laiton, brume, lumière de lanterne",
+  pitch: "Il y a trois siècles, l'océan de Vasterre a gelé en une seule nuit. Les îles sont devenues des montagnes au milieu d'une plaine de glace, et sous la glace, quelque chose respire encore.",
+  eras: [
+    { name: "L'Âge des Marées", desc: "Archipel marchand, cités-ports rivales, culte de la Mère-Houle." },
+    { name: "La Nuit du Gel", desc: "En une nuit, la mer se fige. Les flottes sont prises dans la glace avec leurs équipages." },
+    { name: "Les Siècles Blancs", desc: "Les survivants apprennent à naviguer sur la glace en traîneaux à voile." },
+    { name: "Aujourd'hui : les Craquements", desc: "La glace se fend par endroits. Certains parlent d'un dégel, d'autres d'un réveil." }
+  ],
+  factions: [
+    { name: "La Guilde des Patineurs", desc: "Contrôle les routes de glace et le commerce entre les îles." },
+    { name: "Les Veilleurs de la Houle", desc: "Prêtres qui croient que la mer dort et qu'il ne faut jamais la réveiller." },
+    { name: "Les Foreurs de Nacre", desc: "Mineurs qui creusent vers les épaves prisonnières pour en piller les trésors." }
+  ],
+  places: [
+    { id: "p1", name: "Port-Givre", type: "Cité", region: "Île de Hautbrume", desc: "Ancien port devenu cité perchée : les quais pendent dans le vide au-dessus de la glace, reliés par des treuils. Le marché se tient dans la coque renversée d'un galion.", secrets: "La guilde y cache une carte des fissures récentes.", hooks: "Un treuil s'est rompu cette nuit, et la nacelle est revenue vide mais chaude.", imagePrompt: "" },
+    { id: "p2", name: "Le Phare Muet", type: "Ruine", region: "Plaine du Large", desc: "Un phare planté au milieu de la plaine gelée, à des jours de toute île. Sa lumière s'allume seule les nuits sans lune.", secrets: "Le gardien n'est jamais mort ; il est sous la glace, sous le phare.", hooks: "Les traîneaux qui suivent sa lumière arrivent toujours un jour plus tôt que prévu.", imagePrompt: "" },
+    { id: "p3", name: "Les Fosses de Nacre", type: "Mine", region: "Banc des Épaves", desc: "Puits creusés dans la glace jusqu'aux navires engloutis. On y descend par des échelles de corde dans une lumière bleue.", secrets: "Dans la fosse la plus profonde, la glace est tiède.", hooks: "Un foreur remonte en parlant une langue disparue.", imagePrompt: "" }
+  ],
+  characters: [
+    { id: "c1", name: "Ysolde Marrane", role: "Capitaine de traîneau", faction: "La Guilde des Patineurs", place: "Port-Givre", desc: "Quarante ans, une jambe de bois de mât, la meilleure lectrice de glace de l'archipel.", motivation: "Retrouver le navire de sa mère, pris dans le gel la Nuit du Gel.", secret: "Elle a vu le navire bouger sous la glace.", quote: "La glace ne ment jamais. Elle se tait, c'est différent.", imagePrompt: "" },
+    { id: "c2", name: "Frère Calen", role: "Veilleur de la Houle", faction: "Les Veilleurs de la Houle", place: "Le Phare Muet", desc: "Jeune prêtre envoyé seul au Phare Muet pour une pénitence dont il ne parle pas.", motivation: "Empêcher à tout prix que quiconque fore sous le phare.", secret: "Il entend une voix qui l'appelle par son nom d'enfance.", quote: "Chut. Elle dort mal ce soir.", imagePrompt: "" }
+  ],
+  stories: [
+    { id: "s1", title: "Le Dégel", kind: "Quête principale", summary: "Les fissures se multiplient. Le joueur doit découvrir si la mer va revenir ou si ce qui dort dessous se réveille, et choisir quelle faction écouter.", beats: ["Le treuil vide de Port-Givre", "La carte des fissures volée à la Guilde", "La descente dans la fosse tiède", "Le choix au pied du Phare Muet"], involves: ["Ysolde Marrane", "Frère Calen", "Port-Givre", "Le Phare Muet"], imagePrompt: "" }
+  ]
+};
+
+/* ---------- state & storage ---------- */
+let worlds = [];            // array of world objects
+let sketches = {};          // entityId -> svg string
+let currentId = null;
+let tab = "places";
+let sample = null, db = null, userId = null, downloads = null;
+const LS = "forge-de-lore-v1";
+
+const cur = () => worlds.find(w => w.id === currentId) || worlds[0];
+
+function lsSave() { try { localStorage.setItem(LS, JSON.stringify({ worlds, sketches, currentId })); } catch {} }
+function lsLoad() { try { const d = JSON.parse(localStorage.getItem(LS) || "null"); if (d && Array.isArray(d.worlds)) { worlds = d.worlds; sketches = d.sketches || {}; currentId = d.currentId; } } catch {} }
+
+const col = () => db.collection("data/users/" + userId);
+const pending = new Map();
+function persistWorld(w) {
+  lsSave();
+  if (!db || !userId || w.example) return;
+  clearTimeout(pending.get(w.id));
+  pending.set(w.id, setTimeout(() => {
+    col().doc("world_" + w.id).set({ json: JSON.stringify(w), updated: Date.now() }).catch(e => console.warn(e));
+  }, 600));
+}
+function persistSketch(id, svg) {
+  sketches[id] = svg; lsSave();
+  if (db && userId) col().doc("sketch_" + id).set({ svg }).catch(e => console.warn(e));
+}
+function deleteDoc(key) { if (db && userId) col().doc(key).delete().catch(() => {}); }
+
+async function cloudLoad() {
+  try {
+    const snap = await col().get();
+    const ws = [], sk = {};
+    for (const d of snap.docs) {
+      const v = d.data() || {};
+      if (d.id.startsWith("world_")) { try { ws.push(JSON.parse(v.json)); } catch {} }
+      else if (d.id.startsWith("sketch_")) sk[d.id.slice(7)] = v.svg;
+    }
+    if (ws.length) {
+      const ex = worlds.find(w => w.example);
+      worlds = ex ? [ex, ...ws] : ws;
+      Object.assign(sketches, sk);
+      if (!worlds.find(w => w.id === currentId)) currentId = ws[0].id;
+      render();
+    } else {
+      // first time on this account: push any local worlds up
+      for (const w of worlds) if (!w.example) persistWorld(w);
+    }
+  } catch (e) { console.warn("db load", e); }
+}
+
+/* ---------- procedural vignette (used until a sketch exists) ---------- */
+function proceduralSVG(seed, kind) {
+  const h = hash(seed);
+  const r = (n) => { let x = (h ^ Math.imul(n + 1, 2654435761)) >>> 0; x ^= x >>> 15; x = Math.imul(x, 2246822507) >>> 0; x ^= x >>> 13; return (x >>> 0) / 4294967296; };
+  const W = 400, H = 240;
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"><rect width="${W}" height="${H}" fill="var(--plate-2)"/>`;
+  // contour lines like an atlas
+  const cx = 80 + r(1) * 240, cy = 60 + r(2) * 120;
+  for (let i = 0; i < 9; i++) {
+    const rad = 18 + i * 22, pts = [];
+    for (let a = 0; a <= 24; a++) { const t = a / 24 * Math.PI * 2; const j = 1 + (r(a + i * 31) - .5) * .35; pts.push(`${(cx + Math.cos(t) * rad * 1.5 * j).toFixed(1)},${(cy + Math.sin(t) * rad * j).toFixed(1)}`); }
+    s += `<polygon points="${pts.join(" ")}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
+  }
+  // stars
+  for (let i = 0; i < 26; i++) s += `<circle cx="${(r(100 + i) * W).toFixed(1)}" cy="${(r(200 + i) * H).toFixed(1)}" r="${(r(300 + i) * 1.4 + .3).toFixed(2)}" fill="var(--muted)" opacity=".5"/>`;
+  // emblem by kind
+  const ec = `var(--brass)`;
+  if (kind === "place") s += `<path d="M${cx - 16} ${cy + 10} L${cx} ${cy - 22} L${cx + 16} ${cy + 10} Z" fill="none" stroke="${ec}" stroke-width="2"/><circle cx="${cx}" cy="${cy - 30}" r="3" fill="var(--verdigris)"/>`;
+  else if (kind === "character") s += `<circle cx="${cx}" cy="${cy - 10}" r="11" fill="none" stroke="${ec}" stroke-width="2"/><path d="M${cx - 18} ${cy + 22} Q${cx} ${cy - 2} ${cx + 18} ${cy + 22}" fill="none" stroke="${ec}" stroke-width="2"/>`;
+  else if (kind === "story") s += `<path d="M${cx - 18} ${cy - 16} h36 v32 h-36 Z M${cx} ${cy - 16} v32" fill="none" stroke="${ec}" stroke-width="2"/>`;
+  else s += `<circle cx="${cx}" cy="${cy}" r="20" fill="none" stroke="${ec}" stroke-width="2"/><path d="M${cx} ${cy - 28} v56 M${cx - 28} ${cy} h56" stroke="var(--verdigris)" stroke-width="1.5"/>`;
+  return s + "</svg>";
+}
+function vignette(id, seed, kind) { return sketches[id] || proceduralSVG(seed, kind); }
+
+/* ---------- SVG sanitising ---------- */
+function cleanSVG(raw) {
+  const m = String(raw).match(/<svg[\s\S]*<\/svg>/i);
+  if (!m) return null;
+  const doc = new DOMParser().parseFromString(m[0], "image/svg+xml");
+  const svg = doc.documentElement;
+  if (!svg || svg.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return null;
+  svg.querySelectorAll("script,foreignObject,iframe,image,audio,video,a,style").forEach(n => n.remove());
+  for (const el of [svg, ...svg.querySelectorAll("*")]) {
+    for (const at of [...el.attributes]) {
+      const n = at.name.toLowerCase(), v = at.value.trim().toLowerCase();
+      if (n.startsWith("on")) el.removeAttribute(at.name);
+      else if ((n === "href" || n === "xlink:href") && !v.startsWith("#")) el.removeAttribute(at.name);
+      else if (v.includes("javascript:") || (v.includes("url(") && !/url\(\s*['"]?#/.test(v))) el.removeAttribute(at.name);
+    }
+  }
+  svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+  svg.removeAttribute("width"); svg.removeAttribute("height");
+  // namespace ids so several sketches on one page don't collide
+  const pre = "k" + Math.random().toString(36).slice(2, 7);
+  let out = new XMLSerializer().serializeToString(svg);
+  out = out.replace(/\bid="([^"]+)"/g, `id="${pre}$1"`).replace(/url\(#([^)]+)\)/g, `url(#${pre}$1)`).replace(/href="#([^"]+)"/g, `href="#${pre}$1"`);
+  return out.length < 60000 ? out : null;
+}
+
+/* ---------- AI prompts ---------- */
+function worldContext(w, max = 5000) {
+  const parts = [
+    `MONDE : ${w.name}`, `Genre : ${w.genre}`, `Ton : ${w.tone}`, `Pitch : ${w.pitch}`,
+    `Époques : ${(w.eras || []).map(e => e.name + " — " + e.desc).join(" | ")}`,
+    `Factions : ${(w.factions || []).map(f => f.name + " — " + f.desc).join(" | ")}`,
+    `Lieux existants : ${(w.places || []).map(p => `${p.name} (${p.type}, ${p.region}) : ${p.desc.slice(0, 140)}`).join(" | ") || "aucun"}`,
+    `Personnages existants : ${(w.characters || []).map(c => `${c.name} (${c.role}, ${c.faction}, ${c.place}) : ${c.desc.slice(0, 120)}`).join(" | ") || "aucun"}`,
+    `Histoires existantes : ${(w.stories || []).map(s => `${s.title} (${s.kind}) : ${s.summary.slice(0, 140)}`).join(" | ") || "aucune"}`
+  ];
+  return parts.join("\n").slice(0, max);
+}
+const RULES = "Tu es un scénariste et worldbuilder de jeu vidéo. Écris en français, avec des détails concrets, évocateurs et jouables (accroches pour le gameplay). Évite les clichés génériques et les noms déjà existants dans le monde. Reste cohérent avec le contexte fourni.";
+
+const SCHEMAS = {
+  places: `{"name": string, "type": string (ex: Cité, Donjon, Forêt, Station...), "region": string, "desc": string (3-4 phrases sensorielles), "secrets": string, "hooks": string (une accroche de quête), "imagePrompt": string (prompt en anglais pour un générateur d'images, 40-60 mots, avec composition, lumière, ambiance)}`,
+  characters: `{"name": string, "role": string, "faction": string (une faction existante ou "Indépendant"), "place": string (un lieu existant si possible), "desc": string (apparence et attitude, 2-3 phrases), "motivation": string, "secret": string, "quote": string (une réplique caractéristique), "imagePrompt": string (prompt en anglais pour un portrait, 40-60 mots)}`,
+  stories: `{"title": string, "kind": "Quête principale" | "Quête secondaire" | "Légende" | "Événement", "summary": string (4-5 phrases), "beats": [string] (4 à 6 étapes jouables), "involves": [string] (noms de lieux et personnages existants impliqués), "imagePrompt": string (prompt en anglais pour une illustration de scène clé, 40-60 mots)}`
+};
+const NOUN = { places: "lieux", characters: "personnages", stories: "histoires" };
+
+function aiError(e) {
+  const c = e && e.code;
+  if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "capability_disabled") { aiOff("La génération est désactivée pour cette page. Autorise Claude dans les permissions de la page pour l'utiliser."); return "Génération non autorisée."; }
+  if (c === "rate_limited") return "Trop de demandes d'un coup. Réessaie dans un moment.";
+  if (c === "invalid_json") return "La réponse n'était pas exploitable. Réessaie, ou demande moins d'éléments.";
+  if (c === "refused") return "Claude a refusé cette demande. Reformule l'indication.";
+  if (c === "session_expired") return "Ta session a expiré. Reconnecte-toi à Claude.";
+  if (c === "cancelled") return "Annulé.";
+  return "La génération a échoué. Réessaie.";
+}
+function aiOff(msg) { const w = $("#aiWarn"); w.textContent = msg; w.hidden = false; }
+
+/* ---------- rendering ---------- */
+function render() { renderWorldSel(); renderPlate(); renderTabs(); renderForge(); renderList(); }
+
+function renderWorldSel() {
+  const sel = $("#worldSel");
+  sel.innerHTML = worlds.map(w => `<option value="${esc(w.id)}" ${w.id === cur().id ? "selected" : ""}>${esc(w.name)}${w.example ? " (exemple)" : ""}</option>`).join("");
+}
+
+function renderPlate() {
+  const w = cur();
+  $("#plate").innerHTML = `
+    <div class="plate-main">
+      <div class="meta">
+        ${w.example ? '<span class="chip example">Monde d\'exemple</span>' : ""}
+        <span class="chip accent">${esc(w.genre)}</span>
+        ${w.tone ? `<span class="chip">${esc(w.tone)}</span>` : ""}
+      </div>
+      <h2>${esc(w.name)}</h2>
+      <p class="pitch">${esc(w.pitch)}</p>
+      ${(w.eras || []).length ? `<div><div class="label" style="margin-bottom:22px">Chronologie</div><div class="eras">${w.eras.map(e => `<div class="era"><h4>${esc(e.name)}</h4><p>${esc(e.desc)}</p></div>`).join("")}</div></div>` : ""}
+      ${(w.factions || []).length ? `<div><div class="label" style="margin-bottom:8px">Factions</div><div class="factions">${w.factions.map(f => `<div class="faction"><h4>${esc(f.name)}</h4><p>${esc(f.desc)}</p></div>`).join("")}</div></div>` : ""}
+      <div class="row">
+        <button class="btn small" data-act="editWorld">Modifier le monde</button>
+        ${w.example ? "" : '<button class="btn small ghost danger" data-act="delWorld">Supprimer</button>'}
+      </div>
+    </div>
+    <div class="plate-art" id="plateArt">${vignette(w.id, w.name, "world")}</div>`;
+}
+
+const TABS = [["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["art", "Illustrations"]];
+function renderTabs() {
+  const w = cur();
+  const n = { places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1 };
+  $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}<span class="count">${n[k]}</span></button>`).join("");
+}
+
+function renderForge() {
+  const f = $("#forge");
+  if (tab === "art") {
+    const w = cur();
+    f.innerHTML = `
+      <div class="field hint"><label class="label" for="artStyle">Style visuel du jeu (utilisé dans tous les prompts d'image)</label>
+        <input id="artStyle" value="${esc(w.artStyle || "")}" placeholder="ex : pixel art 16 bits, aquarelle sombre, cel-shading..."></div>
+      <button class="btn" id="saveStyle">Enregistrer le style</button>
+      <button class="btn primary" id="sketchAll">Esquisser tout ce qui manque</button>
+      <p class="status" id="forgeStatus">Chaque élément a un prompt prêt pour Midjourney, DALL·E ou Stable Diffusion, et une esquisse vectorielle dessinée par Claude.</p>`;
+    return;
+  }
+  const ph = { places: "ex : une cité souterraine tenue par des contrebandiers", characters: "ex : un antagoniste lié aux Foreurs de Nacre", stories: "ex : une quête secondaire courte autour du Phare Muet" }[tab];
+  f.innerHTML = `
+    <div class="field hint"><label class="label" for="hint">Indication (facultatif)</label><input id="hint" placeholder="${esc(ph)}"></div>
+    <div class="field"><label class="label" for="count">Nombre</label><select id="count"><option>1</option><option selected>3</option><option>5</option></select></div>
+    <button class="btn primary" id="genBtn">Générer des ${NOUN[tab]}</button>
+    <p class="status" id="forgeStatus"></p>`;
+}
+
+function renderList() {
+  const w = cur(), L = $("#list");
+  if (tab === "art") return renderGallery();
+  const items = w[tab];
+  if (!items.length) { L.innerHTML = `<div class="empty">Aucun élément pour l'instant. Donne une indication ci-dessus et lance la génération, ou laisse-la vide pour laisser l'IA proposer.</div>`; return; }
+  if (tab === "stories") {
+    L.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${items.map(s => `
+      <button class="card story" data-open="${esc(s.id)}">
+        <div class="vignette">${vignette(s.id, s.title, "story")}</div>
+        <div class="card-body"><span class="sub">${esc(s.kind)}</span><h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
+          <div class="meta">${(s.involves || []).slice(0, 5).map(n => `<span class="chip">${esc(n)}</span>`).join("")}</div></div>
+      </button>`).join("")}</div>`;
+    return;
+  }
+  const kind = tab === "places" ? "place" : "character";
+  L.innerHTML = `<div class="grid">${items.map(it => `
+    <button class="card" data-open="${esc(it.id)}">
+      <div class="vignette">${vignette(it.id, it.name, kind)}</div>
+      <div class="card-body"><span class="sub">${esc(kind === "place" ? `${it.type} · ${it.region}` : `${it.role} · ${it.faction}`)}</span>
+        <h3>${esc(it.name)}</h3><p>${esc(it.desc)}</p></div>
+    </button>`).join("")}</div>`;
+}
+
+function allEntities(w) {
+  return [
+    { id: w.id, kind: "world", title: w.name, sub: "Monde", ref: w },
+    ...w.places.map(p => ({ id: p.id, kind: "place", title: p.name, sub: "Lieu", ref: p })),
+    ...w.characters.map(c => ({ id: c.id, kind: "character", title: c.name, sub: "Personnage", ref: c })),
+    ...w.stories.map(s => ({ id: s.id, kind: "story", title: s.title, sub: "Histoire", ref: s }))
+  ];
+}
+function fallbackPrompt(e, w) {
+  const style = w.artStyle || "detailed digital painting, cinematic lighting";
+  const r = e.ref;
+  if (e.kind === "world") return `Establishing shot of the world "${w.name}": ${w.pitch} Wide landscape, sense of scale, ${style}, video game key art`;
+  if (e.kind === "place") return `${r.type} called ${r.name}: ${r.desc} ${style}, environment concept art, video game`;
+  if (e.kind === "character") return `Character portrait, ${r.role}: ${r.desc} ${style}, character concept art, half body`;
+  return `Key scene from the story "${r.title}": ${r.summary} ${style}, cinematic composition`;
+}
+function promptFor(e, w) {
+  const base = (e.kind === "world" ? w.imagePrompt : e.ref.imagePrompt) || fallbackPrompt(e, w);
+  return w.artStyle && !base.toLowerCase().includes(w.artStyle.toLowerCase().slice(0, 20)) ? `${base}, ${w.artStyle}` : base;
+}
+
+function renderGallery() {
+  const w = cur();
+  $("#list").innerHTML = `<div class="gallery">${allEntities(w).map(e => `
+    <article class="shot">
+      <div class="vignette">${vignette(e.id, e.title, e.kind)}</div>
+      <div class="shot-body">
+        <div class="row" style="justify-content:space-between"><h3 style="font-size:20px">${esc(e.title)}</h3><span class="label">${e.sub}</span></div>
+        <div class="prompt" id="pr_${esc(e.id)}">${esc(promptFor(e, w))}</div>
+        <div class="row">
+          <button class="btn small" data-copy="${esc(e.id)}">Copier le prompt</button>
+          <button class="btn small" data-sketch="${esc(e.id)}">${sketches[e.id] ? "Redessiner" : "Esquisser"}</button>
+        </div>
+      </div>
+    </article>`).join("")}</div>`;
+}
+
+/* ---------- drawer (detail + edit) ---------- */
+const FIELDS = {
+  places: [["type", "Type"], ["region", "Région"], ["desc", "Description", 4], ["secrets", "Secrets", 2], ["hooks", "Accroche de quête", 2], ["imagePrompt", "Prompt image", 3]],
+  characters: [["role", "Rôle"], ["faction", "Faction"], ["place", "Lieu d'attache"], ["desc", "Description", 3], ["motivation", "Motivation", 2], ["secret", "Secret", 2], ["quote", "Réplique", 2], ["imagePrompt", "Prompt image", 3]],
+  stories: [["kind", "Type"], ["summary", "Résumé", 5], ["beats", "Étapes (une par ligne)", 5], ["involves", "Impliqués (un par ligne)", 3], ["imagePrompt", "Prompt image", 3]]
+};
+let openRef = null;
+function findItem(id) { const w = cur(); for (const k of ["places", "characters", "stories"]) { const it = w[k].find(x => x.id === id); if (it) return [k, it]; } return [null, null]; }
+
+function openDrawer(id) {
+  const [k, it] = findItem(id); if (!it) return;
+  openRef = { k, id };
+  const kind = k === "places" ? "place" : k === "characters" ? "character" : "story";
+  const nameKey = k === "stories" ? "title" : "name";
+  const d = $("#drawer");
+  d.innerHTML = `
+    <div class="vignette" id="dv">${vignette(it.id, it[nameKey], kind)}</div>
+    <div class="drawer-body">
+      <div class="drawer-head"><input id="f_${nameKey}" value="${esc(it[nameKey])}" aria-label="Nom"><button class="x" id="closeD" aria-label="Fermer">×</button></div>
+      ${linked(k, it)}
+      ${FIELDS[k].map(([f, l, rows]) => {
+        const v = Array.isArray(it[f]) ? it[f].join("\n") : (it[f] || "");
+        return `<div class="field"><label class="label" for="f_${f}">${l}</label>${rows ? `<textarea id="f_${f}" rows="${rows}">${esc(v)}</textarea>` : `<input id="f_${f}" value="${esc(v)}">`}</div>`;
+      }).join("")}
+      <div class="row">
+        <button class="btn primary" id="dSketch">${sketches[it.id] ? "Redessiner l'esquisse" : "Esquisser l'illustration"}</button>
+        <button class="btn" id="dCopy">Copier le prompt image</button>
+        <button class="btn" id="dDeepen">Approfondir</button>
+        <button class="btn ghost danger" id="dDel">Supprimer</button>
+      </div>
+      <p class="status" id="dStatus"></p>
+      <p class="note">Les modifications sont enregistrées automatiquement.</p>
+    </div>`;
+  d.hidden = false; $("#scrim").hidden = false;
+  d.scrollTop = 0;
+  d.querySelectorAll("input,textarea").forEach(el => el.addEventListener("input", () => {
+    const f = el.id.slice(2); if (!f) return;
+    it[f] = (f === "beats" || f === "involves") ? el.value.split("\n").map(s => s.trim()).filter(Boolean) : el.value;
+    persistWorld(cur()); renderListSoon();
+  }));
+  $("#closeD").onclick = closeDrawer;
+  $("#dCopy").onclick = () => copy(promptFor({ kind, ref: it }, cur()));
+  $("#dSketch").onclick = (ev) => sketch(it.id, ev.currentTarget, $("#dStatus"));
+  $("#dDeepen").onclick = (ev) => deepen(k, it, ev.currentTarget);
+  $("#dDel").onclick = () => {
+    const btn = $("#dDel");
+    if (btn.dataset.confirm) { const w = cur(); w[k] = w[k].filter(x => x.id !== it.id); delete sketches[it.id]; deleteDoc("sketch_" + it.id); persistWorld(w); closeDrawer(); render(); toast("Supprimé"); }
+    else { btn.dataset.confirm = "1"; btn.textContent = "Confirmer la suppression"; }
+  };
+  d.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => openDrawer(b.dataset.goto));
+}
+function linked(k, it) {
+  const w = cur(), names = new Map();
+  for (const p of w.places) names.set(p.name.toLowerCase(), p.id);
+  for (const c of w.characters) names.set(c.name.toLowerCase(), c.id);
+  const ids = new Set();
+  const take = (n) => { const id = n && names.get(String(n).toLowerCase()); if (id && id !== it.id) ids.add(id); };
+  if (k === "characters") take(it.place);
+  if (k === "stories") (it.involves || []).forEach(take);
+  if (k === "places") w.characters.filter(c => (c.place || "").toLowerCase() === it.name.toLowerCase()).forEach(c => ids.add(c.id));
+  for (const s of w.stories) if ((s.involves || []).some(n => n.toLowerCase() === (it.name || it.title || "").toLowerCase())) ids.add(s.id);
+  if (!ids.size) return "";
+  return `<div class="field"><span class="label">Liens</span><div class="meta">${[...ids].map(id => { const [, o] = findItem(id); return o ? `<button class="chip" data-goto="${esc(id)}">${esc(o.name || o.title)}</button>` : ""; }).join("")}</div></div>`;
+}
+let rl; function renderListSoon() { clearTimeout(rl); rl = setTimeout(() => { renderList(); renderTabs(); }, 400); }
+function closeDrawer() { $("#drawer").hidden = true; $("#scrim").hidden = true; openRef = null; }
+
+/* ---------- generation ---------- */
+function busy(btn, on, label) {
+  if (!btn) return;
+  if (on) { btn.dataset.l = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${label || "Génération…"}`; }
+  else { btn.disabled = false; btn.innerHTML = btn.dataset.l || btn.innerHTML; }
+}
+function ensureEditable() {
+  const w = cur();
+  if (!w.example) return w;
+  // Copy the example so the person's additions are saved as their own world
+  const copyW = JSON.parse(JSON.stringify(w)); copyW.id = uid("w"); copyW.example = false; copyW.name = w.name + " (ma version)";
+  worlds.push(copyW); currentId = copyW.id; persistWorld(copyW); renderWorldSel(); renderPlate();
+  toast("Copie du monde d'exemple créée pour garder tes ajouts");
+  return copyW;
+}
+
+async function generate() {
+  if (!sample) return aiOff("La génération par IA n'est pas disponible dans cet affichage.");
+  const btn = $("#genBtn"), st = $("#forgeStatus");
+  const n = Number($("#count").value), hint = $("#hint").value.trim();
+  const w = ensureEditable(), key = tab;
+  busy(btn, true); st.className = "status"; st.textContent = "Claude réfléchit à ton monde… (10 à 60 s)";
+  try {
+    const out = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w)}\n\nTÂCHE : invente ${n} nouveaux ${NOUN[key]} pour ce monde.${hint ? `\nIndication de l'auteur : ${hint}` : ""}\n\nRéponds uniquement avec un tableau JSON d'objets de la forme :\n${SCHEMAS[key]}`, { cache: false });
+    const arr = (Array.isArray(out) ? out : out && Array.isArray(out.items) ? out.items : []).filter(o => o && (o.name || o.title));
+    if (!arr.length) throw { code: "invalid_json" };
+    const pre = key === "places" ? "p" : key === "characters" ? "c" : "s";
+    for (const o of arr) {
+      const item = { id: uid(pre), ...o };
+      for (const k of Object.keys(item)) if (typeof item[k] !== "string" && !Array.isArray(item[k])) item[k] = String(item[k] ?? "");
+      if (key === "stories") { item.beats = [].concat(item.beats || []).map(String); item.involves = [].concat(item.involves || []).map(String); }
+      w[key].push(item);
+    }
+    persistWorld(w); renderTabs(); renderList();
+    st.textContent = `${arr.length} ${NOUN[key]} ajoutés. Ouvre une carte pour les retoucher ou les illustrer.`;
+  } catch (e) { st.className = "status err"; st.textContent = aiError(e); }
+  finally { busy(btn, false); }
+}
+
+async function deepen(k, it, btn) {
+  if (!sample) return;
+  const st = $("#dStatus"); const w = ensureEditable();
+  // if we copied the example, re-target the item in the copy
+  const target = w[k].find(x => x.id === it.id) || it;
+  busy(btn, true, "Approfondissement…"); st.className = "status"; st.textContent = "Claude enrichit cet élément…";
+  try {
+    const o = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w)}\n\nÉLÉMENT À APPROFONDIR :\n${JSON.stringify(target)}\n\nTÂCHE : réécris cet élément en le rendant plus riche, plus précis et plus jouable, en gardant son nom et ses idées. Ajoute des détails concrets, des liens avec les autres lieux, personnages et factions.\nRéponds uniquement avec un objet JSON de la forme :\n${SCHEMAS[k]}`, { cache: false });
+    if (!o || typeof o !== "object") throw { code: "invalid_json" };
+    for (const [key, v] of Object.entries(o)) if (key !== "id" && v != null) target[key] = Array.isArray(v) ? v.map(String) : String(v);
+    persistWorld(w); renderList(); openDrawer(target.id); toast("Élément enrichi");
+  } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
+}
+
+async function sketch(id, btn, statusEl) {
+  if (!sample) return aiOff("La génération par IA n'est pas disponible dans cet affichage.");
+  const w = cur();
+  const e = allEntities(w).find(x => x.id === id); if (!e) return;
+  busy(btn, true, "Dessin…");
+  if (statusEl) { statusEl.className = "status"; statusEl.textContent = "Claude dessine une esquisse vectorielle… (jusqu'à une minute)"; }
+  try {
+    const desc = e.kind === "world" ? w.pitch : e.kind === "story" ? e.ref.summary : e.ref.desc;
+    const { text } = await sample(`Tu es illustrateur de concept art. Dessine une illustration en SVG pour un jeu vidéo.
+Sujet (${e.sub}) : ${e.title}
+Description : ${desc}
+Univers : ${w.name} — ${w.genre}, ton ${w.tone}
+Style visuel souhaité : ${w.artStyle || "atmosphérique, silhouettes, profondeur"}
+
+Contraintes techniques :
+- Un seul élément <svg> avec viewBox="0 0 400 240" et xmlns.
+- Scène composée : ciel ou fond en dégradé, plans successifs pour la profondeur, silhouettes, éclairage (halo, rayons, lueurs).
+- Utilise <linearGradient>/<radialGradient>, <path>, <polygon>, <circle>, opacité. Aucun texte, aucune image externe, aucun script.
+- Couleurs cohérentes avec le style et l'ambiance. Moins de 7000 caractères.
+Réponds uniquement avec le code SVG.`, { cache: false });
+    const svg = cleanSVG(text);
+    if (!svg) throw { code: "invalid_json" };
+    const target = ensureEditable();
+    const realId = target.id !== w.id && e.kind === "world" ? target.id : id;
+    persistSketch(realId, svg);
+    renderPlate(); renderList();
+    if (openRef && openRef.id === id) { $("#dv").innerHTML = svg; }
+    if (statusEl) statusEl.textContent = "Esquisse ajoutée.";
+  } catch (err) {
+    const msg = err && err.code === "invalid_json" ? "Le dessin n'a pas pu être lu. Réessaie." : aiError(err);
+    if (statusEl) { statusEl.className = "status err"; statusEl.textContent = msg; } else toast(msg);
+  } finally { busy(btn, false); if (btn && document.body.contains(btn)) btn.innerHTML = btn.innerHTML.replace("Esquisser", sketches[id] ? "Redessiner" : "Esquisser"); }
+}
+
+async function sketchAll() {
+  const btn = $("#sketchAll"), st = $("#forgeStatus");
+  const todo = allEntities(cur()).filter(e => !sketches[e.id]);
+  if (!todo.length) { st.textContent = "Tout est déjà illustré."; return; }
+  busy(btn, true, "Dessin en cours…");
+  let i = 0;
+  for (const e of todo) {
+    i++; st.className = "status"; st.textContent = `Esquisse ${i} sur ${todo.length} : ${e.title}`;
+    await sketch(e.id, null, null);
+    if ($("#aiWarn").hidden === false) break;
+  }
+  busy(btn, false); st.textContent = "Esquisses terminées.";
+}
+
+/* ---------- new / edit world modal ---------- */
+const GENRES = ["Dark fantasy", "High fantasy", "Science-fiction", "Space opera", "Cyberpunk", "Steampunk", "Post-apocalyptique", "Horreur cosmique", "Mythologie", "Western", "Autre"];
+function openModal(edit) {
+  const w = edit ? cur() : null;
+  const m = $("#modal");
+  m.innerHTML = `<form class="modal-card" id="wf">
+    <h2>${edit ? "Modifier le monde" : "Forger un nouveau monde"}</h2>
+    ${edit ? "" : '<p class="note">Donne quelques idées, Claude écrit le nom, le pitch, la chronologie et les factions. Tout reste modifiable.</p>'}
+    <div class="two">
+      <div class="field"><label class="label" for="m_genre">Genre</label><select id="m_genre">${GENRES.map(g => `<option ${w && w.genre === g ? "selected" : ""}>${g}</option>`).join("")}</select></div>
+      <div class="field"><label class="label" for="m_tone">Ton</label><input id="m_tone" value="${esc(w ? w.tone : "")}" placeholder="ex : sombre, épique, absurde"></div>
+    </div>
+    <div class="field"><label class="label" for="m_name">Nom ${edit ? "" : "(facultatif)"}</label><input id="m_name" value="${esc(w ? w.name : "")}" placeholder="Laisse vide pour que l'IA le trouve"></div>
+    <div class="field"><label class="label" for="m_idea">${edit ? "Pitch" : "Idée de départ"}</label><textarea id="m_idea" rows="4" placeholder="ex : Un monde où les morts deviennent des étoiles et où l'on navigue grâce à eux">${esc(w ? w.pitch : "")}</textarea></div>
+    <div class="field"><label class="label" for="m_style">Style visuel du jeu</label><input id="m_style" value="${esc(w ? w.artStyle || "" : "")}" placeholder="ex : pixel art 16 bits, peinture à l'huile, low poly"></div>
+    ${edit ? "" : `<label class="row note"><input type="checkbox" id="m_seed" checked> Générer aussi 3 lieux, 3 personnages et une quête principale</label>`}
+    <p class="status" id="m_status"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" class="btn ghost" id="m_cancel">Annuler</button>
+      <button type="submit" class="btn primary" id="m_go">${edit ? "Enregistrer" : "Forger le monde"}</button>
+    </div></form>`;
+  m.hidden = false; $("#scrim").hidden = false;
+  $("#m_cancel").onclick = closeModal;
+  $("#wf").addEventListener("submit", (ev) => { ev.preventDefault(); edit ? saveWorldEdit() : forgeWorld(); });
+}
+function closeModal() { $("#modal").hidden = true; if ($("#drawer").hidden) $("#scrim").hidden = true; }
+function saveWorldEdit() {
+  const w = ensureEditable();
+  w.genre = $("#m_genre").value; w.tone = $("#m_tone").value; w.name = $("#m_name").value || w.name; w.pitch = $("#m_idea").value; w.artStyle = $("#m_style").value;
+  persistWorld(w); closeModal(); render(); toast("Monde enregistré");
+}
+async function forgeWorld() {
+  if (!sample) { $("#m_status").className = "status err"; $("#m_status").textContent = "La génération par IA n'est pas disponible dans cet affichage."; return; }
+  const btn = $("#m_go"), st = $("#m_status");
+  const genre = $("#m_genre").value, tone = $("#m_tone").value.trim(), name = $("#m_name").value.trim(), idea = $("#m_idea").value.trim(), style = $("#m_style").value.trim(), seed = $("#m_seed").checked;
+  busy(btn, true, "Forge en cours…"); st.className = "status"; st.textContent = "Claude imagine ton univers… (jusqu'à une minute)";
+  try {
+    const o = await sample.json(`${RULES}
+
+TÂCHE : crée la base du lore d'un univers de jeu vidéo original.
+Genre : ${genre}
+${tone ? "Ton : " + tone : ""}
+${name ? "Nom imposé : " + name : "Invente un nom marquant."}
+${idea ? "Idée de départ de l'auteur : " + idea : "Propose un concept fort et inattendu."}
+${seed ? `Ajoute aussi 3 lieux, 3 personnages et 1 quête principale qui s'appuient sur ce monde.` : ""}
+
+Réponds uniquement avec un objet JSON de la forme :
+{"name": string, "tone": string (3-6 mots), "pitch": string (2-3 phrases accrocheuses), "eras": [{"name": string, "desc": string}] (4 époques chronologiques, la dernière = le présent du jeu), "factions": [{"name": string, "desc": string}] (3 ou 4 factions aux intérêts opposés), "imagePrompt": string (prompt en anglais pour une illustration d'ensemble, 40-60 mots)${seed ? `, "places": [${SCHEMAS.places}], "characters": [${SCHEMAS.characters}], "stories": [${SCHEMAS.stories}]` : ""}}`, { cache: false, modelTier: "default" });
+    if (!o || !o.name) throw { code: "invalid_json" };
+    const S = (v) => String(v ?? "");
+    const w = {
+      id: uid("w"), name: S(o.name), genre, tone: S(o.tone || tone), pitch: S(o.pitch), artStyle: style, imagePrompt: S(o.imagePrompt),
+      eras: (o.eras || []).map(e => ({ name: S(e.name), desc: S(e.desc) })),
+      factions: (o.factions || []).map(f => ({ name: S(f.name), desc: S(f.desc) })),
+      places: (o.places || []).map(p => ({ id: uid("p"), ...p })),
+      characters: (o.characters || []).map(c => ({ id: uid("c"), ...c })),
+      stories: (o.stories || []).map(s => ({ id: uid("s"), ...s, beats: [].concat(s.beats || []).map(String), involves: [].concat(s.involves || []).map(String) }))
+    };
+    worlds.push(w); currentId = w.id; tab = "places";
+    persistWorld(w); closeModal(); render(); toast("Monde forgé");
+  } catch (e) { st.className = "status err"; st.textContent = aiError(e); }
+  finally { busy(btn, false); }
+}
+
+/* ---------- export / import ---------- */
+function bible(w) {
+  const L = [`# ${w.name}`, "", `*${w.genre} — ${w.tone}*`, "", w.pitch, "", "## Chronologie", ...w.eras.map(e => `- **${e.name}** : ${e.desc}`), "", "## Factions", ...w.factions.map(f => `- **${f.name}** : ${f.desc}`), "", "## Lieux"];
+  for (const p of w.places) L.push("", `### ${p.name}`, `*${p.type} · ${p.region}*`, "", p.desc, "", `**Secrets** : ${p.secrets}`, "", `**Accroche** : ${p.hooks}`, "", `> Prompt image : ${promptFor({ kind: "place", ref: p }, w)}`);
+  L.push("", "## Personnages");
+  for (const c of w.characters) L.push("", `### ${c.name}`, `*${c.role} · ${c.faction} · ${c.place}*`, "", c.desc, "", `**Motivation** : ${c.motivation}`, "", `**Secret** : ${c.secret}`, "", `« ${c.quote} »`, "", `> Prompt image : ${promptFor({ kind: "character", ref: c }, w)}`);
+  L.push("", "## Histoires");
+  for (const s of w.stories) L.push("", `### ${s.title}`, `*${s.kind}*`, "", s.summary, "", ...(s.beats || []).map((b, i) => `${i + 1}. ${b}`), "", `Impliqués : ${(s.involves || []).join(", ")}`);
+  return L.join("\n");
+}
+async function doExport() {
+  const w = cur();
+  const name = w.name.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").toLowerCase() || "monde";
+  if (!downloads) { openExportFallback(w); return; }
+  const m = $("#modal");
+  m.innerHTML = `<div class="modal-card"><h2>Exporter « ${esc(w.name)} »</h2>
+    <p class="note">La bible en Markdown se lit partout (Notion, Obsidian, Word). Le fichier JSON se réimporte ici, esquisses comprises.</p>
+    <div class="row"><button class="btn primary" id="exMd">Bible (.md)</button><button class="btn" id="exJson">Sauvegarde (.json)</button><button class="btn ghost" id="exClose">Fermer</button></div></div>`;
+  m.hidden = false; $("#scrim").hidden = false;
+  $("#exClose").onclick = closeModal;
+  $("#exMd").onclick = () => downloads.save({ filename: name + "-bible.md", data: bible(w) }).then(closeModal, () => {});
+  $("#exJson").onclick = () => {
+    const sk = {}; for (const e of allEntities(w)) if (sketches[e.id]) sk[e.id] = sketches[e.id];
+    downloads.save({ filename: name + ".json", data: JSON.stringify({ forgeDeLore: 1, world: w, sketches: sk }, null, 2) }).then(closeModal, () => {});
+  };
+}
+function openExportFallback(w) {
+  const m = $("#modal");
+  m.innerHTML = `<div class="modal-card"><h2>Bible de « ${esc(w.name)} »</h2><p class="note">Copie le texte ci-dessous.</p><div class="prompt" id="exText" style="max-height:50vh">${esc(bible(w))}</div>
+    <div class="row"><button class="btn primary" id="exCopy">Copier</button><button class="btn ghost" id="exClose">Fermer</button></div></div>`;
+  m.hidden = false; $("#scrim").hidden = false;
+  $("#exClose").onclick = closeModal; $("#exCopy").onclick = () => copy(bible(w), $("#exText"));
+}
+function doImport(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      const w = d.world; if (!w || !w.name || !Array.isArray(w.places)) throw 0;
+      const map = {}; w.id = uid("w"); w.example = false;
+      for (const k of ["places", "characters", "stories"]) for (const it of (w[k] = w[k] || [])) { const n = uid(k[0]); map[it.id] = n; it.id = n; }
+      worlds.push(w); currentId = w.id; persistWorld(w);
+      for (const [old, svg] of Object.entries(d.sketches || {})) { const c = cleanSVG(svg); if (c && map[old]) persistSketch(map[old], c); }
+      render(); toast("Monde importé");
+    } catch { toast("Ce fichier n'est pas une sauvegarde de la Forge de Lore."); }
+  };
+  r.readAsText(file);
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-act]");
+  if (!t) return;
+  if (t.dataset.tab) { tab = t.dataset.tab; renderTabs(); renderForge(); renderList(); wireForge(); }
+  else if (t.dataset.open) openDrawer(t.dataset.open);
+  else if (t.dataset.copy) { const e = allEntities(cur()).find(x => x.id === t.dataset.copy); copy(promptFor(e, cur()), $("#pr_" + CSS.escape(e.id))); }
+  else if (t.dataset.sketch) sketch(t.dataset.sketch, t, null);
+  else if (t.dataset.act === "editWorld") openModal(true);
+  else if (t.dataset.act === "delWorld") {
+    if (t.dataset.confirm) {
+      const w = cur(); worlds = worlds.filter(x => x.id !== w.id); deleteDoc("world_" + w.id);
+      for (const e of allEntities(w)) { if (sketches[e.id]) deleteDoc("sketch_" + e.id); delete sketches[e.id]; }
+      if (!worlds.length) worlds = [JSON.parse(JSON.stringify(EXAMPLE))];
+      currentId = worlds[0].id; lsSave(); render(); wireForge(); toast("Monde supprimé");
+    } else { t.dataset.confirm = "1"; t.textContent = "Confirmer la suppression"; }
+  }
+});
+function wireForge() {
+  const g = $("#genBtn"); if (g) g.onclick = generate;
+  const h = $("#hint"); if (h) h.onkeydown = (e) => { if (e.key === "Enter") generate(); };
+  const s = $("#saveStyle"); if (s) s.onclick = () => { const w = ensureEditable(); w.artStyle = $("#artStyle").value.trim(); persistWorld(w); renderList(); toast("Style enregistré"); };
+  const a = $("#sketchAll"); if (a) a.onclick = sketchAll;
+}
+$("#worldSel").onchange = (e) => { currentId = e.target.value; lsSave(); render(); wireForge(); };
+$("#newWorldBtn").onclick = () => openModal(false);
+$("#exportBtn").onclick = doExport;
+$("#importBtn").onclick = () => $("#importFile").click();
+$("#importFile").onchange = (e) => { const f = e.target.files[0]; if (f) doImport(f); e.target.value = ""; };
+$("#scrim").onclick = () => { closeDrawer(); closeModal(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
+
+/* ---------- boot ---------- */
+lsLoad();
+if (!worlds.find(w => w.example)) worlds.unshift(JSON.parse(JSON.stringify(EXAMPLE)));
+if (!worlds.find(w => w.id === currentId)) currentId = worlds[worlds.length - 1].id;
+render(); wireForge();
+
+(async () => {
+  if (!window.claude || !claude.use) { aiOff("Ouvre cette page dans Claude pour activer la génération par IA."); return; }
+  const [s, d, u, dl] = await Promise.all([claude.use("sample"), claude.use("db"), claude.use("user"), claude.use("downloads")].map(p => p.catch(() => null)));
+  sample = s; downloads = dl;
+  if (!sample) aiOff("La génération par IA n'est pas disponible dans cet affichage. Tu peux quand même consulter et modifier ton lore.");
+  if (d && u) { try { userId = await u.id(); db = d; await cloudLoad(); wireForge(); } catch (e) { console.warn(e); } }
+})();
+})();
+</script>
+
+</body>
+</html>
