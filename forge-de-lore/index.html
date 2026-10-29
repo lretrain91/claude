@@ -115,7 +115,8 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .card { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; cursor: pointer; text-align: left; padding: 0; transition: border-color .15s, transform .15s; }
 .card:hover { border-color: var(--verdigris); transform: translateY(-2px); }
 .vignette { aspect-ratio: 400 / 240; background: var(--plate-2); border-bottom: 1px solid var(--line); max-width: 100%; overflow: hidden; }
-.vignette svg { width: 100%; height: 100%; display: block; }
+.vignette svg, .vignette img, .plate-art img, .panel .thumb img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.person .face img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .card-body { padding: 14px 16px 16px; display: grid; gap: 6px; align-content: start; }
 .card-body h3 { font-size: 22px; line-height: 1.15; }
 .card-body .sub { font: 600 11px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--brass); }
@@ -244,6 +245,7 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 <aside class="drawer" id="drawer" hidden aria-label="Détail"></aside>
 <div class="modal" id="modal" hidden></div>
 <div class="toast" id="toast" hidden></div>
+<input type="file" id="imgPick" accept="image/png,image/jpeg,image/webp" hidden>
 
 <script>
 (() => {
@@ -337,6 +339,7 @@ async function cloudLoad() {
       const v = d.data() || {};
       if (d.id.startsWith("world_")) { try { ws.push(JSON.parse(v.json)); } catch {} }
       else if (d.id.startsWith("sketch_")) sk[d.id.slice(7)] = v.svg;
+      else if (d.id.startsWith("img_")) { if (typeof v.d === "string") images[d.id.slice(4)] = v.d; }
       else if (d.id.startsWith("refs_")) { try { refs[d.id.slice(5)] = JSON.parse(v.json); } catch {} }
     }
     if (ws.length) {
@@ -376,7 +379,11 @@ function proceduralSVG(seed, kind) {
   else s += `<circle cx="${cx}" cy="${cy}" r="20" fill="none" stroke="${ec}" stroke-width="2"/><path d="M${cx} ${cy - 28} v56 M${cx - 28} ${cy} h56" stroke="var(--verdigris)" stroke-width="1.5"/>`;
   return s + "</svg>";
 }
-function vignette(id, seed, kind) { return sketches[id] || proceduralSVG(seed, kind); }
+function vignette(id, seed, kind) {
+  const u = imageFor(id);
+  if (u) return `<img src="${esc(u)}" alt="" loading="lazy">`;
+  return sketches[id] || proceduralSVG(seed, kind);
+}
 
 /* ---------- SVG sanitising ---------- */
 function cleanSVG(raw) {
@@ -460,6 +467,7 @@ function renderPlate() {
       ${(w.factions || []).length ? `<div><div class="label" style="margin-bottom:8px">Factions</div><div class="factions">${w.factions.map(f => `<div class="faction"><h4>${esc(f.name)}</h4><p>${esc(f.desc)}</p></div>`).join("")}</div></div>` : ""}
       <div class="row">
         <button class="btn small" data-act="editWorld">Modifier le monde</button>
+        <button class="btn small ghost" data-import="${esc(w.id)}">${imageFor(w.id) ? "Changer l'image du monde" : "Image du monde"}</button>
         ${w.example ? "" : '<button class="btn small ghost danger" data-act="delWorld">Supprimer</button>'}
       </div>
     </div>
@@ -550,7 +558,8 @@ function renderGallery() {
         <div class="prompt" id="pr_${esc(e.id)}">${esc(promptFor(e, w))}</div>
         <div class="row">
           <button class="btn small" data-copy="${esc(e.id)}">Copier le prompt</button>
-          <button class="btn small" data-sketch="${esc(e.id)}">${sketches[e.id] ? "Redessiner" : "Esquisser"}</button>
+          <button class="btn small" data-import="${esc(e.id)}">${imageFor(e.id) ? "Remplacer l'image" : "Importer une image"}</button>
+          ${imageFor(e.id) ? "" : `<button class="btn small" data-sketch="${esc(e.id)}">${sketches[e.id] ? "Redessiner" : "Esquisser"}</button>`}
         </div>
       </div>
     </article>`).join("")}</div>`;
@@ -587,6 +596,8 @@ function openDrawer(id) {
       }).join("")}
       <div class="row">
         <button class="btn primary" id="dSketch">${sketches[it.id] ? "Redessiner l'esquisse" : "Esquisser l'illustration"}</button>
+        <button class="btn" id="dImport">${imageFor(it.id) ? "Remplacer l'image" : "Importer une image"}</button>
+        ${imageFor(it.id) ? '<button class="btn ghost" id="dNoImg">Retirer l\'image</button>' : ""}
         <button class="btn" id="dCopy">Copier le prompt image</button>
         <button class="btn" id="dDeepen">Approfondir</button>
         <button class="btn ghost danger" id="dDel">Supprimer</button>
@@ -605,6 +616,8 @@ function openDrawer(id) {
   $("#closeD").onclick = closeDrawer;
   $("#dCopy").onclick = () => copy(promptFor({ kind, ref: it }, cur()));
   $("#dSketch").onclick = (ev) => sketch(it.id, ev.currentTarget, $("#dStatus"));
+  $("#dImport").onclick = () => pickImage(it.id);
+  if ($("#dNoImg")) $("#dNoImg").onclick = () => removeImage(it.id);
   $("#dDeepen").onclick = (ev) => deepen(k, it, ev.currentTarget);
   $("#dDel").onclick = () => {
     const btn = $("#dDel");
@@ -983,6 +996,61 @@ function openThemeModal() {
   };
 }
 
+/* ---------- images: imported now, generated later ---------- */
+let assets = null;
+const images = {};   // fallback data URLs (when the asset store is unavailable), by entity id
+function entityIn(w, id) {
+  if (w.id === id) return w;
+  for (const k of ["places", "characters", "stories"]) { const it = w[k].find(x => x.id === id); if (it) return it; }
+  return null;
+}
+function imageFor(id) { const e = entityIn(cur(), id); return (e && e.image) || images[id] || null; }
+const blobToDataURL = (b) => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(b); });
+async function fitImage(blob, max) {
+  const bmp = await createImageBitmap(blob);
+  if (Math.max(bmp.width, bmp.height) <= max && blob.size < 2.5e6 && /jpe?g|png|webp/.test(blob.type)) return blob;
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return await new Promise(ok => c.toBlob(ok, "image/jpeg", .88));
+}
+function refreshImageViews(id) {
+  thumbs.delete(id);
+  renderPlate(); renderTabs(); renderList(); wireForge();
+  if (openRef && openRef.id === id) openDrawer(id);
+}
+async function setImage(id, blob, source) {
+  const beforeId = cur().id, w = ensureEditable();
+  const e = entityIn(w, id === beforeId ? w.id : id); if (!e) return;
+  const small = await fitImage(blob, assets ? 1600 : 900);
+  if (assets) {
+    const r = await assets.upload(small);
+    const old = e.imageAsset;
+    e.image = r.url; e.imageAsset = r.id; e.imageSource = source || "import";
+    if (old && old !== r.id) assets.delete(old).catch(() => {});
+  } else {
+    const url = await blobToDataURL(small);
+    images[e.id] = url; delete e.image; e.imageSource = source || "import";
+    if (db && userId) col().doc("img_" + e.id).set({ d: url }).catch(err => console.warn(err));
+  }
+  persistWorld(w); refreshImageViews(e.id);
+  return e.id;
+}
+function removeImage(id) {
+  const w = ensureEditable(), e = entityIn(w, id); if (!e) return;
+  if (e.imageAsset && assets) assets.delete(e.imageAsset).catch(() => {});
+  delete e.image; delete e.imageAsset; delete e.imageSource;
+  if (images[id]) { delete images[id]; deleteDoc("img_" + id); }
+  persistWorld(w); refreshImageViews(id); toast("Image retirée");
+}
+function pickImage(id) { const i = $("#imgPick"); i.dataset.target = id; i.value = ""; i.click(); }
+$("#imgPick").onchange = async (ev) => {
+  const f = ev.target.files[0], id = ev.target.dataset.target; if (!f || !id) return;
+  toast("Import de l'image…");
+  try { await setImage(id, f, "import"); toast("Image ajoutée"); }
+  catch (err) { console.warn(err); toast(err && err.code === "not_granted" ? "Le stockage d'images n'est pas autorisé pour cette page." : "L'image n'a pas pu être importée. Essaie un JPEG ou un PNG plus léger."); }
+};
+
 /* ---------- world map ---------- */
 // World units: 1200 x 760. Scale: 100 units = 25 lieues.
 const MAP_W = 1200, MAP_H = 760, TW = 600, TH = 380, LIEUES_PER_UNIT = 0.25;
@@ -1107,8 +1175,19 @@ function factionSpots(w) {
 }
 
 /* thumbnails: the same visuals as the cards, rasterised for the canvas */
+function drawCover(ctx, img, x, y, w, h) {
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height; if (!iw || !ih) return;
+  const k = Math.max(w / iw, h / ih), sw = w / k, sh = h / k;
+  ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, x, y, w, h);
+}
 function thumbFor(id, seed, kind) {
   let t = thumbs.get(id); if (t) return t;
+  const real = imageFor(id);
+  if (real) {
+    const img = new Image(); t = { img, ready: false }; thumbs.set(id, t);
+    img.onload = () => { t.ready = true; drawMapSoon(); };
+    img.src = real; return t;
+  }
   const cs = getComputedStyle(document.documentElement);
   let svg = (sketches[id] || proceduralSVG(seed, kind)).replace(/var\(--([\w-]+)\)/g, (m, k) => cs.getPropertyValue("--" + k).trim() || "#777");
   svg = svg.replace(/<svg\b([^>]*)>/, (m, a) => `<svg${a.replace(/\s(width|height)="[^"]*"/g, "")}${/xmlns=/.test(a) ? "" : ' xmlns="http://www.w3.org/2000/svg"'} width="400" height="240">`);
@@ -1164,7 +1243,7 @@ function drawMap() {
     ctx.save(); ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
     rr(ctx, g.x, g.y, g.S, g.S, 8); ctx.fillStyle = "#17202a"; ctx.fill(); ctx.restore();
     const th = thumbFor(p.id, p.name, "place");
-    if (th.ready) { ctx.save(); rr(ctx, g.x, g.y, g.S, g.S, 8); ctx.clip(); ctx.drawImage(th.img, 80, 0, 240, 240, g.x, g.y, g.S, g.S); ctx.restore(); }
+    if (th.ready) { ctx.save(); rr(ctx, g.x, g.y, g.S, g.S, 8); ctx.clip(); drawCover(ctx, th.img, g.x, g.y, g.S, g.S); ctx.restore(); }
     rr(ctx, g.x, g.y, g.S, g.S, 8); ctx.lineWidth = sel ? 3 : 2; ctx.strokeStyle = ring; ctx.stroke();
     // portraits of characters from here
     const from = w.characters.filter(c => eqName(c.origin, p.name));
@@ -1172,7 +1251,7 @@ function drawMap() {
       const cx = g.x + g.S + 2 - k * 13, cy = g.y + 2, R = 11;
       const ct = thumbFor(c.id, c.name, "character");
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = "#17202a"; ctx.fill(); ctx.clip();
-      if (ct.ready) ctx.drawImage(ct.img, 100, 20, 200, 200, cx - R, cy - R, R * 2, R * 2);
+      if (ct.ready) drawCover(ctx, ct.img, cx - R, cy - R, R * 2, R * 2);
       ctx.restore(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.lineWidth = 1.5; ctx.strokeStyle = "#e6e0d2"; ctx.stroke();
     });
     if (from.length > 3) { ctx.font = `700 11px "Alegreya Sans", sans-serif`; ctx.fillStyle = "#e6e0d2"; ctx.textAlign = "left"; ctx.fillText("+" + (from.length - 3), g.x + g.S + 14, g.y + 6); }
@@ -1417,12 +1496,13 @@ async function genPlaceAt(pt, name, hint, btn) {
 
 /* ---------- events ---------- */
 document.addEventListener("click", (ev) => {
-  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-act]");
+  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-act]");
   if (!t) return;
   if (t.dataset.tab) { tab = t.dataset.tab; renderTabs(); renderForge(); renderList(); wireForge(); }
   else if (t.dataset.open) openDrawer(t.dataset.open);
   else if (t.dataset.copy) { const e = allEntities(cur()).find(x => x.id === t.dataset.copy); copy(promptFor(e, cur()), $("#pr_" + CSS.escape(e.id))); }
   else if (t.dataset.sketch) sketch(t.dataset.sketch, t, null);
+  else if (t.dataset.import) pickImage(t.dataset.import);
   else if (t.dataset.act === "editWorld") openModal(true);
   else if (t.dataset.act === "theme") openThemeModal();
   else if (t.dataset.act === "delWorld") {
@@ -1464,6 +1544,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw
   if (!window.claude || !claude.use) { aiOff("Ouvre cette page dans Claude pour activer la génération par IA."); return; }
   const [s, d, u, dl] = await Promise.all([claude.use("sample"), claude.use("db"), claude.use("user"), claude.use("downloads")].map(p => p.catch(() => null)));
   sample = s; downloads = dl;
+  try { assets = await claude.use("assets"); } catch { assets = null; }
   if (sample && sample.limits) { try { const lim = await sample.limits(); imgLimits = lim && lim.images || null; } catch {} }
   if (!sample) aiOff("La génération par IA n'est pas disponible dans cet affichage. Tu peux quand même consulter et modifier ton lore.");
   if (d && u) { try { userId = await u.id(); db = d; await cloudLoad(); wireForge(); } catch (e) { console.warn(e); } }
