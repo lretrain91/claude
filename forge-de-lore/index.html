@@ -42,6 +42,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   background: var(--ink); color: var(--fg);
   font: 16px/1.55 var(--body);
@@ -130,6 +131,33 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .shot-body { padding: 12px 14px 14px; display: grid; gap: 8px; }
 .prompt { font: 13px/1.5 var(--mono); background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 10px; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow: auto; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Map */
+.mapwrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.mapbox { position: relative; min-width: 0; height: clamp(380px, 68vh, 680px); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #1d3340; }
+.mapbox canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.mapbox canvas.dragging { cursor: grabbing; }
+.mapbox canvas.placing { cursor: crosshair; }
+.mapctl { position: absolute; top: 10px; right: 10px; display: grid; gap: 6px; }
+.mapctl button { width: 36px; height: 36px; border-radius: 6px; border: 1px solid var(--line); background: var(--plate); cursor: pointer; font-size: 18px; line-height: 1; }
+.mapctl button:hover { border-color: var(--verdigris); }
+.maphint { position: absolute; left: 10px; bottom: 10px; right: 56px; font-size: 13px; color: #e6e0d2; background: rgba(12, 18, 22, .72); padding: 6px 10px; border-radius: 6px; pointer-events: none; width: fit-content; max-width: calc(100% - 66px); }
+.panel { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.panel h3 { font-size: 24px; line-height: 1.1; }
+.panel p { margin: 0; font-size: 14px; color: var(--muted); }
+.panel .thumb { aspect-ratio: 400 / 240; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+.panel .thumb svg { width: 100%; height: 100%; display: block; }
+.who { display: grid; gap: 6px; }
+.person { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; background: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px 5px 5px; }
+.person .face { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; border: 1px solid var(--brass); }
+.person .face svg { width: 100%; height: 100%; display: block; }
+.person b { font-weight: 500; font-size: 14px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person small { color: var(--muted); font-size: 12px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person button { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px 6px; font-size: 16px; }
+.person button:hover { color: var(--danger); }
+.person .open { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; min-width: 0; color: inherit; }
+.biome { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--verdigris); }
+@media (max-width: 860px) { .mapwrap { grid-template-columns: 1fr; } .mapbox { height: clamp(340px, 62vh, 560px); } }
 
 /* Drawer */
 .scrim { position: fixed; inset: 0; background: rgba(5, 8, 11, .6); z-index: 40; }
@@ -232,8 +260,8 @@ const EXAMPLE = {
     { id: "p3", name: "Les Fosses de Nacre", type: "Mine", region: "Banc des Épaves", desc: "Puits creusés dans la glace jusqu'aux navires engloutis. On y descend par des échelles de corde dans une lumière bleue.", secrets: "Dans la fosse la plus profonde, la glace est tiède.", hooks: "Un foreur remonte en parlant une langue disparue.", imagePrompt: "" }
   ],
   characters: [
-    { id: "c1", name: "Ysolde Marrane", role: "Capitaine de traîneau", faction: "La Guilde des Patineurs", place: "Port-Givre", desc: "Quarante ans, une jambe de bois de mât, la meilleure lectrice de glace de l'archipel.", motivation: "Retrouver le navire de sa mère, pris dans le gel la Nuit du Gel.", secret: "Elle a vu le navire bouger sous la glace.", quote: "La glace ne ment jamais. Elle se tait, c'est différent.", imagePrompt: "" },
-    { id: "c2", name: "Frère Calen", role: "Veilleur de la Houle", faction: "Les Veilleurs de la Houle", place: "Le Phare Muet", desc: "Jeune prêtre envoyé seul au Phare Muet pour une pénitence dont il ne parle pas.", motivation: "Empêcher à tout prix que quiconque fore sous le phare.", secret: "Il entend une voix qui l'appelle par son nom d'enfance.", quote: "Chut. Elle dort mal ce soir.", imagePrompt: "" }
+    { id: "c1", name: "Ysolde Marrane", role: "Capitaine de traîneau", faction: "La Guilde des Patineurs", place: "Port-Givre", origin: "Port-Givre", desc: "Quarante ans, une jambe de bois de mât, la meilleure lectrice de glace de l'archipel.", motivation: "Retrouver le navire de sa mère, pris dans le gel la Nuit du Gel.", secret: "Elle a vu le navire bouger sous la glace.", quote: "La glace ne ment jamais. Elle se tait, c'est différent.", imagePrompt: "" },
+    { id: "c2", name: "Frère Calen", role: "Veilleur de la Houle", faction: "Les Veilleurs de la Houle", place: "Le Phare Muet", origin: "Les Fosses de Nacre", desc: "Jeune prêtre envoyé seul au Phare Muet pour une pénitence dont il ne parle pas.", motivation: "Empêcher à tout prix que quiconque fore sous le phare.", secret: "Il entend une voix qui l'appelle par son nom d'enfance.", quote: "Chut. Elle dort mal ce soir.", imagePrompt: "" }
   ],
   stories: [
     { id: "s1", title: "Le Dégel", kind: "Quête principale", summary: "Les fissures se multiplient. Le joueur doit découvrir si la mer va revenir ou si ce qui dort dessous se réveille, et choisir quelle faction écouter.", beats: ["Le treuil vide de Port-Givre", "La carte des fissures volée à la Guilde", "La descente dans la fosse tiède", "Le choix au pied du Phare Muet"], involves: ["Ysolde Marrane", "Frère Calen", "Port-Givre", "Le Phare Muet"], imagePrompt: "" }
@@ -244,7 +272,7 @@ const EXAMPLE = {
 let worlds = [];            // array of world objects
 let sketches = {};          // entityId -> svg string
 let currentId = null;
-let tab = "places";
+let tab = "map";
 let sample = null, db = null, userId = null, downloads = null;
 const LS = "forge-de-lore-v1";
 
@@ -264,7 +292,7 @@ function persistWorld(w) {
   }, 600));
 }
 function persistSketch(id, svg) {
-  sketches[id] = svg; lsSave();
+  sketches[id] = svg; lsSave(); thumbs.delete(id); if (tab === "map") drawMap();
   if (db && userId) col().doc("sketch_" + id).set({ svg }).catch(e => console.warn(e));
 }
 function deleteDoc(key) { if (db && userId) col().doc(key).delete().catch(() => {}); }
@@ -357,7 +385,7 @@ const RULES = "Tu es un scénariste et worldbuilder de jeu vidéo. Écris en fra
 
 const SCHEMAS = {
   places: `{"name": string, "type": string (ex: Cité, Donjon, Forêt, Station...), "region": string, "desc": string (3-4 phrases sensorielles), "secrets": string, "hooks": string (une accroche de quête), "imagePrompt": string (prompt en anglais pour un générateur d'images, 40-60 mots, avec composition, lumière, ambiance)}`,
-  characters: `{"name": string, "role": string, "faction": string (une faction existante ou "Indépendant"), "place": string (un lieu existant si possible), "desc": string (apparence et attitude, 2-3 phrases), "motivation": string, "secret": string, "quote": string (une réplique caractéristique), "imagePrompt": string (prompt en anglais pour un portrait, 40-60 mots)}`,
+  characters: `{"name": string, "role": string, "faction": string (une faction existante ou "Indépendant"), "place": string (lieu où il se trouve, un lieu existant si possible), "origin": string (lieu d'origine, un lieu existant si possible), "desc": string (apparence et attitude, 2-3 phrases), "motivation": string, "secret": string, "quote": string (une réplique caractéristique), "imagePrompt": string (prompt en anglais pour un portrait, 40-60 mots)}`,
   stories: `{"title": string, "kind": "Quête principale" | "Quête secondaire" | "Légende" | "Événement", "summary": string (4-5 phrases), "beats": [string] (4 à 6 étapes jouables), "involves": [string] (noms de lieux et personnages existants impliqués), "imagePrompt": string (prompt en anglais pour une illustration de scène clé, 40-60 mots)}`
 };
 const NOUN = { places: "lieux", characters: "personnages", stories: "histoires" };
@@ -403,15 +431,17 @@ function renderPlate() {
     <div class="plate-art" id="plateArt">${vignette(w.id, w.name, "world")}</div>`;
 }
 
-const TABS = [["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["art", "Illustrations"]];
+const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["art", "Illustrations"]];
 function renderTabs() {
   const w = cur();
-  const n = { places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1 };
+  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1 };
   $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}<span class="count">${n[k]}</span></button>`).join("");
 }
 
 function renderForge() {
   const f = $("#forge");
+  f.hidden = tab === "map";
+  if (tab === "map") { f.innerHTML = ""; return; }
   if (tab === "art") {
     const w = cur();
     f.innerHTML = `
@@ -433,6 +463,7 @@ function renderForge() {
 function renderList() {
   const w = cur(), L = $("#list");
   if (tab === "art") return renderGallery();
+  if (tab === "map") return renderMap();
   const items = w[tab];
   if (!items.length) { L.innerHTML = `<div class="empty">Aucun élément pour l'instant. Donne une indication ci-dessus et lance la génération, ou laisse-la vide pour laisser l'IA proposer.</div>`; return; }
   if (tab === "stories") {
@@ -493,7 +524,7 @@ function renderGallery() {
 /* ---------- drawer (detail + edit) ---------- */
 const FIELDS = {
   places: [["type", "Type"], ["region", "Région"], ["desc", "Description", 4], ["secrets", "Secrets", 2], ["hooks", "Accroche de quête", 2], ["imagePrompt", "Prompt image", 3]],
-  characters: [["role", "Rôle"], ["faction", "Faction"], ["place", "Lieu d'attache"], ["desc", "Description", 3], ["motivation", "Motivation", 2], ["secret", "Secret", 2], ["quote", "Réplique", 2], ["imagePrompt", "Prompt image", 3]],
+  characters: [["role", "Rôle"], ["faction", "Faction"], ["origin", "Lieu d'origine", "select"], ["place", "Lieu actuel"], ["desc", "Description", 3], ["motivation", "Motivation", 2], ["secret", "Secret", 2], ["quote", "Réplique", 2], ["imagePrompt", "Prompt image", 3]],
   stories: [["kind", "Type"], ["summary", "Résumé", 5], ["beats", "Étapes (une par ligne)", 5], ["involves", "Impliqués (un par ligne)", 3], ["imagePrompt", "Prompt image", 3]]
 };
 let openRef = null;
@@ -512,6 +543,11 @@ function openDrawer(id) {
       ${linked(k, it)}
       ${FIELDS[k].map(([f, l, rows]) => {
         const v = Array.isArray(it[f]) ? it[f].join("\n") : (it[f] || "");
+        if (rows === "select") {
+          const opts = cur().places.map(p => p.name);
+          if (v && !opts.includes(v)) opts.unshift(v);
+          return `<div class="field"><label class="label" for="f_${f}">${l}</label><select id="f_${f}"><option value="">Non défini</option>${opts.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></div>`;
+        }
         return `<div class="field"><label class="label" for="f_${f}">${l}</label>${rows ? `<textarea id="f_${f}" rows="${rows}">${esc(v)}</textarea>` : `<input id="f_${f}" value="${esc(v)}">`}</div>`;
       }).join("")}
       <div class="row">
@@ -525,8 +561,9 @@ function openDrawer(id) {
     </div>`;
   d.hidden = false; $("#scrim").hidden = false;
   d.scrollTop = 0;
-  d.querySelectorAll("input,textarea").forEach(el => el.addEventListener("input", () => {
+  d.querySelectorAll("input,textarea,select").forEach(el => el.addEventListener("input", () => {
     const f = el.id.slice(2); if (!f) return;
+    if (k === "places" && f === "name") { const old = it.name; for (const c of cur().characters) { if (eqName(c.origin, old)) c.origin = el.value; if (eqName(c.place, old)) c.place = el.value; } }
     it[f] = (f === "beats" || f === "involves") ? el.value.split("\n").map(s => s.trim()).filter(Boolean) : el.value;
     persistWorld(cur()); renderListSoon();
   }));
@@ -547,9 +584,9 @@ function linked(k, it) {
   for (const c of w.characters) names.set(c.name.toLowerCase(), c.id);
   const ids = new Set();
   const take = (n) => { const id = n && names.get(String(n).toLowerCase()); if (id && id !== it.id) ids.add(id); };
-  if (k === "characters") take(it.place);
+  if (k === "characters") { take(it.origin); take(it.place); }
   if (k === "stories") (it.involves || []).forEach(take);
-  if (k === "places") w.characters.filter(c => (c.place || "").toLowerCase() === it.name.toLowerCase()).forEach(c => ids.add(c.id));
+  if (k === "places") w.characters.filter(c => [c.place, c.origin].some(v => (v || "").toLowerCase() === it.name.toLowerCase())).forEach(c => ids.add(c.id));
   for (const s of w.stories) if ((s.involves || []).some(n => n.toLowerCase() === (it.name || it.title || "").toLowerCase())) ids.add(s.id);
   if (!ids.size) return "";
   return `<div class="field"><span class="label">Liens</span><div class="meta">${[...ids].map(id => { const [, o] = findItem(id); return o ? `<button class="chip" data-goto="${esc(id)}">${esc(o.name || o.title)}</button>` : ""; }).join("")}</div></div>`;
@@ -584,12 +621,14 @@ async function generate() {
     const arr = (Array.isArray(out) ? out : out && Array.isArray(out.items) ? out.items : []).filter(o => o && (o.name || o.title));
     if (!arr.length) throw { code: "invalid_json" };
     const pre = key === "places" ? "p" : key === "characters" ? "c" : "s";
+    const added = [];
     for (const o of arr) {
       const item = { id: uid(pre), ...o };
       for (const k of Object.keys(item)) if (typeof item[k] !== "string" && !Array.isArray(item[k])) item[k] = String(item[k] ?? "");
       if (key === "stories") { item.beats = [].concat(item.beats || []).map(String); item.involves = [].concat(item.involves || []).map(String); }
-      w[key].push(item);
+      w[key].push(item); added.push(item);
     }
+    if (key === "places" && w.mapInit) { ensureMap(w); autoPlace(w, added); }
     persistWorld(w); renderTabs(); renderList();
     st.textContent = `${arr.length} ${NOUN[key]} ajoutés. Ouvre une carte pour les retoucher ou les illustrer.`;
   } catch (e) { st.className = "status err"; st.textContent = aiError(e); }
@@ -727,7 +766,7 @@ function bible(w) {
   const L = [`# ${w.name}`, "", `*${w.genre} — ${w.tone}*`, "", w.pitch, "", "## Chronologie", ...w.eras.map(e => `- **${e.name}** : ${e.desc}`), "", "## Factions", ...w.factions.map(f => `- **${f.name}** : ${f.desc}`), "", "## Lieux"];
   for (const p of w.places) L.push("", `### ${p.name}`, `*${p.type} · ${p.region}*`, "", p.desc, "", `**Secrets** : ${p.secrets}`, "", `**Accroche** : ${p.hooks}`, "", `> Prompt image : ${promptFor({ kind: "place", ref: p }, w)}`);
   L.push("", "## Personnages");
-  for (const c of w.characters) L.push("", `### ${c.name}`, `*${c.role} · ${c.faction} · ${c.place}*`, "", c.desc, "", `**Motivation** : ${c.motivation}`, "", `**Secret** : ${c.secret}`, "", `« ${c.quote} »`, "", `> Prompt image : ${promptFor({ kind: "character", ref: c }, w)}`);
+  for (const c of w.characters) L.push("", `### ${c.name}`, `*${c.role} · ${c.faction} · originaire de ${c.origin || "?"} · actuellement à ${c.place || "?"}*`, "", c.desc, "", `**Motivation** : ${c.motivation}`, "", `**Secret** : ${c.secret}`, "", `« ${c.quote} »`, "", `> Prompt image : ${promptFor({ kind: "character", ref: c }, w)}`);
   L.push("", "## Histoires");
   for (const s of w.stories) L.push("", `### ${s.title}`, `*${s.kind}*`, "", s.summary, "", ...(s.beats || []).map((b, i) => `${i + 1}. ${b}`), "", `Impliqués : ${(s.involves || []).join(", ")}`);
   return L.join("\n");
@@ -771,6 +810,438 @@ function doImport(file) {
   r.readAsText(file);
 }
 
+/* ---------- world map ---------- */
+// World units: 1200 x 760. Scale: 100 units = 25 lieues.
+const MAP_W = 1200, MAP_H = 760, TW = 600, TH = 380, LIEUES_PER_UNIT = 0.25;
+const PAL = { deep: [22, 40, 52], shallow: [46, 86, 102], sand: [192, 174, 126], plain: [132, 150, 92], forest: [70, 98, 60], steppe: [168, 150, 98], marsh: [88, 104, 82], hills: [126, 116, 86], mount: [106, 98, 90], snow: [226, 222, 210], line: [20, 26, 30] };
+const BIOME_NAME = { sand: "Côte", plain: "Plaine", forest: "Forêt", steppe: "Steppe", marsh: "Marais", hills: "Collines", mount: "Montagnes", snow: "Pics enneigés" };
+let mapData = null, view = null, mapKey = null, mapSel = null, mapPending = null, placingId = null, mapRO = null, raf = 0;
+const thumbs = new Map();
+
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function makeNoise(seed) {
+  const r = rng(seed), perm = new Uint8Array(512), v = new Float32Array(256), a = [...Array(256).keys()];
+  for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  for (let i = 0; i < 512; i++) perm[i] = a[i & 255];
+  for (let i = 0; i < 256; i++) v[i] = r();
+  const g = (i, j) => v[perm[perm[i & 255] + (j & 255)]];
+  const sm = t => t * t * (3 - 2 * t);
+  return (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), u = sm(x - xi), w = sm(y - yi);
+    const A = g(xi, yi), B = g(xi + 1, yi), C = g(xi, yi + 1), D = g(xi + 1, yi + 1);
+    return A + (B - A) * u + (C - A) * w + (A - B - C + D) * u * w;
+  };
+}
+const fbm = (n, x, y, oct) => { let s = 0, a = 1, t = 0, f = 1; for (let o = 0; o < oct; o++) { s += n(x * f + o * 17.3, y * f) * a; t += a; a *= .5; f *= 2.03; } return s / t; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function biomeKey(e, m) {
+  if (e < .035) return "sand";
+  if (e > .58) return "snow";
+  if (e > .42) return "mount";
+  if (e > .28) return "hills";
+  if (m > .6) return e < .1 ? "marsh" : "forest";
+  if (m < .4) return "steppe";
+  return "plain";
+}
+
+function buildMap(seed) {
+  const n1 = makeNoise(seed), n2 = makeNoise(seed + 911), n3 = makeNoise(seed + 77), r = rng(seed + 3);
+  const blobs = Array.from({ length: 2 + Math.floor(r() * 3) }, () => ({ x: .22 + r() * .56, y: .25 + r() * .5, r: .16 + r() * .2 }));
+  const elev = new Float32Array(TW * TH), moist = new Float32Array(TW * TH);
+  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
+    const nx = x / TW, ny = y / TH, i = y * TW + x;
+    const f = fbm(n1, nx * 6, ny * 3.8, 6);
+    let c = 0; for (const b of blobs) c = Math.max(c, 1 - Math.hypot((nx - b.x) * 1.58, ny - b.y) / b.r);
+    const ef = Math.min(1, Math.min(nx, 1 - nx, ny, 1 - ny) / .09);
+    elev[i] = ((f - .5) * 1.25 + c * .66 - .07) * ef - (1 - ef) * .35;
+    moist[i] = fbm(n2, nx * 4, ny * 2.6, 4);
+  }
+  const E = (x, y) => elev[clamp(y, 0, TH - 1) * TW + clamp(x, 0, TW - 1)];
+  const cv = document.createElement("canvas"); cv.width = TW; cv.height = TH;
+  const ctx = cv.getContext("2d"), id = ctx.createImageData(TW, TH), d = id.data;
+  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
+    const i = y * TW + x, e = elev[i];
+    let col;
+    const coast = (e >= 0) !== (E(x - 1, y) >= 0) || (e >= 0) !== (E(x + 1, y) >= 0) || (e >= 0) !== (E(x, y - 1) >= 0) || (e >= 0) !== (E(x, y + 1) >= 0);
+    if (e < 0) {
+      const t = Math.min(1, -e / .32);
+      col = PAL.shallow.map((v, k) => v + (PAL.deep[k] - v) * t);
+      // depth contours
+      if (Math.floor(-e * 14) !== Math.floor(-E(x + 1, y) * 14) || Math.floor(-e * 14) !== Math.floor(-E(x, y + 1) * 14)) col = col.map(v => v * 1.12);
+      if (coast) col = col.map(v => v + 30);
+    } else {
+      col = PAL[biomeKey(e, moist[i])].slice();
+      const shade = clamp((E(x - 1, y - 1) - E(x + 1, y + 1)) * 7, -.32, .32);
+      const grain = .95 + n3(x * .7, y * .7) * .1;
+      col = col.map(v => v * (1 + shade) * grain);
+      if (coast) col = PAL.line.map((v, k) => v * .7 + col[k] * .3);
+    }
+    d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+  return { seed, img: cv, elev, moist, fspots: {} };
+}
+function biomeAt(wx, wy) {
+  const ix = clamp(Math.floor(wx / 2), 0, TW - 1), iy = clamp(Math.floor(wy / 2), 0, TH - 1), i = iy * TW + ix;
+  const e = mapData.elev[i];
+  if (e < 0) return { water: true, key: "sea", name: e < -.08 ? "Haute mer" : "Eaux côtières" };
+  const key = biomeKey(e, mapData.moist[i]);
+  return { water: false, key, name: BIOME_NAME[key] };
+}
+function wantBiome(p) {
+  const t = `${p.type} ${p.name} ${p.desc}`.toLowerCase();
+  if (/port|côte|phare|plage|baie|havre|quai/.test(t)) return ["sand"];
+  if (/mine|montagne|pic|forteresse|gouffre|fosse/.test(t)) return ["mount", "hills"];
+  if (/forêt|bois|sylv/.test(t)) return ["forest"];
+  if (/marais|tourbière|vase/.test(t)) return ["marsh"];
+  if (/désert|steppe|dune/.test(t)) return ["steppe"];
+  return null;
+}
+function autoPlace(w, list) {
+  const r = rng((w.mapSeed ^ hash(list.map(p => p.id).join())) >>> 0);
+  for (const p of list) {
+    const want = wantBiome(p);
+    let best = null, bestScore = -1;
+    for (let k = 0; k < 400; k++) {
+      const x = 70 + r() * (MAP_W - 140), y = 70 + r() * (MAP_H - 120);
+      const b = biomeAt(x, y); if (b.water) continue;
+      let dmin = 1e9; for (const q of w.places) if (q.x != null && q !== p) dmin = Math.min(dmin, Math.hypot(q.x - x, q.y - y));
+      const score = Math.min(dmin, 220) + (want && want.includes(b.key) ? 120 : 0);
+      if (score > bestScore) { bestScore = score; best = [x, y]; }
+    }
+    if (best) { p.x = Math.round(best[0]); p.y = Math.round(best[1]); }
+  }
+}
+function ensureMap(w) {
+  if (w.mapSeed == null) { w.mapSeed = hash(w.id + ":map"); if (!w.example) persistWorld(w); }
+  if (!mapData || mapData.seed !== w.mapSeed) mapData = buildMap(w.mapSeed);
+  if (!w.mapInit) { autoPlace(w, w.places.filter(p => p.x == null)); w.mapInit = true; if (!w.example) persistWorld(w); }
+}
+function factionSpots(w) {
+  const n = w.factions.length; if (mapData.fspots[n]) return mapData.fspots[n];
+  const r = rng(w.mapSeed + 17), out = [];
+  for (let f = 0; f < n; f++) {
+    let best = null, bs = -1;
+    for (let k = 0; k < 300; k++) {
+      const x = 120 + r() * (MAP_W - 240), y = 90 + r() * (MAP_H - 180);
+      if (biomeAt(x, y).water) continue;
+      const dmin = out.reduce((m, o) => Math.min(m, Math.hypot(o[0] - x, o[1] - y)), 1e9);
+      if (dmin > bs) { bs = dmin; best = [x, y]; }
+    }
+    out.push(best || [MAP_W / 2, MAP_H / 2]);
+  }
+  return mapData.fspots[n] = out;
+}
+
+/* thumbnails: the same visuals as the cards, rasterised for the canvas */
+function thumbFor(id, seed, kind) {
+  let t = thumbs.get(id); if (t) return t;
+  const cs = getComputedStyle(document.documentElement);
+  let svg = (sketches[id] || proceduralSVG(seed, kind)).replace(/var\(--([\w-]+)\)/g, (m, k) => cs.getPropertyValue("--" + k).trim() || "#777");
+  svg = svg.replace(/<svg\b([^>]*)>/, (m, a) => `<svg${a.replace(/\s(width|height)="[^"]*"/g, "")}${/xmlns=/.test(a) ? "" : ' xmlns="http://www.w3.org/2000/svg"'} width="400" height="240">`);
+  const img = new Image(); t = { img, ready: false }; thumbs.set(id, t);
+  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  img.onload = () => { t.ready = true; URL.revokeObjectURL(url); drawMapSoon(); };
+  img.onerror = () => URL.revokeObjectURL(url);
+  img.src = url;
+  return t;
+}
+const eqName = (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+const toScreen = (x, y) => [x * view.s + view.x, y * view.s + view.y];
+const toWorld = (sx, sy) => [(sx - view.x) / view.s, (sy - view.y) / view.s];
+function pinBox(p) { const [sx, sy] = toScreen(p.x, p.y), S = p.id === mapSel ? 56 : 44; return { sx, sy, S, x: sx - S / 2, y: sy - S - 10 }; }
+function rr(ctx, x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+
+function drawMapSoon() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; drawMap(); }); }
+function drawMap() {
+  const cv = $("#mapCv"); if (!cv || !mapData || !view || !cv.width) return;
+  const w = cur(), dpr = window.devicePixelRatio || 1, ctx = cv.getContext("2d");
+  const cw = cv.clientWidth, ch = cv.clientHeight;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = `rgb(${PAL.deep})`; ctx.fillRect(0, 0, cv.width, cv.height);
+  // terrain
+  ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.x, dpr * view.y);
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(mapData.img, 0, 0, MAP_W, MAP_H);
+  ctx.strokeStyle = "rgba(235,228,210,.07)"; ctx.lineWidth = 1 / view.s; ctx.beginPath();
+  for (let x = 100; x < MAP_W; x += 100) { ctx.moveTo(x, 0); ctx.lineTo(x, MAP_H); }
+  for (let y = 95; y < MAP_H; y += 95) { ctx.moveTo(0, y); ctx.lineTo(MAP_W, y); }
+  ctx.stroke();
+  // faction regions, in world space so they scale with the map
+  const fa = clamp(1.4 - (view.s / view.fit) * .35, 0, .55);
+  if (fa > 0.02) {
+    ctx.font = `italic 26px "IM Fell English", Georgia, serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    try { ctx.letterSpacing = "4px"; } catch {}
+    factionSpots(w).forEach(([x, y], i) => {
+      const t = w.factions[i].name.toUpperCase();
+      ctx.lineWidth = 4 / view.s; ctx.strokeStyle = `rgba(16,22,28,${fa * .7})`; ctx.strokeText(t, x, y);
+      ctx.fillStyle = `rgba(240,232,212,${fa})`; ctx.fillText(t, x, y);
+    });
+    try { ctx.letterSpacing = "0px"; } catch {}
+  }
+  // markers, in screen space
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const placed = w.places.filter(p => p.x != null).sort((a, b) => (a.id === mapSel) - (b.id === mapSel) || a.y - b.y);
+  for (const p of placed) {
+    const g = pinBox(p);
+    if (g.sx < -80 || g.sx > cw + 80 || g.sy < -20 || g.sy > ch + 90) continue;
+    const sel = p.id === mapSel, ring = sel ? "#4fb39a" : "#c9a35a";
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(g.sx, g.sy + 2, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ring; ctx.beginPath(); ctx.moveTo(g.sx - 7, g.y + g.S - 1); ctx.lineTo(g.sx + 7, g.y + g.S - 1); ctx.lineTo(g.sx, g.sy); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+    rr(ctx, g.x, g.y, g.S, g.S, 8); ctx.fillStyle = "#17202a"; ctx.fill(); ctx.restore();
+    const th = thumbFor(p.id, p.name, "place");
+    if (th.ready) { ctx.save(); rr(ctx, g.x, g.y, g.S, g.S, 8); ctx.clip(); ctx.drawImage(th.img, 80, 0, 240, 240, g.x, g.y, g.S, g.S); ctx.restore(); }
+    rr(ctx, g.x, g.y, g.S, g.S, 8); ctx.lineWidth = sel ? 3 : 2; ctx.strokeStyle = ring; ctx.stroke();
+    // portraits of characters from here
+    const from = w.characters.filter(c => eqName(c.origin, p.name));
+    from.slice(0, 3).forEach((c, k) => {
+      const cx = g.x + g.S + 2 - k * 13, cy = g.y + 2, R = 11;
+      const ct = thumbFor(c.id, c.name, "character");
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = "#17202a"; ctx.fill(); ctx.clip();
+      if (ct.ready) ctx.drawImage(ct.img, 100, 20, 200, 200, cx - R, cy - R, R * 2, R * 2);
+      ctx.restore(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.lineWidth = 1.5; ctx.strokeStyle = "#e6e0d2"; ctx.stroke();
+    });
+    if (from.length > 3) { ctx.font = `700 11px "Alegreya Sans", sans-serif`; ctx.fillStyle = "#e6e0d2"; ctx.textAlign = "left"; ctx.fillText("+" + (from.length - 3), g.x + g.S + 14, g.y + 6); }
+    // name
+    ctx.font = `700 ${sel ? 15 : 13}px "Alegreya Sans", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(12,17,22,.85)"; ctx.lineJoin = "round"; ctx.strokeText(p.name, g.sx, g.sy + 6);
+    ctx.fillStyle = "#f1ece0"; ctx.fillText(p.name, g.sx, g.sy + 6);
+  }
+  if (mapPending) {
+    const [sx, sy] = toScreen(mapPending.x, mapPending.y);
+    ctx.strokeStyle = "#4fb39a"; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(sx, sy, 16, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(sx - 6, sy); ctx.lineTo(sx + 6, sy); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx, sy + 6); ctx.stroke();
+  }
+  // compass + scale bar
+  ctx.save(); ctx.translate(30, 34); ctx.fillStyle = "rgba(241,236,224,.85)"; ctx.strokeStyle = "rgba(12,17,22,.7)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(6, 4); ctx.lineTo(0, 0); ctx.lineTo(-6, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.font = `14px "IM Fell English SC", Georgia, serif`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("N", 0, 7); ctx.restore();
+  const steps = [5, 10, 25, 50, 100, 200], target = 110 / (view.s / LIEUES_PER_UNIT);
+  const lieues = steps.find(s => s >= target) || 200, px = lieues / LIEUES_PER_UNIT * view.s;
+  const bx = cw - 60 - px, by = 36;
+  ctx.fillStyle = "rgba(12,17,22,.72)"; rr(ctx, bx - 10, by - 24, px + 20, 32, 6); ctx.fill();
+  for (let k = 0; k < 4; k++) { ctx.fillStyle = k % 2 ? "#17202a" : "#e6e0d2"; ctx.fillRect(bx + k * px / 4, by - 4, px / 4, 5); }
+  ctx.strokeStyle = "#e6e0d2"; ctx.lineWidth = 1; ctx.strokeRect(bx, by - 4, px, 5);
+  ctx.font = `600 11px "JetBrains Mono", monospace`; ctx.fillStyle = "#e6e0d2"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(lieues + " lieues", bx + px / 2, by - 9);
+}
+
+function hitTest(sx, sy) {
+  const w = cur(); const placed = w.places.filter(p => p.x != null).sort((a, b) => (b.id === mapSel) - (a.id === mapSel) || b.y - a.y);
+  for (const p of placed) { const g = pinBox(p); if ((sx >= g.x && sx <= g.x + g.S && sy >= g.y && sy <= g.sy) || Math.hypot(sx - g.sx, sy - g.sy) < 10) return p; }
+  return null;
+}
+function fitView() {
+  const cv = $("#mapCv"), cw = cv.clientWidth, ch = cv.clientHeight;
+  const s = Math.min(cw / MAP_W, ch / MAP_H);
+  view = { s, fit: s, x: (cw - MAP_W * s) / 2, y: (ch - MAP_H * s) / 2 };
+}
+function clampView() {
+  const cv = $("#mapCv"), cw = cv.clientWidth, ch = cv.clientHeight, mw = MAP_W * view.s, mh = MAP_H * view.s;
+  view.x = mw <= cw ? (cw - mw) / 2 : clamp(view.x, cw - mw, 0);
+  view.y = mh <= ch ? (ch - mh) / 2 : clamp(view.y, ch - mh, 0);
+}
+function zoomAt(sx, sy, f) {
+  const ns = clamp(view.s * f, view.fit, view.fit * 8), [wx, wy] = toWorld(sx, sy);
+  view.s = ns; view.x = sx - wx * ns; view.y = sy - wy * ns; clampView(); drawMapSoon();
+}
+function centerOn(p) {
+  const cv = $("#mapCv"); view.s = Math.max(view.s, view.fit * 2.2);
+  view.x = cv.clientWidth / 2 - p.x * view.s; view.y = cv.clientHeight / 2 - p.y * view.s + 30; clampView();
+}
+function sizeCanvas() {
+  const cv = $("#mapCv"); if (!cv) return;
+  const dpr = window.devicePixelRatio || 1, cw = cv.clientWidth, ch = cv.clientHeight;
+  if (!cw || !ch) return;
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  if (!view) fitView();
+  else { const s = Math.min(cw / MAP_W, ch / MAP_H), k = view.s / view.fit; view.fit = s; view.s = s * k; clampView(); }
+  drawMap();
+}
+
+function renderMap() {
+  const w = cur(); ensureMap(w);
+  if (mapKey !== w.mapSeed) { view = null; mapSel = null; mapPending = null; placingId = null; mapKey = w.mapSeed; }
+  $("#list").innerHTML = `<div class="mapwrap">
+    <div class="mapbox" id="mapBox">
+      <canvas id="mapCv" role="img" aria-label="Carte de ${esc(w.name)}"></canvas>
+      <div class="mapctl"><button id="zIn" aria-label="Zoomer">+</button><button id="zOut" aria-label="Dézoomer">−</button><button id="zFit" aria-label="Recentrer la carte" title="Recentrer">⤢</button></div>
+      <div class="maphint" id="mapHint"></div>
+    </div>
+    <aside class="panel" id="mapPanel"></aside></div>`;
+  wireMap(); renderPanel(); renderTabs();
+}
+
+function wireMap() {
+  const cv = $("#mapCv"), box = $("#mapBox");
+  if (mapRO) mapRO.disconnect();
+  mapRO = new ResizeObserver(sizeCanvas); mapRO.observe(box);
+  const pts = new Map(); let start = null, moved = 0, drag = null, pinch = null;
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  cv.onpointerdown = (e) => {
+    if (!view) return;
+    try { cv.setPointerCapture(e.pointerId); } catch {}
+    pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pts.size === 1) { start = { x: e.offsetX, y: e.offsetY, vx: view.x, vy: view.y }; moved = 0; const hit = placingId ? null : hitTest(e.offsetX, e.offsetY); drag = hit ? { id: hit.id, started: false } : null; }
+    else if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: dist(a, b) || 1, s: view.s, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, vx: view.x, vy: view.y }; start = null; drag = null; moved = 99; }
+  };
+  cv.onpointermove = (e) => {
+    if (!pts.has(e.pointerId)) { if (view && !placingId) cv.style.cursor = hitTest(e.offsetX, e.offsetY) ? "pointer" : ""; return; }
+    pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pinch && pts.size >= 2) {
+      const [a, b] = [...pts.values()], ns = clamp(pinch.s * dist(a, b) / pinch.d, view.fit, view.fit * 8);
+      const wx = (pinch.mx - pinch.vx) / pinch.s, wy = (pinch.my - pinch.vy) / pinch.s, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      view.s = ns; view.x = mx - wx * ns; view.y = my - wy * ns; clampView(); drawMapSoon(); return;
+    }
+    if (!start) return;
+    const dx = e.offsetX - start.x, dy = e.offsetY - start.y; moved = Math.max(moved, Math.hypot(dx, dy));
+    if (moved < 5) return;
+    cv.classList.add("dragging");
+    if (drag) {
+      if (!drag.started) { const w = ensureEditable(); drag.p = w.places.find(p => p.id === drag.id); drag.started = true; mapSel = drag.id; }
+      const [wx, wy] = toWorld(e.offsetX, e.offsetY);
+      if (drag.p) { drag.p.x = clamp(Math.round(wx), 10, MAP_W - 10); drag.p.y = clamp(Math.round(wy), 10, MAP_H - 10); }
+    } else { view.x = start.vx + dx; view.y = start.vy + dy; clampView(); }
+    drawMapSoon();
+  };
+  const end = (e) => {
+    pts.delete(e.pointerId);
+    if (pts.size < 2) pinch = null;
+    if (pts.size) return;
+    cv.classList.remove("dragging");
+    if (drag && drag.started) { persistWorld(cur()); mapPending = null; renderPanel(); }
+    else if (start && moved < 5 && e.type === "pointerup") onMapClick(e.offsetX, e.offsetY);
+    start = null; drag = null;
+  };
+  cv.onpointerup = end; cv.onpointercancel = end;
+  cv.addEventListener("wheel", (e) => { e.preventDefault(); if (view) zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY * .0015)); }, { passive: false });
+  $("#zIn").onclick = () => zoomAt(cv.clientWidth / 2, cv.clientHeight / 2, 1.5);
+  $("#zOut").onclick = () => zoomAt(cv.clientWidth / 2, cv.clientHeight / 2, 1 / 1.5);
+  $("#zFit").onclick = () => { fitView(); drawMap(); };
+}
+
+function onMapClick(sx, sy) {
+  const [wx, wy] = toWorld(sx, sy), inside = wx >= 0 && wy >= 0 && wx <= MAP_W && wy <= MAP_H;
+  if (placingId) {
+    if (inside) {
+      const w = ensureEditable(), p = w.places.find(q => q.id === placingId);
+      if (p) { p.x = Math.round(wx); p.y = Math.round(wy); persistWorld(w); mapSel = p.id; }
+    }
+    placingId = null; $("#mapCv").classList.remove("placing"); renderTabs();
+  } else {
+    const hit = hitTest(sx, sy);
+    if (hit) { mapSel = hit.id; mapPending = null; }
+    else { mapSel = null; mapPending = inside ? { x: Math.round(wx), y: Math.round(wy) } : null; }
+  }
+  renderPanel(); drawMap();
+}
+
+function personRow(c, removable, at) {
+  const extra = removable && c.place && !eqName(c.place, at) ? ` · actuellement à ${c.place}` : "";
+  return `<div class="person"><div class="face">${vignette(c.id, c.name, "character")}</div>
+    <button class="open" data-open="${esc(c.id)}"><b>${esc(c.name)}</b><small>${esc((c.role || "") + extra)}</small></button>
+    ${removable ? `<button data-unorigin="${esc(c.id)}" aria-label="Retirer ce lieu comme origine de ${esc(c.name)}" title="Retirer l'origine">×</button>` : "<span></span>"}</div>`;
+}
+function dirWord(from, to) {
+  const a = Math.atan2(-(to.y - from.y), to.x - from.x) * 180 / Math.PI;
+  const names = ["est", "nord-est", "nord", "nord-ouest", "ouest", "sud-ouest", "sud", "sud-est"];
+  return names[((Math.round(a / 45) % 8) + 8) % 8];
+}
+
+function renderPanel() {
+  const P = $("#mapPanel"); if (!P) return;
+  const w = cur(), hint = $("#mapHint");
+  if (placingId) {
+    const p = w.places.find(q => q.id === placingId);
+    P.innerHTML = `<div><div class="biome">Placement</div><h3>${esc(p ? p.name : "")}</h3></div><p>Touche la carte à l'endroit où se trouve ce lieu.</p><button class="btn ghost" id="cancelPlace">Annuler</button>`;
+    hint.textContent = "Touche la carte pour placer « " + (p ? p.name : "") + " »";
+    $("#cancelPlace").onclick = () => { placingId = null; $("#mapCv").classList.remove("placing"); renderPanel(); };
+    return;
+  }
+  if (mapSel) {
+    const p = w.places.find(q => q.id === mapSel);
+    if (!p || p.x == null) { mapSel = null; return renderPanel(); }
+    const b = biomeAt(p.x, p.y);
+    const from = w.characters.filter(c => eqName(c.origin, p.name));
+    const here = w.characters.filter(c => eqName(c.place, p.name) && !from.includes(c));
+    const others = w.characters.filter(c => !eqName(c.origin, p.name));
+    P.innerHTML = `
+      <div class="thumb">${vignette(p.id, p.name, "place")}</div>
+      <div><div class="biome">${esc(p.type || "Lieu")} · ${b.name}</div><h3>${esc(p.name)}</h3></div>
+      ${p.desc ? `<p>${esc(p.desc)}</p>` : ""}
+      <div class="row"><button class="btn small" data-open="${esc(p.id)}">Ouvrir la fiche</button><button class="btn small ghost" id="unplace">Retirer de la carte</button></div>
+      <div class="who"><span class="label">Originaires d'ici · ${from.length}</span>
+        ${from.map(c => personRow(c, true, p.name)).join("") || "<p>Aucun personnage n'est encore originaire de ce lieu.</p>"}
+        ${others.length ? `<div class="field"><label class="label" for="addOrigin" hidden>Ajouter un personnage originaire d'ici</label><select id="addOrigin"><option value="">+ Faire naître ici un personnage…</option>${others.map(c => `<option value="${esc(c.id)}">${esc(c.name)}${c.origin ? ` (aujourd'hui : ${esc(c.origin)})` : ""}</option>`).join("")}</select></div>` : ""}
+      </div>
+      ${here.length ? `<div class="who"><span class="label">Présents ici</span>${here.map(c => personRow(c, false)).join("")}</div>` : ""}`;
+    hint.textContent = "Glisse le marqueur pour déplacer « " + p.name + " »";
+    $("#unplace").onclick = () => { const w2 = ensureEditable(), q = w2.places.find(x => x.id === p.id); if (q) { delete q.x; delete q.y; } persistWorld(w2); mapSel = null; renderTabs(); renderPanel(); drawMap(); };
+    const sel = $("#addOrigin");
+    if (sel) sel.onchange = () => { if (!sel.value) return; const w2 = ensureEditable(), c = w2.characters.find(x => x.id === sel.value); if (c) { c.origin = p.name; persistWorld(w2); toast(`${c.name} est originaire de ${p.name}`); } renderPanel(); drawMap(); };
+    P.querySelectorAll("[data-unorigin]").forEach(bt => bt.onclick = () => { const w2 = ensureEditable(), c = w2.characters.find(x => x.id === bt.dataset.unorigin); if (c) { c.origin = ""; persistWorld(w2); } renderPanel(); drawMap(); });
+    return;
+  }
+  if (mapPending) {
+    const b = biomeAt(mapPending.x, mapPending.y);
+    P.innerHTML = `
+      <div><div class="biome">Terrain · ${b.name}</div><h3>Nouveau lieu ici</h3></div>
+      <div class="field"><label class="label" for="npName">Nom (facultatif)</label><input id="npName" placeholder="ex : Le Gué des Cendres"></div>
+      <div class="field"><label class="label" for="npHint">Indication pour l'IA (facultatif)</label><input id="npHint" placeholder="ex : un monastère abandonné"></div>
+      <div class="row"><button class="btn primary" id="npGen">Générer avec l'IA</button><button class="btn" id="npMake">Créer vide</button><button class="btn ghost" id="npCancel">Annuler</button></div>
+      <p class="status" id="npStatus"></p>`;
+    hint.textContent = "Nouveau lieu en attente : " + b.name.toLowerCase();
+    $("#npCancel").onclick = () => { mapPending = null; renderPanel(); drawMap(); };
+    $("#npMake").onclick = () => {
+      const w2 = ensureEditable(), it = { id: uid("p"), name: $("#npName").value.trim() || "Lieu sans nom", type: b.water ? "Lieu marin" : "Lieu", region: b.name, desc: $("#npHint").value.trim(), secrets: "", hooks: "", imagePrompt: "", x: mapPending.x, y: mapPending.y };
+      w2.places.push(it); persistWorld(w2); mapSel = it.id; mapPending = null; renderTabs(); renderPanel(); drawMap(); openDrawer(it.id);
+    };
+    $("#npGen").onclick = (e) => genPlaceAt({ ...mapPending }, $("#npName").value.trim(), $("#npHint").value.trim(), e.currentTarget);
+    return;
+  }
+  const unplaced = w.places.filter(p => p.x == null), placed = w.places.filter(p => p.x != null), noOrigin = w.characters.filter(c => !c.origin);
+  P.innerHTML = `
+    <div><span class="label">Carte de</span><h3>${esc(w.name)}</h3></div>
+    <p>Touche un lieu pour voir qui en est originaire et y faire naître des personnages. Touche une zone vide pour y fonder un nouveau lieu. Glisse un marqueur pour le déplacer.</p>
+    ${unplaced.length ? `<div class="who"><span class="label">Lieux à placer · ${unplaced.length}</span>
+      ${unplaced.map(p => `<div class="person"><div class="face">${vignette(p.id, p.name, "place")}</div><button class="open" data-open="${esc(p.id)}"><b>${esc(p.name)}</b><small>${esc(p.type || "")}</small></button><button data-place="${esc(p.id)}" style="color:var(--verdigris)" title="Placer sur la carte" aria-label="Placer ${esc(p.name)} sur la carte">⌖</button></div>`).join("")}
+      <button class="btn small" id="autoPlaceBtn">Placer automatiquement</button></div>` : ""}
+    ${placed.length ? `<div class="who"><span class="label">Lieux sur la carte · ${placed.length}</span><div class="meta">${placed.map(p => `<button class="chip" data-sel="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div></div>` : ""}
+    ${noOrigin.length ? `<p>Sans lieu d'origine : ${noOrigin.map(c => esc(c.name)).join(", ")}.</p>` : ""}
+    <div class="row"><button class="btn small ghost" id="reroll">Nouvelle géographie</button></div>`;
+  hint.textContent = "Glisse pour te déplacer · molette ou pincement pour zoomer";
+  P.querySelectorAll("[data-place]").forEach(bt => bt.onclick = () => { placingId = bt.dataset.place; $("#mapCv").classList.add("placing"); renderPanel(); });
+  P.querySelectorAll("[data-sel]").forEach(bt => bt.onclick = () => { const p = w.places.find(x => x.id === bt.dataset.sel); mapSel = p.id; centerOn(p); renderPanel(); drawMap(); });
+  const ap = $("#autoPlaceBtn"); if (ap) ap.onclick = () => { const w2 = ensureEditable(); autoPlace(w2, w2.places.filter(p => p.x == null)); persistWorld(w2); renderTabs(); renderPanel(); drawMap(); };
+  $("#reroll").onclick = (e) => {
+    const bt = e.currentTarget;
+    if (!bt.dataset.confirm) { bt.dataset.confirm = "1"; bt.textContent = "Redessiner les continents et replacer les lieux ?"; return; }
+    const w2 = ensureEditable(); w2.mapSeed = (Math.random() * 4294967296) >>> 0; w2.mapInit = false;
+    for (const p of w2.places) { delete p.x; delete p.y; }
+    persistWorld(w2); renderList(); renderTabs(); toast("Nouvelle géographie");
+  };
+}
+
+async function genPlaceAt(pt, name, hint, btn) {
+  const st = $("#npStatus");
+  if (!sample) { st.className = "status err"; st.textContent = "La génération par IA n'est pas disponible dans cet affichage."; return; }
+  const w = ensureEditable(), b = biomeAt(pt.x, pt.y);
+  const near = w.places.filter(p => p.x != null).map(p => ({ p, d: Math.hypot(p.x - pt.x, p.y - pt.y) })).sort((a, c) => a.d - c.d).slice(0, 3)
+    .map(({ p, d }) => `${p.name} (${p.type}), à ${Math.round(d * LIEUES_PER_UNIT)} lieues au ${dirWord(pt, p)}`).join(" ; ");
+  busy(btn, true); st.className = "status"; st.textContent = "Claude explore cette région…";
+  try {
+    const o = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w)}\n\nTÂCHE : invente le lieu qui se trouve à cet endroit précis de la carte.\nTerrain : ${b.name}\nLieux voisins : ${near || "aucun"}\n${name ? "Nom imposé : " + name : ""}\n${hint ? "Indication de l'auteur : " + hint : ""}\nTiens compte du terrain et des voisins (routes, rivalités, échanges).\nRéponds uniquement avec un objet JSON de la forme :\n${SCHEMAS.places}`, { cache: false });
+    if (!o || !o.name) throw { code: "invalid_json" };
+    const it = { id: uid("p") };
+    for (const [k, v] of Object.entries(o)) if (k !== "id") it[k] = String(v ?? "");
+    it.x = pt.x; it.y = pt.y;
+    w.places.push(it); persistWorld(w); mapSel = it.id; mapPending = null; renderTabs(); renderPanel(); drawMap();
+    toast(`${it.name} apparaît sur la carte`);
+  } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
+}
+
 /* ---------- events ---------- */
 document.addEventListener("click", (ev) => {
   const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-act]");
@@ -808,6 +1279,7 @@ lsLoad();
 if (!worlds.find(w => w.example)) worlds.unshift(JSON.parse(JSON.stringify(EXAMPLE)));
 if (!worlds.find(w => w.id === currentId)) currentId = worlds[worlds.length - 1].id;
 render(); wireForge();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawMapSoon());
 
 (async () => {
   if (!window.claude || !claude.use) { aiOff("Ouvre cette page dans Claude pour activer la génération par IA."); return; }
