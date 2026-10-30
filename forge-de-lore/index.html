@@ -189,6 +189,18 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .field input[type="color"] { width: 46px; height: 36px; padding: 2px; }
 @media (max-width: 560px) { .themebar .swatches { width: 70px; } }
 
+/* Resume conversations */
+.resume { display: flex; gap: 8px; align-items: center; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.resume .label { flex: none; }
+.resume-item { flex: none; display: flex; align-items: center; gap: 8px; background: var(--plate); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px 4px 4px; cursor: pointer; max-width: 260px; }
+.resume-item:hover { border-color: var(--verdigris); }
+.resume-item .face { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; border: 1px solid var(--brass); flex: none; }
+.resume-item .face svg, .resume-item .face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
+.resume-item span { min-width: 0; text-align: left; line-height: 1.2; }
+.resume-item b { display: block; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.resume-item small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip.talk { color: var(--verdigris); border-color: color-mix(in srgb, var(--verdigris) 50%, transparent); }
+
 /* Coherence */
 .lore { display: grid; gap: 16px; }
 .lore-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
@@ -248,17 +260,31 @@ button.skill { background: none; border: 0; border-bottom: 1px dotted var(--line
 @media (max-width: 480px) { .attrs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 /* Dialogue */
-.chat { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: min(760px, 88vh); padding: 0; gap: 0; width: min(640px, 100%); overflow: hidden; }
-.chat-head { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.modal-card.chat { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); height: min(980px, 94vh); max-height: none; padding: 0; gap: 0; width: min(900px, 100%); min-width: 0; overflow: hidden; }
+.chat-foot form { min-width: 0; }
+.chat-head { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
 .chat-head .face { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; border: 1px solid var(--brass); flex: none; }
 .chat-head .face svg, .chat-head .face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
-.chat-head h2 { font-size: 24px; line-height: 1.1; }
-.chat-log { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-.msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; }
+.chat-head h2 { font-size: 22px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-head .note { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-log { overflow-y: auto; padding: 20px clamp(14px, 4vw, 40px); display: flex; flex-direction: column; gap: 14px; overscroll-behavior: contain; }
+.msg { max-width: min(88%, 68ch); padding: 11px 15px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.5; }
 .msg.me { align-self: flex-end; background: var(--verdigris); color: var(--on-accent); border-bottom-right-radius: 4px; }
-.msg.them { align-self: flex-start; background: var(--plate-2); border-bottom-left-radius: 4px; font-family: var(--serif); font-size: 17px; }
+.msg.them { align-self: flex-start; background: var(--plate-2); border-bottom-left-radius: 4px; font-family: var(--serif); font-size: 19px; line-height: 1.5; }
 .msg.note { align-self: center; background: none; color: var(--muted); font-size: 13px; text-align: center; }
-.chat-foot { border-top: 1px solid var(--line); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; }
+.chat-foot { border-top: 1px solid var(--line); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; }
+.chat-foot textarea { font-size: 16px; }
+.modal:not([hidden]):has(.chat) ~ .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.chat-more[hidden] { display: none !important; }
+.chat-more { display: grid; gap: 8px; }
+@media (max-width: 700px) {
+  .modal:has(.chat) { padding: 0; place-items: stretch; grid-template-columns: minmax(0, 1fr); }
+  .modal-card.chat { width: 100%; height: 100%; border-radius: 0; border: 0;
+    padding-top: env(safe-area-inset-top, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+  .chat-head .face { width: 40px; height: 40px; }
+  .chat-log { padding: 16px 14px; }
+  .msg { max-width: 92%; }
+}
 .chat-foot form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .chat-foot textarea { background: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; resize: none; min-height: 44px; max-height: 120px; }
 .chat-opts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
@@ -330,6 +356,8 @@ button.skill { background: none; border: 0; border-bottom: 1px dotted var(--line
   <p class="status err" id="aiWarn" hidden></p>
 
   <section class="plate" id="plate"></section>
+
+  <div class="resume" id="resume" hidden></div>
 
   <nav class="tabs" role="tablist" id="tabs"></nav>
 
@@ -559,7 +587,24 @@ function aiError(e) {
 function aiOff(msg) { const w = $("#aiWarn"); w.textContent = msg; w.hidden = false; }
 
 /* ---------- rendering ---------- */
-function render() { renderWorldSel(); renderPlate(); renderTabs(); renderForge(); renderList(); }
+function render() { renderWorldSel(); renderPlate(); renderResume(); renderTabs(); renderForge(); renderList(); }
+function ago(t) {
+  if (!t) return "";
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return "à l'instant"; if (m < 60) return `il y a ${m} min`;
+  const h = Math.round(m / 60); if (h < 24) return `il y a ${h} h`;
+  const d = Math.round(h / 24); return d < 30 ? `il y a ${d} j` : new Date(t).toLocaleDateString("fr-FR");
+}
+function lastLine(c) {
+  const t = [...(c.dialogue || [])].reverse().find(x => !x.roll && x.content);
+  return t ? (t.role === "user" ? "Toi : " : "") + stripTags(t.content).replace(/\s+/g, " ").slice(0, 60) : "";
+}
+function renderResume() {
+  const el = $("#resume"), w = cur();
+  const list = w.characters.filter(c => (c.dialogue || []).length).sort((a, b) => (b.dialogueAt || 0) - (a.dialogueAt || 0)).slice(0, 8);
+  el.hidden = !list.length;
+  el.innerHTML = list.length ? `<span class="label">Reprendre</span>${list.map(c => `<button class="resume-item" data-chat="${esc(c.id)}" title="Reprendre la conversation avec ${esc(c.name)}"><span class="face">${vignette(c.id, c.name, "character")}</span><span><b>${esc(c.name)}${c.dialogueAt ? ` · ${ago(c.dialogueAt)}` : ""}</b><small>${esc(lastLine(c))}</small></span></button>`).join("")}` : "";
+}
 
 function renderWorldSel() {
   const sel = $("#worldSel");
@@ -644,7 +689,8 @@ function renderList() {
     <button class="card" data-open="${esc(it.id)}">
       <div class="vignette${kind === "character" ? " portrait" : ""}">${vignette(it.id, it.name, kind)}</div>
       <div class="card-body"><span class="sub">${esc(kind === "place" ? `${it.type} · ${it.region}` : `${it.role} · ${it.faction}`)}${kind === "character" && latestSnap(it) ? ` · niv. ${esc(latestSnap(it).level)}` : ""}</span>
-        <h3>${esc(it.name)}</h3><p>${esc(it.desc)}</p></div>
+        <h3>${esc(it.name)}</h3><p>${esc(it.desc)}</p>
+        ${kind === "character" && (it.dialogue || []).length ? `<div class="meta"><span class="chip talk" role="button" tabindex="0" data-chat="${esc(it.id)}">Reprendre la conversation</span></div>` : ""}</div>
     </button>`).join("")}</div>`;
 }
 
@@ -1638,13 +1684,14 @@ function openChat(cid) {
   m.innerHTML = `<div class="modal-card chat" role="dialog" aria-label="Dialogue avec ${esc(c.name)}">
     <div class="chat-head"><div class="face">${vignette(c.id, c.name, "character")}</div>
       <div style="min-width:0;flex:1"><h2>${esc(c.name)}</h2><span class="note">${esc([c.role, c.place && "à " + c.place].filter(Boolean).join(" · "))}</span></div>
+      <button class="btn small ghost" id="chOpts" type="button" aria-expanded="false" aria-controls="chMore">Options</button>
       <button class="x" id="chClose" aria-label="Fermer">×</button></div>
     <div class="chat-log" id="chLog" aria-live="polite"></div>
     <div class="chat-foot">
       <form id="chForm"><label for="chIn" hidden>Ton message</label><textarea id="chIn" rows="1" placeholder="Parle à ${esc(c.name.split(" ")[0])}…"></textarea>
         <div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn" type="button" id="chDice" title="Tenter un jet de compétence" aria-label="Tenter un jet de compétence">d20</button><button class="btn primary" id="chSend">Envoyer</button></div></form>
       <div class="dicepick" id="chPick" hidden>${SKILLS.map(s => `<button type="button" class="chip" data-skill="${s}">${s} ${sign(playerBonus(w0, s))}</button>`).join("")}</div>
-      <div class="chat-opts">
+      <div class="chat-more" id="chMore" hidden><div class="chat-opts">
         <label for="chRole" style="flex:1 1 240px">Tu es <input id="chRole" style="background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0;flex:1" value="${esc(c.chatRole || "un voyageur inconnu")}"></label>
         <label><input type="checkbox" id="chSecrets" ${c.chatSecrets ? "checked" : ""}> Peut céder ses secrets</label>
         <label><input type="checkbox" id="chDiceOn" ${c.chatDice === false ? "" : "checked"}> Jets de dés</label>
@@ -1654,7 +1701,7 @@ function openChat(cid) {
       <div class="sheet" id="chSheetBox" hidden>
         <span class="note">Bonus ajoutés à tes jets (comme le modificateur de compétence dans D&amp;D, de −5 à +10) :</span>
         <div class="sheet-grid">${SKILLS.map(s => `<label>${s}<input type="number" min="-5" max="10" step="1" data-bonus="${s}" value="${playerBonus(w0, s)}"></label>`).join("")}</div>
-      </div>
+      </div></div>
     </div></div>`;
   m.hidden = false; $("#scrim").hidden = false;
   const log = $("#chLog"), input = $("#chIn");
@@ -1691,8 +1738,8 @@ function openChat(cid) {
   };
   const save = () => {
     const w2 = ensureEditable(), c2 = w2.characters.find(x => x.id === cid) || c;
-    c2.dialogue = turns.slice(-40); c2.chatRole = $("#chRole").value.trim(); c2.chatSecrets = $("#chSecrets").checked; c2.chatDice = $("#chDiceOn").checked;
-    persistWorld(w2);
+    c2.dialogue = turns.slice(-40); c2.dialogueAt = turns.length ? Date.now() : 0; c2.chatRole = $("#chRole").value.trim(); c2.chatSecrets = $("#chSecrets").checked; c2.chatDice = $("#chDiceOn").checked;
+    persistWorld(w2); renderResume(); if (tab === "characters") renderListSoon();
   };
   const resultLine = (r) => `[[RÉSULTAT jet de ${r.skill} : d20 = ${r.nat}${r.dice && r.dice.length > 1 ? ` (dés ${r.dice.join(" et ")})` : ""}, bonus ${sign(r.bonus)}, total ${r.total}${r.dd ? ` contre DD ${r.dd}` : ""} → ${r.nat === 20 ? "RÉUSSITE CRITIQUE" : r.nat === 1 ? "ÉCHEC CRITIQUE" : r.success ? "RÉUSSITE" : "ÉCHEC"}]]`;
   async function animateDie(final) {
@@ -1752,6 +1799,7 @@ Réponds en français, en 1 à 4 phrases, avec parfois un geste entre astérisqu
   }
   draw();
   $("#chClose").onclick = () => { if (chatCtl) chatCtl.abort(); closeModal(); };
+  $("#chOpts").onclick = () => { const mo = $("#chMore"); mo.hidden = !mo.hidden; $("#chOpts").setAttribute("aria-expanded", String(!mo.hidden)); };
   $("#chClear").onclick = () => { turns.length = 0; save(); draw(); };
   $("#chDiceOn").onchange = () => { save(); draw(); };
   $("#chSheet").onclick = () => { const b = $("#chSheetBox"); b.hidden = !b.hidden; };
@@ -1777,7 +1825,7 @@ Réponds en français, en 1 à 4 phrases, avec parfois un geste entre astérisqu
     e.preventDefault();
     const text = input.value.trim(); if (!text || chatCtl) return;
     turns.push({ role: "user", content: text }); input.value = ""; input.style.height = "";
-    $("#chSheetBox").hidden = true; $("#chPick").hidden = true;
+    $("#chSheetBox").hidden = true; $("#chPick").hidden = true; $("#chMore").hidden = true;
     draw(); ask();
   });
   setTimeout(() => input.focus(), 50);
@@ -2332,7 +2380,7 @@ async function genPlaceAt(pt, name, hint, btn) {
 
 /* ---------- events ---------- */
 document.addEventListener("click", (ev) => {
-  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-paint],[data-act]");
+  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-paint],[data-chat],[data-act]");
   if (!t) return;
   if (t.dataset.tab) { tab = t.dataset.tab; renderTabs(); renderForge(); renderList(); wireForge(); }
   else if (t.dataset.open) openDrawer(t.dataset.open);
@@ -2340,6 +2388,7 @@ document.addEventListener("click", (ev) => {
   else if (t.dataset.sketch) sketch(t.dataset.sketch, t, null);
   else if (t.dataset.import) pickImage(t.dataset.import);
   else if (t.dataset.paint) paint(t.dataset.paint, t, null);
+  else if (t.dataset.chat) { ev.stopPropagation(); closeDrawer(); openChat(t.dataset.chat); }
   else if (t.dataset.act === "editWorld") openModal(true);
   else if (t.dataset.act === "theme") openThemeModal();
   else if (t.dataset.act === "delWorld") {
