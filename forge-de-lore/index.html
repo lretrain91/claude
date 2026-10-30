@@ -201,6 +201,16 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .resume-item small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip.talk { color: var(--verdigris); border-color: color-mix(in srgb, var(--verdigris) 50%, transparent); }
 
+/* Bestiary */
+.subtabs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.subtabs .chip[aria-selected="true"] { background: var(--verdigris); color: var(--on-accent); border-color: var(--verdigris); }
+.subtabs .chip[aria-selected="true"] .count { color: inherit; }
+.statblock { display: grid; gap: 10px; }
+.statblock .rule { height: 2px; background: var(--brass); opacity: .6; }
+.statblock dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 14px; }
+.statblock dt { font-weight: 700; } .statblock dd { margin: 0; }
+.statblock dd input { background: var(--plate); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; width: 100%; max-width: 220px; }
+
 /* Coherence */
 .lore { display: grid; gap: 16px; }
 .lore-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
@@ -426,6 +436,17 @@ const EXAMPLE = {
       { name: "Gens des épaves", desc: "Descendants des équipages pris dans le gel, vivant dans les coques.", bonus: "+2 CON, +1 FOR", traits: ["Vision de cale : voit dans la pénombre", "Débrouille : répare n'importe quoi avec des débris"] }
     ]
   },
+  creatures: [
+    { id: "b1", name: "Le Rôdeur sous-glace", type: "Bête", habitat: "Plaine du Large", desc: "Long comme trois traîneaux, pâle et aveugle, il suit les vibrations sous la glace et frappe par en dessous.", lore: "Les patineurs disent qu'il n'attaque que ceux qui s'arrêtent trop longtemps.", danger: "Fait céder la glace sous ses proies.", loot: "Écailles translucides, prisées des verriers de Port-Givre.", cr: "5", ac: "14", hp: "110", speed: "3 m, nage 12 m", attrs: { FOR: 20, DEX: 12, CON: 18, INT: 3, SAG: 14, CHA: 4 }, abilities: ["Sens des vibrations : perçoit tout ce qui bouge sur la glace à 36 m", "Brise-glace : peut ouvrir un trou de 3 m sous une créature"], actions: ["Morsure : +8 au toucher, 3d8+5 perforants, la cible est agrippée", "Plongée : entraîne la cible agrippée sous la glace"], imagePrompt: "" },
+    { id: "b2", name: "Mouette de givre", type: "Bête", habitat: "Port-Givre", desc: "Oiseau blanc aux plumes raides de givre, qui niche sous les quais suspendus.", lore: "Les Veilleurs lisent l'avenir dans leurs vols.", danger: "Inoffensive seule ; en nuée, elle aveugle et vole.", loot: "Plumes de givre, utilisées comme encre froide.", cr: "0", ac: "12", hp: "3", speed: "3 m, vol 15 m", attrs: { FOR: 3, DEX: 15, CON: 10, INT: 2, SAG: 12, CHA: 6 }, abilities: ["Nuée : en groupe, avantage pour voler un petit objet"], actions: ["Coup de bec : +4 au toucher, 1 perforant"], imagePrompt: "" }
+  ],
+  peoples: [
+    { id: "r1", name: "Insulaires", desc: "Descendants des cités-ports, perchés sur les anciennes îles devenues montagnes.", appearance: "Peau tannée par le vent, cheveux tressés de fil de cuivre.", culture: "Fiers marins sans mer, ils gardent les rites de la Mère-Houle et mesurent la richesse en cordages.", homeland: "Port-Givre", lifespan: "80 ans", languages: "Langue des Marées", relations: "Méprisent un peu les Nés-du-Gel, mais dépendent d'eux pour lire la glace.", bonus: "+1 à toutes les caractéristiques", traits: ["Pied montagnard : ignore les pentes raides", "Mémoire des marées : connaît les vieilles chansons de mer"], names: "Ysolde, Marrane, Tobias, Ilse", imagePrompt: "" },
+    { id: "r2", name: "Nés-du-Gel", desc: "Nés sur la glace même, pâles et silencieux, seuls à pouvoir lire la glace.", appearance: "Peau presque translucide, yeux gris clair, voix basse.", culture: "Ils vivent en petites caravanes et ne prononcent jamais le nom des morts, que la glace garde.", homeland: "Plaine du Large", lifespan: "60 ans", languages: "Langue des Marées, Murmure", relations: "Courtisés par la Guilde, surveillés par les Veilleurs.", bonus: "+2 SAG, +1 CON", traits: ["Sang froid : résistance au froid", "Oreille de glace : accès à la Lecture de glace"], names: "Sève, Aun, Lisk", imagePrompt: "" }
+  ],
+  artifacts: [
+    { id: "o1", name: "La Lanterne du Phare Muet", type: "Relique", rarity: "Légendaire", desc: "Une lanterne de laiton dont la flamme est bleue et ne chauffe pas.", powers: "Révèle les fissures et les créatures sous la glace dans un rayon de 18 m. Une fois par jour, fait arriver son porteur un jour plus tôt à destination.", history: "Allumée par le dernier gardien du phare la Nuit du Gel. Personne ne l'a jamais vue éteinte.", location: "Le Phare Muet", owner: "Personne", curse: "Celui qui l'emporte entend la voix du gardien chaque nuit.", imagePrompt: "" }
+  ],
   places: [
     { id: "p1", name: "Port-Givre", type: "Cité", region: "Île de Hautbrume", desc: "Ancien port devenu cité perchée : les quais pendent dans le vide au-dessus de la glace, reliés par des treuils. Le marché se tient dans la coque renversée d'un galion.", secrets: "La guilde y cache une carte des fissures récentes.", hooks: "Un treuil s'est rompu cette nuit, et la nacelle est revenue vide mais chaude.", imagePrompt: "" },
     { id: "p2", name: "Le Phare Muet", type: "Ruine", region: "Plaine du Large", desc: "Un phare planté au milieu de la plaine gelée, à des jours de toute île. Sa lumière s'allume seule les nuits sans lune.", secrets: "Le gardien n'est jamais mort ; il est sous la glace, sous le phare.", hooks: "Les traîneaux qui suivent sa lumière arrivent toujours un jour plus tôt que prévu.", imagePrompt: "" },
@@ -566,8 +587,11 @@ function worldContext(w, max = 5000) {
     `Factions : ${(w.factions || []).map(f => f.name + " — " + f.desc).join(" | ")}`,
     `Lieux existants : ${(w.places || []).map(p => `${p.name} (${p.type}, ${p.region}) : ${p.desc.slice(0, 140)}`).join(" | ") || "aucun"}`,
     `Personnages existants : ${(w.characters || []).map(c => `${c.name} (${c.role}, ${c.faction}, ${c.place}) : ${c.desc.slice(0, 120)}`).join(" | ") || "aucun"}`,
-    `Histoires existantes : ${(w.stories || []).map(s => `${s.title} (${s.kind}) : ${s.summary.slice(0, 140)}`).join(" | ") || "aucune"}`
-  ];
+    `Histoires existantes : ${(w.stories || []).map(s => `${s.title} (${s.kind}) : ${s.summary.slice(0, 140)}`).join(" | ") || "aucune"}`,
+    (w.peoples || []).length ? `Peuples : ${w.peoples.map(p => `${p.name} (${p.homeland || "?"}) : ${String(p.desc || "").slice(0, 90)}`).join(" | ")}` : "",
+    (w.creatures || []).length ? `Créatures : ${w.creatures.map(c => `${c.name} (${c.type}, ${c.habitat})`).join(" | ")}` : "",
+    (w.artifacts || []).length ? `Objets notables : ${w.artifacts.map(a => `${a.name} (${a.rarity}, ${a.location || "?"})`).join(" | ")}` : ""
+  ].filter(Boolean);
   return parts.join("\n").slice(0, max);
 }
 const RULES = "Tu es un scénariste et worldbuilder de jeu vidéo. Écris en français, avec des détails concrets, évocateurs et jouables (accroches pour le gameplay). Évite les clichés génériques et les noms déjà existants dans le monde. Reste cohérent avec le contexte fourni.";
@@ -575,9 +599,19 @@ const RULES = "Tu es un scénariste et worldbuilder de jeu vidéo. Écris en fra
 const SCHEMAS = {
   places: `{"name": string, "type": string (ex: Cité, Donjon, Forêt, Station...), "region": string, "desc": string (3-4 phrases sensorielles), "secrets": string, "hooks": string (une accroche de quête), "imagePrompt": string (prompt en anglais pour un générateur d'images, 40-60 mots, avec composition, lumière, ambiance)}`,
   characters: `{"name": string, "role": string, "faction": string (une faction existante ou "Indépendant"), "place": string (lieu où il se trouve, un lieu existant si possible), "origin": string (lieu d'origine, un lieu existant si possible), "desc": string (apparence et attitude, 2-3 phrases), "motivation": string, "secret": string, "quote": string (une réplique caractéristique), "imagePrompt": string (prompt en anglais pour un portrait, 40-60 mots)}`,
+  creatures: `{"name": string, "type": string (ex : Bête, Esprit, Aberration, Construct, Charognard…), "habitat": string (un lieu existant si possible, ou un type de terrain), "desc": string (apparence et comportement, 2-3 phrases), "lore": string (ce que les gens en racontent, son rôle dans le monde), "danger": string (pourquoi elle est redoutable, ou utile), "loot": string (ce qu'on peut en tirer : matériaux, trophées, savoir), "cr": string (facteur de puissance D&D, ex. "1/2", "3", "12"), "ac": nombre, "hp": nombre, "speed": string (ex. "9 m, nage 12 m"), "attrs": {"FOR": nombre, "DEX": nombre, "CON": nombre, "INT": nombre, "SAG": nombre, "CHA": nombre}, "abilities": [2-4 traits "Nom : effet"], "actions": [1-3 actions "Nom : +X au toucher, dégâts, effet"], "imagePrompt": string (prompt en anglais pour une planche de bestiaire, 40-60 mots)}`,
+  peoples: `{"name": string, "desc": string (qui ils sont, 2-3 phrases), "appearance": string (traits physiques), "culture": string (coutumes, croyances, organisation, 2-3 phrases), "homeland": string (un lieu existant si possible), "lifespan": string (ex. "80 ans"), "languages": string, "relations": string (avec les autres peuples et factions), "bonus": string (bonus de caractéristiques D&D, ex. "+2 CON, +1 SAG"), "traits": [2-3 traits raciaux "Nom : effet"], "names": string (exemples de prénoms typiques), "imagePrompt": string (prompt en anglais pour une planche anthropologique montrant un homme et une femme de ce peuple, 40-60 mots)}`,
+  artifacts: `{"name": string, "type": string (Arme, Armure, Relique, Outil, Grimoire, Objet merveilleux…), "rarity": "Commun" | "Peu commun" | "Rare" | "Très rare" | "Légendaire" | "Artefact", "desc": string (apparence, 2 phrases), "powers": string (effets en jeu, façon D&D), "history": string (origine et propriétaires successifs), "location": string (où il se trouve aujourd'hui, un lieu existant si possible), "owner": string (personnage qui le détient, existant si possible, ou "Personne"), "curse": string (prix, malédiction ou limite ; vide si aucune), "imagePrompt": string (prompt en anglais pour une illustration d'objet sur fond neutre, 40-60 mots)}`,
   stories: `{"title": string, "kind": "Quête principale" | "Quête secondaire" | "Légende" | "Événement", "summary": string (4-5 phrases), "beats": [string] (4 à 6 étapes jouables), "involves": [string] (noms de lieux et personnages existants impliqués), "imagePrompt": string (prompt en anglais pour une illustration de scène clé, 40-60 mots)}`
 };
-const NOUN = { places: "lieux", characters: "personnages", stories: "histoires" };
+const NOUN = { places: "lieux", characters: "personnages", stories: "histoires", creatures: "créatures", peoples: "peuples", artifacts: "objets et artefacts" };
+const CODEX = [["creatures", "Créatures"], ["peoples", "Peuples"], ["artifacts", "Objets et artefacts"]];
+const LISTS = ["places", "characters", "stories", "creatures", "peoples", "artifacts"];
+const KIND_OF = { places: "place", characters: "character", stories: "story", creatures: "creature", peoples: "people", artifacts: "artifact" };
+const ID_PRE = { places: "p", characters: "c", stories: "s", creatures: "b", peoples: "r", artifacts: "o" };
+let codexKind = "creatures";
+const listKey = () => tab === "codex" ? codexKind : tab;
+function ensureLists(w) { for (const k of LISTS) if (!Array.isArray(w[k])) w[k] = []; return w; }
 
 function aiError(e) {
   const c = e && e.code;
@@ -592,7 +626,7 @@ function aiError(e) {
 function aiOff(msg) { const w = $("#aiWarn"); w.textContent = msg; w.hidden = false; }
 
 /* ---------- rendering ---------- */
-function render() { renderWorldSel(); renderPlate(); renderResume(); renderTabs(); renderForge(); renderList(); }
+function render() { ensureLists(cur()); renderWorldSel(); renderPlate(); renderResume(); renderTabs(); renderForge(); renderList(); }
 function ago(t) {
   if (!t) return "";
   const m = Math.round((Date.now() - t) / 60000);
@@ -640,10 +674,10 @@ function renderPlate() {
     <div class="plate-art" id="plateArt">${vignette(w.id, w.name, "world")}</div>`;
 }
 
-const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["rules", "Règles"], ["art", "Illustrations"], ["lore", "Cohérence"]];
+const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["codex", "Bestiaire"], ["rules", "Règles"], ["art", "Illustrations"], ["lore", "Cohérence"]];
 function renderTabs() {
   const w = cur();
-  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length, rules: ((w.rules && w.rules.classes) || []).length };
+  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, codex: (w.creatures || []).length + (w.peoples || []).length + (w.artifacts || []).length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length, rules: ((w.rules && w.rules.classes) || []).length };
   $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}<span class="count">${n[k]}</span></button>`).join("");
 }
 
@@ -664,11 +698,13 @@ function renderForge() {
         <span class="row"><button class="btn small ghost" id="sketchAll">Esquisses rapides</button><button class="btn small ghost" id="redrawAll">Tout réillustrer</button></span></div>`;
     return;
   }
-  const ph = { places: "ex : une cité souterraine tenue par des contrebandiers", characters: "ex : un antagoniste lié aux Foreurs de Nacre", stories: "ex : une quête secondaire courte autour du Phare Muet" }[tab];
-  f.innerHTML = `
+  const key = listKey();
+  const ph = { places: "ex : une cité souterraine tenue par des contrebandiers", characters: "ex : un antagoniste lié aux Foreurs de Nacre", stories: "ex : une quête secondaire courte autour du Phare Muet", creatures: "ex : un prédateur qui chasse sous la glace", peoples: "ex : les nomades des plaines gelées", artifacts: "ex : la lanterne du gardien du Phare Muet" }[key];
+  const sub = tab === "codex" ? `<div class="subtabs" role="tablist" aria-label="Catégorie">${CODEX.map(([k, l]) => `<button class="chip" role="tab" aria-selected="${k === codexKind}" data-codex="${k}">${l} <span class="count">${(cur()[k] || []).length}</span></button>`).join("")}</div>` : "";
+  f.innerHTML = sub + `
     <div class="field hint"><label class="label" for="hint">Indication (facultatif)</label><input id="hint" placeholder="${esc(ph)}"></div>
     <div class="field"><label class="label" for="count">Nombre</label><select id="count"><option>1</option><option selected>3</option><option>5</option></select></div>
-    <button class="btn primary" id="genBtn">Générer des ${NOUN[tab]}</button>
+    <button class="btn primary" id="genBtn" aria-label="Générer des ${NOUN[key]}">${tab === "codex" ? "Générer" : `Générer des ${NOUN[key]}`}</button>
     <p class="status" id="forgeStatus"></p>`;
 }
 
@@ -678,7 +714,8 @@ function renderList() {
   if (tab === "map") return renderMap();
   if (tab === "lore") return renderLore();
   if (tab === "rules") return renderRules();
-  const items = w[tab];
+  const lk = listKey(), items = w[lk] || [];
+  if (!items.length && tab === "codex") { L.innerHTML = `<div class="empty">${{ creatures: "Aucune créature pour l'instant. Claude peut peupler ton monde de bêtes, d'esprits et de monstres adaptés à ses terrains, avec leur bloc de statistiques.", peoples: "Aucun peuple décrit pour l'instant. Claude part de ton lore et des peuples de l'onglet Règles pour écrire leur culture, leur apparence, leur terre natale et leurs traits.", artifacts: "Aucun objet pour l'instant. Claude peut inventer armes, reliques et objets merveilleux liés à l'histoire de ton monde." }[lk]}</div>`; return; }
   if (!items.length) { L.innerHTML = `<div class="empty">Aucun élément pour l'instant. Donne une indication ci-dessus et lance la génération, ou laisse-la vide pour laisser l'IA proposer.</div>`; return; }
   if (tab === "stories") {
     L.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${items.map(s => `
@@ -689,11 +726,12 @@ function renderList() {
       </button>`).join("")}</div>`;
     return;
   }
-  const kind = tab === "places" ? "place" : "character";
+  const kind = KIND_OF[lk];
+  const subOf = (it) => kind === "place" ? `${it.type} · ${it.region}` : kind === "character" ? `${it.role} · ${it.faction}` : kind === "creature" ? `${it.type || "Créature"} · FP ${it.cr || "?"}${it.habitat ? " · " + it.habitat : ""}` : kind === "people" ? `${it.homeland || "Terre inconnue"}${it.lifespan ? " · vit " + it.lifespan : ""}` : `${it.type || "Objet"} · ${it.rarity || "?"}`;
   L.innerHTML = `<div class="grid">${items.map(it => `
     <button class="card" data-open="${esc(it.id)}">
       <div class="vignette${kind === "character" ? " portrait" : ""}">${vignette(it.id, it.name, kind)}</div>
-      <div class="card-body"><span class="sub">${esc(kind === "place" ? `${it.type} · ${it.region}` : `${it.role} · ${it.faction}`)}${kind === "character" && latestSnap(it) ? ` · niv. ${esc(latestSnap(it).level)}` : ""}</span>
+      <div class="card-body"><span class="sub">${esc(subOf(it))}${kind === "character" && latestSnap(it) ? ` · niv. ${esc(latestSnap(it).level)}` : ""}</span>
         <h3>${esc(it.name)}</h3><p>${esc(it.desc)}</p>
         ${kind === "character" && (it.dialogue || []).length ? `<div class="meta"><span class="chip talk" role="button" tabindex="0" data-chat="${esc(it.id)}">Reprendre la conversation</span></div>` : ""}</div>
     </button>`).join("")}</div>`;
@@ -704,7 +742,10 @@ function allEntities(w) {
     { id: w.id, kind: "world", title: w.name, sub: "Monde", ref: w },
     ...w.places.map(p => ({ id: p.id, kind: "place", title: p.name, sub: "Lieu", ref: p })),
     ...w.characters.map(c => ({ id: c.id, kind: "character", title: c.name, sub: "Personnage", ref: c })),
-    ...w.stories.map(s => ({ id: s.id, kind: "story", title: s.title, sub: "Histoire", ref: s }))
+    ...w.stories.map(s => ({ id: s.id, kind: "story", title: s.title, sub: "Histoire", ref: s })),
+    ...(w.creatures || []).map(c => ({ id: c.id, kind: "creature", title: c.name, sub: "Créature", ref: c })),
+    ...(w.peoples || []).map(c => ({ id: c.id, kind: "people", title: c.name, sub: "Peuple", ref: c })),
+    ...(w.artifacts || []).map(c => ({ id: c.id, kind: "artifact", title: c.name, sub: "Objet", ref: c }))
   ];
 }
 function fallbackPrompt(e, w) {
@@ -713,6 +754,9 @@ function fallbackPrompt(e, w) {
   if (e.kind === "world") return `Establishing shot of the world "${w.name}": ${w.pitch} Wide landscape, sense of scale, ${style}, video game key art`;
   if (e.kind === "place") return `${r.type} called ${r.name}: ${r.desc} ${style}, environment concept art, video game`;
   if (e.kind === "character") return `Character portrait, ${r.role}: ${r.desc} ${style}, character concept art, half body`;
+  if (e.kind === "creature") return `Bestiary plate of the ${r.type || "creature"} called ${r.name}: ${r.desc} ${style}, creature concept art, full body`;
+  if (e.kind === "people") return `Anthropological plate of the ${r.name} people, a man and a woman side by side: ${r.appearance || r.desc} ${style}, costume concept art`;
+  if (e.kind === "artifact") return `${r.type || "Artifact"} called ${r.name}: ${r.desc} ${style}, item concept art, neutral background`;
   return `Key scene from the story "${r.title}": ${r.summary} ${style}, cinematic composition`;
 }
 function promptFor(e, w) {
@@ -742,15 +786,18 @@ function renderGallery() {
 const FIELDS = {
   places: [["type", "Type"], ["region", "Région"], ["desc", "Description", 4], ["secrets", "Secrets", 2], ["hooks", "Accroche de quête", 2], ["imagePrompt", "Prompt image", 3]],
   characters: [["role", "Rôle"], ["faction", "Faction"], ["origin", "Lieu d'origine", "select"], ["place", "Lieu actuel"], ["desc", "Description", 3], ["motivation", "Motivation", 2], ["secret", "Secret", 2], ["quote", "Réplique", 2], ["imagePrompt", "Prompt image", 3]],
+  creatures: [["type", "Type"], ["habitat", "Habitat"], ["desc", "Description", 3], ["lore", "Légendes", 2], ["danger", "Danger", 2], ["loot", "Butin", 2], ["imagePrompt", "Prompt image", 3]],
+  peoples: [["homeland", "Terre natale"], ["lifespan", "Longévité"], ["languages", "Langues"], ["desc", "Description", 3], ["appearance", "Apparence", 2], ["culture", "Culture", 3], ["relations", "Relations", 2], ["bonus", "Bonus de caractéristiques"], ["traits", "Traits raciaux (un par ligne)", 3], ["names", "Noms typiques", 2], ["imagePrompt", "Prompt image", 3]],
+  artifacts: [["type", "Type"], ["rarity", "Rareté"], ["location", "Où il se trouve"], ["owner", "Détenteur"], ["desc", "Description", 2], ["powers", "Pouvoirs", 3], ["history", "Histoire", 3], ["curse", "Prix ou malédiction", 2], ["imagePrompt", "Prompt image", 3]],
   stories: [["kind", "Type"], ["summary", "Résumé", 5], ["beats", "Étapes (une par ligne)", 5], ["involves", "Impliqués (un par ligne)", 3], ["imagePrompt", "Prompt image", 3]]
 };
 let openRef = null;
-function findItem(id) { const w = cur(); for (const k of ["places", "characters", "stories"]) { const it = w[k].find(x => x.id === id); if (it) return [k, it]; } return [null, null]; }
+function findItem(id) { const w = cur(); for (const k of LISTS) { const it = (w[k] || []).find(x => x.id === id); if (it) return [k, it]; } return [null, null]; }
 
 function openDrawer(id) {
   const [k, it] = findItem(id); if (!it) return;
   openRef = { k, id };
-  const kind = k === "places" ? "place" : k === "characters" ? "character" : "story";
+  const kind = KIND_OF[k];
   const nameKey = k === "stories" ? "title" : "name";
   const d = $("#drawer");
   d.innerHTML = `
@@ -759,6 +806,7 @@ function openDrawer(id) {
       <div class="drawer-head"><input id="f_${nameKey}" value="${esc(it[nameKey])}" aria-label="Nom"><button class="x" id="closeD" aria-label="Fermer">×</button></div>
       ${linked(k, it)}
       ${k === "characters" ? `<section class="sheetbox" id="statBox">${statHTML(it)}</section>` : ""}
+      ${k === "creatures" ? `<section class="sheetbox" id="beastBox">${beastHTML(it)}</section>` : ""}
       ${FIELDS[k].map(([f, l, rows]) => {
         const v = Array.isArray(it[f]) ? it[f].join("\n") : (it[f] || "");
         if (rows === "select") {
@@ -786,7 +834,7 @@ function openDrawer(id) {
   d.querySelectorAll("input,textarea,select").forEach(el => el.addEventListener("input", () => {
     const f = el.id.slice(2); if (!f) return;
     if (k === "places" && f === "name") { const old = it.name; for (const c of cur().characters) { if (eqName(c.origin, old)) c.origin = el.value; if (eqName(c.place, old)) c.place = el.value; } }
-    it[f] = (f === "beats" || f === "involves") ? el.value.split("\n").map(s => s.trim()).filter(Boolean) : el.value;
+    it[f] = (f === "beats" || f === "involves" || f === "traits") ? el.value.split("\n").map(s => s.trim()).filter(Boolean) : el.value;
     persistWorld(cur()); renderListSoon();
   }));
   $("#closeD").onclick = closeDrawer;
@@ -804,13 +852,21 @@ function openDrawer(id) {
   };
   d.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => openDrawer(b.dataset.goto));
   if (k === "characters") wireStats(it.id);
+  if (k === "creatures") wireBeast(it.id);
 }
 function linked(k, it) {
   const w = cur(), names = new Map();
   for (const p of w.places) names.set(p.name.toLowerCase(), p.id);
   for (const c of w.characters) names.set(c.name.toLowerCase(), c.id);
+  for (const k2 of ["creatures", "peoples", "artifacts"]) for (const x of (w[k2] || [])) names.set(String(x.name).toLowerCase(), x.id);
   const ids = new Set();
   const take = (n) => { const id = n && names.get(String(n).toLowerCase()); if (id && id !== it.id) ids.add(id); };
+  const nm = String(it.name || it.title || "").toLowerCase();
+  if (k === "creatures") take(it.habitat);
+  if (k === "peoples") { take(it.homeland); w.characters.filter(c => eqName((latestSnap(c) || {}).people, it.name)).forEach(c => ids.add(c.id)); }
+  if (k === "artifacts") { take(it.location); take(it.owner); }
+  if (k === "places") { (w.creatures || []).filter(c => eqName(c.habitat, it.name)).forEach(c => ids.add(c.id)); (w.artifacts || []).filter(a => eqName(a.location, it.name)).forEach(a => ids.add(a.id)); (w.peoples || []).filter(p => eqName(p.homeland, it.name)).forEach(p => ids.add(p.id)); }
+  if (k === "characters") { (w.artifacts || []).filter(a => eqName(a.owner, it.name)).forEach(a => ids.add(a.id)); const pp = (latestSnap(it) || {}).people; if (pp) take(pp); }
   if (k === "characters") { take(it.origin); take(it.place); }
   if (k === "stories") (it.involves || []).forEach(take);
   if (k === "places") w.characters.filter(c => [c.place, c.origin].some(v => (v || "").toLowerCase() === it.name.toLowerCase())).forEach(c => ids.add(c.id));
@@ -841,21 +897,23 @@ async function generate() {
   if (!sample) return aiOff("La génération par IA n'est pas disponible dans cet affichage.");
   const btn = $("#genBtn"), st = $("#forgeStatus");
   const n = Number($("#count").value), hint = $("#hint").value.trim();
-  const w = ensureEditable(), key = tab;
+  const w = ensureLists(ensureEditable()), key = listKey();
   busy(btn, true); st.className = "status"; st.textContent = "Claude réfléchit à ton monde… (10 à 60 s)";
   try {
-    const out = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w)}\n\nTÂCHE : invente ${n} nouveaux ${NOUN[key]} pour ce monde.${hint ? `\nIndication de l'auteur : ${hint}` : ""}\n\nRéponds uniquement avec un tableau JSON d'objets de la forme :\n${SCHEMAS[key]}`, { cache: false });
+    const out = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w)}\n\nTÂCHE : invente ${n} nouveaux ${NOUN[key]} pour ce monde.${extraTask(key, w)}${hint ? `\nIndication de l'auteur : ${hint}` : ""}\n\nRéponds uniquement avec un tableau JSON d'objets de la forme :\n${SCHEMAS[key]}`, { cache: false });
     const arr = (Array.isArray(out) ? out : out && Array.isArray(out.items) ? out.items : []).filter(o => o && (o.name || o.title));
     if (!arr.length) throw { code: "invalid_json" };
-    const pre = key === "places" ? "p" : key === "characters" ? "c" : "s";
+    const pre = ID_PRE[key];
     const added = [];
     for (const o of arr) {
       const item = { id: uid(pre), ...o };
       for (const k of Object.keys(item)) if (typeof item[k] !== "string" && !Array.isArray(item[k])) item[k] = String(item[k] ?? "");
       if (key === "stories") { item.beats = [].concat(item.beats || []).map(String); item.involves = [].concat(item.involves || []).map(String); }
+      normCodex(key, item, o);
       w[key].push(item); added.push(item);
     }
     if (key === "places" && w.mapInit) { ensureMap(w); autoPlace(w, added); }
+    if (key === "peoples") syncPeoples(w, added);
     persistWorld(w); renderTabs(); renderList();
     st.textContent = `${arr.length} ${NOUN[key]} ajoutés. Ouvre une carte pour les retoucher ou les illustrer.`;
   } catch (e) { st.className = "status err"; st.textContent = aiError(e); }
@@ -872,6 +930,7 @@ async function deepen(k, it, btn) {
     const o = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w)}\n\nÉLÉMENT À APPROFONDIR :\n${JSON.stringify(target)}\n\nTÂCHE : réécris cet élément en le rendant plus riche, plus précis et plus jouable, en gardant son nom et ses idées. Ajoute des détails concrets, des liens avec les autres lieux, personnages et factions.\nRéponds uniquement avec un objet JSON de la forme :\n${SCHEMAS[k]}`, { cache: false });
     if (!o || typeof o !== "object") throw { code: "invalid_json" };
     for (const [key, v] of Object.entries(o)) if (key !== "id" && v != null) target[key] = Array.isArray(v) ? v.map(String) : String(v);
+    normCodex(k, target, o);
     persistWorld(w); renderList(); openDrawer(target.id); toast("Élément enrichi");
   } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
 }
@@ -998,6 +1057,9 @@ function bible(w) {
   for (const p of w.places) L.push("", `### ${p.name}`, `*${p.type} · ${p.region}*`, "", p.desc, "", `**Secrets** : ${p.secrets}`, "", `**Accroche** : ${p.hooks}`, "", `> Prompt image : ${promptFor({ kind: "place", ref: p }, w)}`);
   L.push("", "## Personnages");
   for (const c of w.characters) L.push("", `### ${c.name}`, `*${c.role} · ${c.faction} · originaire de ${c.origin || "?"} · actuellement à ${c.place || "?"}*`, "", c.desc, "", `**Motivation** : ${c.motivation}`, "", `**Secret** : ${c.secret}`, "", `« ${c.quote} »`, "", ...((c.stats || []).length ? ["**Statistiques (D&D 5e)**", "", ...snapsOf(c).map(sn => `- *${sn.era}* : ${statSummary(sn)}, PV ${sn.hp}, CA ${sn.ac}${sn.change ? ". " + sn.change : ""}`), ""] : []), `> Prompt image : ${promptFor({ kind: "character", ref: c }, w)}`);
+  if ((w.peoples || []).length) { L.push("", "## Peuples"); for (const p of w.peoples) L.push("", `### ${p.name}`, `*${p.homeland || "?"} · longévité ${p.lifespan || "?"} · ${p.languages || ""}*`, "", p.desc, "", `**Apparence** : ${p.appearance || ""}`, "", `**Culture** : ${p.culture || ""}`, "", `**Relations** : ${p.relations || ""}`, "", `**Bonus** : ${p.bonus || ""}`, ...(p.traits || []).map(t => `- ${t}`)); }
+  if ((w.creatures || []).length) { L.push("", "## Bestiaire"); for (const c of w.creatures) L.push("", `### ${c.name}`, `*${c.type || ""} · FP ${c.cr || "?"} · ${c.habitat || ""}*`, "", c.desc, "", `**CA** ${c.ac || "?"} · **PV** ${c.hp || "?"} · **Vitesse** ${c.speed || "?"}`, "", ATTR.map(a => `${a} ${(c.attrs || {})[a] ?? 10}`).join(" · "), "", ...(c.abilities || []).map(t => `- ${t}`), ...(c.actions || []).map(t => `- **Action** : ${t}`), "", `**Légendes** : ${c.lore || ""}`, "", `**Butin** : ${c.loot || ""}`); }
+  if ((w.artifacts || []).length) { L.push("", "## Objets et artefacts"); for (const a of w.artifacts) L.push("", `### ${a.name}`, `*${a.type || ""} · ${a.rarity || ""}*`, "", a.desc, "", `**Pouvoirs** : ${a.powers || ""}`, "", `**Histoire** : ${a.history || ""}`, "", `**Où** : ${a.location || "?"} · **Détenteur** : ${a.owner || "?"}`, ...(a.curse ? ["", `**Prix** : ${a.curse}`] : [])); }
   L.push("", "## Histoires");
   for (const s of w.stories) L.push("", `### ${s.title}`, `*${s.kind}*`, "", s.summary, "", ...(s.beats || []).map((b, i) => `${i + 1}. ${b}`), "", `Impliqués : ${(s.involves || []).join(", ")}`);
   return L.join("\n");
@@ -1032,7 +1094,7 @@ function doImport(file) {
       const d = JSON.parse(r.result);
       const w = d.world; if (!w || !w.name || !Array.isArray(w.places)) throw 0;
       const map = {}; w.id = uid("w"); w.example = false;
-      for (const k of ["places", "characters", "stories"]) for (const it of (w[k] = w[k] || [])) { const n = uid(k[0]); map[it.id] = n; it.id = n; }
+      for (const k of LISTS) for (const it of (w[k] = w[k] || [])) { const n = uid(ID_PRE[k]); map[it.id] = n; it.id = n; }
       worlds.push(w); currentId = w.id; persistWorld(w);
       if (Array.isArray(d.refs)) persistRefs(w.id, d.refs.filter(u => typeof u === "string" && u.startsWith("data:image/")).slice(0, 4));
       for (const [old, svg] of Object.entries(d.sketches || {})) { const c = cleanSVG(svg); if (c && map[old]) persistSketch(map[old], c); }
@@ -1180,7 +1242,7 @@ let assets = null;
 const images = {};   // fallback data URLs (when the asset store is unavailable), by entity id
 function entityIn(w, id) {
   if (w.id === id) return w;
-  for (const k of ["places", "characters", "stories"]) { const it = w[k].find(x => x.id === id); if (it) return it; }
+  for (const k of LISTS) { const it = (w[k] || []).find(x => x.id === id); if (it) return it; }
   return null;
 }
 function imageFor(id) { const e = entityIn(cur(), id); return (e && e.image) || images[id] || null; }
@@ -1260,6 +1322,60 @@ $("#imgPick").onchange = async (ev) => {
   catch (err) { console.warn(err); toast(`L'image n'a pas pu être importée (${(err && (err.detail || err.code)) || "erreur inconnue"}).`); }
 };
 
+/* ---------- bestiary: creatures, peoples, artifacts ---------- */
+function extraTask(key, w) {
+  if (key === "peoples") {
+    const known = ((w.rules || {}).peoples || []).map(p => p.name).filter(n => !(w.peoples || []).some(x => eqName(x.name, n)));
+    return known.length ? `\nCommence par décrire ces peuples déjà définis dans les règles du monde, en gardant exactement leurs noms, bonus et traits : ${known.join(", ")}. Puis invente les suivants si besoin.` : "\nChaque peuple doit avoir sa place dans l'histoire et les conflits du monde.";
+  }
+  if (key === "creatures") return "\nVarie les dangers (du gibier au monstre légendaire) et ancre chaque créature dans un terrain ou un lieu du monde. Statistiques au format D&D 5e, cohérentes avec le facteur de puissance.";
+  if (key === "artifacts") return "\nRelie chaque objet à l'histoire du monde (une époque, une faction, un personnage, un lieu). Pouvoirs au format D&D 5e.";
+  return "";
+}
+function normCodex(key, item, o) {
+  if (key === "creatures") {
+    const attrs = {}; for (const a of ATTR) attrs[a] = Math.max(1, Math.min(30, Math.round(+((o && o.attrs) || item.attrs || {})[a]) || 10));
+    item.attrs = attrs;
+    item.abilities = [].concat((o && o.abilities) || item.abilities || []).map(String);
+    item.actions = [].concat((o && o.actions) || item.actions || []).map(String);
+    for (const f of ["cr", "ac", "hp", "speed"]) item[f] = String((o && o[f]) ?? item[f] ?? "");
+  }
+  if (key === "peoples") item.traits = [].concat((o && o.traits) || item.traits || []).map(String);
+}
+function syncPeoples(w, added) {
+  // New peoples also become playable in the world's rules, so character sheets can use them.
+  if (!w.rules) return;
+  w.rules.peoples = w.rules.peoples || [];
+  for (const p of added) if (!w.rules.peoples.some(x => eqName(x.name, p.name))) w.rules.peoples.push({ name: p.name, desc: p.desc || "", bonus: p.bonus || "", traits: [].concat(p.traits || []) });
+}
+function beastHTML(b) {
+  const E = statEdit, a = b.attrs || {};
+  const val = (f, v, ph) => E ? `<input data-bf="${f}" value="${esc(v)}" placeholder="${ph || ""}">` : esc(v || "?");
+  return `<div class="row" style="justify-content:space-between"><h4>Bloc de statistiques</h4><span class="label">D&amp;D 5e</span></div>
+    <div class="statblock">
+      <div class="rule"></div>
+      <dl><dt>Classe d'armure</dt><dd>${val("ac", b.ac)}</dd><dt>Points de vie</dt><dd>${val("hp", b.hp)}</dd><dt>Vitesse</dt><dd>${val("speed", b.speed, "9 m")}</dd><dt>Facteur de puissance</dt><dd>${val("cr", b.cr, "1/2")}</dd></dl>
+      <div class="rule"></div>
+      <div class="attrs">${ATTR.map(k => `<div class="attr" title="${ATTR_NAME[k]}"><span class="k">${k}</span><span class="m">${sign(modOf(a[k]))}</span>${E ? `<input type="number" min="1" max="30" data-battr="${k}" value="${a[k] ?? 10}" aria-label="${ATTR_NAME[k]}">` : `<span class="v">${a[k] ?? 10}</span>`}</div>`).join("")}</div>
+      <div class="rule"></div>
+      ${E ? `<div class="field"><label class="label" for="bAb">Traits (un par ligne)</label><textarea id="bAb" rows="3">${esc((b.abilities || []).join("\n"))}</textarea></div>
+        <div class="field"><label class="label" for="bAct">Actions (une par ligne)</label><textarea id="bAct" rows="3">${esc((b.actions || []).join("\n"))}</textarea></div>`
+      : `${(b.abilities || []).length ? `<div><span class="label">Traits</span><ul class="sheet-list">${b.abilities.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+        ${(b.actions || []).length ? `<div><span class="label">Actions</span><ul class="sheet-list">${b.actions.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}`}
+    </div>
+    <div class="row"><button type="button" class="btn small" id="bEdit">${E ? "Terminer" : "Modifier les statistiques"}</button></div>`;
+}
+function wireBeast(id) {
+  const box = $("#beastBox"); if (!box) return;
+  const redraw = () => { const b = (cur().creatures || []).find(x => x.id === id); if (!b) return; box.innerHTML = beastHTML(b); wireBeast(id); };
+  const upd = (fn) => { const w = ensureEditable(), b = (w.creatures || []).find(x => x.id === id); if (b) { fn(b); persistWorld(w); renderListSoon(); } };
+  $("#bEdit").onclick = () => { statEdit = !statEdit; redraw(); };
+  box.querySelectorAll("[data-bf]").forEach(el => el.oninput = () => upd(b => b[el.dataset.bf] = el.value));
+  box.querySelectorAll("[data-battr]").forEach(el => el.onchange = () => { upd(b => { b.attrs = b.attrs || {}; b.attrs[el.dataset.battr] = Math.max(1, Math.min(30, parseInt(el.value, 10) || 10)); }); redraw(); });
+  const lines = (v) => v.split("\n").map(x => x.trim()).filter(Boolean);
+  [["bAb", "abilities"], ["bAct", "actions"]].forEach(([i, f]) => { const el = $("#" + i); if (el) el.oninput = () => upd(b => b[f] = lines(el.value)); });
+}
+
 /* ---------- coherence guardian ---------- */
 const SEV = { contradiction: "Contradiction", trou: "Trou", lien: "Lien manquant" };
 let loreBusy = false;
@@ -1300,7 +1416,7 @@ function issueCard(i) {
 function setIssue(id, status) { const w = ensureEditable(), i = (w.issues || []).find(x => x.id === id); if (i) { i.status = status; persistWorld(w); renderLore(); renderTabs(); } }
 function fullWorldJSON(w, max = 60000) {
   const strip = (o) => { const c = { ...o }; for (const k of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "chatRole", "chatSecrets", "chatDice"]) delete c[k]; return c; };
-  const data = { nom: w.name, genre: w.genre, ton: w.tone, pitch: w.pitch, epoques: w.eras, factions: w.factions, lieux: w.places.map(strip), personnages: w.characters.map(strip), histoires: w.stories.map(strip) };
+  const data = { nom: w.name, genre: w.genre, ton: w.tone, pitch: w.pitch, epoques: w.eras, factions: w.factions, lieux: w.places.map(strip), personnages: w.characters.map(strip), histoires: w.stories.map(strip), peuples: (w.peoples || []).map(strip), creatures: (w.creatures || []).map(x => { const c = strip(x); delete c.attrs; delete c.actions; return c; }), objets: (w.artifacts || []).map(strip) };
   return JSON.stringify(data).slice(0, max);
 }
 async function audit(btn) {
@@ -1939,7 +2055,7 @@ function paintPrompt(e, w) {
   const r = e.ref, t = curTheme(w);
   const style = t.style || "painterly fantasy book illustration, rich detail, dramatic lighting";
   const base = (e.kind === "world" ? w.imagePrompt : r.imagePrompt) || fallbackPrompt(e, w).replace(/,?\s*$/, "");
-  const frame = { world: "Wide establishing vista, fantasy book frontispiece", place: "Environment illustration, fantasy book plate", character: "Character portrait, head and shoulders to waist, subject centered and facing the viewer, face clearly visible in the upper third, plain atmospheric background, fantasy book illustration", story: "Dramatic key scene, fantasy book chapter illustration" }[e.kind];
+  const frame = { world: "Wide establishing vista, fantasy book frontispiece", place: "Environment illustration, fantasy book plate", character: "Character portrait, head and shoulders to waist, subject centered and facing the viewer, face clearly visible in the upper third, plain atmospheric background, fantasy book illustration", story: "Dramatic key scene, fantasy book chapter illustration", creature: "Bestiary plate, full body creature in its habitat, naturalist fantasy illustration", people: "Anthropological plate, two members of this people in traditional dress, full body, fantasy book illustration", artifact: "Single object study, centered on a plain parchment background, fantasy book illustration" }[e.kind];
   const pal = (w.palette || []).length ? ` Color palette: ${w.palette.join(" ")}.` : "";
   return `${frame}. ${words(base, e.kind === "character" ? 35 : 45)}. Style: ${words(style, 25)}.${pal} No text, no watermark.`;
 }
@@ -2471,6 +2587,8 @@ async function genPlaceAt(pt, name, hint, btn) {
 
 /* ---------- events ---------- */
 document.addEventListener("click", (ev) => {
+  const sub = ev.target.closest("[data-codex]");
+  if (sub) { codexKind = sub.dataset.codex; renderForge(); renderList(); wireForge(); return; }
   const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-paint],[data-chat],[data-act]");
   if (!t) return;
   if (t.dataset.tab) { tab = t.dataset.tab; renderTabs(); renderForge(); renderList(); wireForge(); }
