@@ -361,9 +361,10 @@ button.skill { background: none; border: 0; border-bottom: 1px dotted var(--line
 
 /* Drawer */
 .scrim { position: fixed; inset: 0; background: rgba(5, 8, 11, .6); z-index: 40; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--plate); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; display: grid; align-content: start;
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--plate); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; display: flex; flex-direction: column;
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
-.drawer .vignette { aspect-ratio: 400 / 240; }
+.drawer .vignette { aspect-ratio: 400 / 240; flex: none; width: 100%; }
+.drawer .vignette.portrait { aspect-ratio: 4 / 5; height: min(125vw, 62vh, 700px); aspect-ratio: auto; }
 .drawer-body { padding: 18px 20px 28px; display: grid; gap: 14px; }
 .drawer-head { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
 .drawer-head input { font-family: var(--display); font-size: 28px; background: transparent; border: 0; border-bottom: 1px dashed var(--line); width: 100%; padding: 2px 0; }
