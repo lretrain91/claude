@@ -271,6 +271,8 @@ button.skill { background: none; border: 0; border-bottom: 1px dotted var(--line
 .msg { max-width: min(88%, 68ch); padding: 11px 15px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.5; }
 .msg.me { align-self: flex-end; background: var(--verdigris); color: var(--on-accent); border-bottom-right-radius: 4px; }
 .msg.them { align-self: flex-start; background: var(--plate-2); border-bottom-left-radius: 4px; font-family: var(--serif); font-size: 19px; line-height: 1.5; }
+.msg .who-name { display: block; font: 600 11px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--brass); margin-bottom: 2px; }
+.msg .act { color: var(--muted); font-style: italic; }
 .msg.note { align-self: center; background: none; color: var(--muted); font-size: 13px; text-align: center; }
 .chat-foot { border-top: 1px solid var(--line); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; }
 .chat-foot textarea { font-size: 16px; }
@@ -1676,6 +1678,8 @@ const stripTags = (t) => String(t || "").replace(/\[\[[^\]]*(\]\]|$)/g, "").repl
 const d20 = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return 1 + (a[0] % 20); };
 function playerBonus(w, skill) { const b = (w.player && w.player.bonus) || {}; const k = Object.keys(b).find(x => x.toLowerCase() === String(skill).toLowerCase()); return k ? (+b[k] || 0) : 0; }
 const sign = (n) => (n >= 0 ? "+" : "−") + Math.abs(n);
+// *gesture* becomes an italic stage direction; an unclosed one (still streaming) too.
+function speechHTML(t) { return esc(t).replace(/\*([^*]+)(\*|$)/g, '<em class="act">$1</em>'); }
 
 function openChat(cid) {
   const w0 = cur(), c = w0.characters.find(x => x.id === cid); if (!c) return;
@@ -1729,7 +1733,7 @@ function openChat(cid) {
       if (t.roll) return rollHTML(t.roll);
       if (t.role === "user") return `<div class="msg me">${esc(t.content)}</div>`;
       const txt = stripTags(t.content);
-      return txt ? `<div class="msg them">${esc(txt)}</div>` : "";
+      return txt ? `<div class="msg them"><span class="who-name">${esc(c.name)}</span><span class="say">${speechHTML(txt)}</span></div>` : "";
     });
     const p = $("#chDiceOn") && $("#chDiceOn").checked ? pendingRoll() : null;
     if (p) out.push(`<div class="roll ask"><div class="die" aria-hidden="true">20</div><div style="min-width:0">
@@ -1770,7 +1774,7 @@ function openChat(cid) {
   }
   async function ask() {
     if (!sample) { log.insertAdjacentHTML("beforeend", `<div class="msg note">La génération par IA n'est pas disponible dans cet affichage.</div>`); return; }
-    const bubble = document.createElement("div"); bubble.className = "msg them"; bubble.textContent = "…"; log.appendChild(bubble);
+    const bubble = document.createElement("div"); bubble.className = "msg them"; bubble.innerHTML = `<span class="who-name">${esc(c.name)}</span><span class="say">…</span>`; const say = bubble.querySelector(".say"); log.appendChild(bubble);
     log.style.paddingBottom = log.clientHeight + "px";   // room to pin the reply's start near the top while it grows
     anchor(bubble);
     const send = $("#chSend"); send.textContent = "Stop"; send.type = "button";
@@ -1793,9 +1797,9 @@ puis une courte réaction d'attente (un geste, une phrase), sans révéler l'iss
 - avantage=oui si un argument, un cadeau ou une preuve l'aide vraiment ; avantage=désavantage si sa demande te heurte ou s'il t'a menti avant.
 - Pas de jet pour une simple question, une demande raisonnable ou une action sans enjeu. Au plus un jet par réplique, et jamais deux fois pour la même tentative.
 Quand le message contient [[RÉSULTAT ...]], applique-le sans le discuter : RÉUSSITE, il obtient ce qu'il voulait ; ÉCHEC, il échoue et tu réagis en conséquence ; CRITIQUE, l'effet est spectaculaire, dans un sens ou dans l'autre. Pour une estimation de valeur, une réussite donne la vraie valeur, un échec une estimation fausse mais crédible. Ne mentionne jamais les dés ni les chiffres.` : "N'utilise aucune balise."}
-Réponds en français, en 1 à 4 phrases, avec parfois un geste entre astérisques. Il ne sait rien de ce qu'il ne pourrait pas savoir.`;
+Réponds en français, en 1 à 4 phrases. Les paroles sont à la première personne. Tu peux ajouter un geste ou une attitude entre astérisques, toujours écrit à la troisième personne avec son prénom, jamais avec « je » (exemple : *${c.name.split(" ")[0]} croise les bras.*). Il ne sait rien de ce qu'il ne pourrait pas savoir.`;
     try {
-      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24).map(t => ({ role: t.role, content: t.content }))], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { const v = stripTags(t); bubble.textContent = v || "…"; } });
+      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24).map(t => ({ role: t.role, content: t.content }))], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { const v = stripTags(t); say.innerHTML = speechHTML(v) || "…"; } });
       turns.push({ role: "assistant", content: answer }); save();
     } catch (err) {
       if (err && err.text) { turns.push({ role: "assistant", content: err.text }); save(); }
