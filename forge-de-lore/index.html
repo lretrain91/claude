@@ -1517,7 +1517,7 @@ Réponds uniquement avec un objet JSON : {"proposals": [{"target": string (nom e
     if (tab === "lore") renderLore();
     if (ref && openRef && openRef.id === ref) openDrawer(ref);
     say(`${added.length} proposition${added.length > 1 ? "s" : ""} à valider${ref ? " ci-dessus" : " dans la file"}.`);
-  } catch (e) { say(aiError(e), true); }
+  } catch (e) { console.warn("depth", e); say(e && e.code ? `${aiError(e)} (code : ${e.code})` : `Erreur de la page : ${e && e.message ? e.message : e}`, true); }
   finally { archBusy = false; if (btn && document.body.contains(btn)) busy(btn, false); }
 }
 function decideTask(id, ok) {
@@ -1593,74 +1593,92 @@ async function runArchivist({ btn, source, chatId, quiet } = {}) {
   archBusy = true;
   const w = ensureLists(ensureEditable());
   const st = () => $("#archStatus");
+  const say = (m, err) => { const e = st(); if (e) { e.className = "status" + (err ? " err" : ""); e.textContent = m; } };
   if (btn) busy(btn, true, "Relecture…");
-  if (st()) { st().className = "status"; st().textContent = "L'archiviste relit les conversations et le lore… (jusqu'à une minute)"; }
-  // What to read: one conversation (new turns only) or everything.
-  let convo = "", corpus = "";
+  say("L'archiviste relit les conversations et le lore…");
+  // What to read: one conversation (new turns only) or everything, kept compact.
+  let texts = "";
   if (chatId) {
     const c = w.characters.find(x => x.id === chatId); if (!c) { archBusy = false; return; }
-    convo = `CONVERSATION avec ${c.name} :\n` + transcriptOf(w, c, unreadFrom(c));
+    texts = `CONVERSATION avec ${c.name} :\n` + transcriptOf(w, c, unreadFrom(c)).slice(-20000);
   } else {
-    convo = w.characters.filter(c => (c.dialogue || []).length).map(c => `CONVERSATION avec ${c.name} :\n${transcriptOf(w, c)}`).join("\n\n").slice(0, 40000);
-    corpus = loreCorpus(w, 40000);
+    const convos = w.characters.filter(c => (c.dialogue || []).length).map(c => `CONVERSATION avec ${c.name} :\n${transcriptOf(w, c)}`).join("\n\n");
+    texts = convos.slice(-25000) + "\n\nLORE ÉCRIT :\n" + loreCorpus(w, 25000);
   }
-  const shapes = { creatures: SCHEMAS.creatures, characters: SCHEMAS.characters, places: SCHEMAS.places, artifacts: SCHEMAS.artifacts, peoples: SCHEMAS.peoples, factions: `{"name": string, "desc": string}` };
+  const step = { now: "détection" };
   try {
-    const out = await sample.json(`Tu es l'archiviste d'un univers de jeu vidéo. Ton travail : repérer tout ce qui est MENTIONNÉ comme existant dans les textes ci-dessous mais qui n'a pas encore de fiche, puis écrire ces fiches.
+    // Step 1: spot what is missing (short answer).
+    const found = await sample.json(`Tu es l'archiviste d'un univers de jeu vidéo. Repère ce qui est MENTIONNÉ comme existant dans les textes ci-dessous mais qui n'a pas encore de fiche.
 
-${RULES}
-
-CONTEXTE DU MONDE :
-${worldContext(w, 3000)}
-${rulesBrief(w)}
-
-ÉLÉMENTS QUI EXISTENT DÉJÀ (ne les recrée pas, même sous un autre nom ou une autre orthographe) :
+MONDE : ${w.name} (${w.genre})
+ÉLÉMENTS QUI EXISTENT DÉJÀ (ne les propose pas, même sous une autre orthographe) :
 ${allNames(w).join(", ")}
 
-TEXTES À RELIRE :
-${convo}
-${corpus ? "\nLORE ÉCRIT :\n" + corpus : ""}
+TEXTES :
+${texts}
 
-RÈGLES :
-- Ne crée que ce qui est présenté comme réel dans le monde : une créature tuée, croisée ou décrite ; une personne nommée ou clairement identifiée ; un lieu où l'on va ou dont on vient ; un objet précis ; un peuple ; une organisation. Ignore les métaphores, les hypothèses, les choses génériques (« un garde », « une taverne » sans identité).
-- Garde le nom tel qu'il est employé ; s'il n'en a pas (« une tortue géante de feu »), donne-lui un nom qui sonne juste dans ce monde et garde le descriptif dans sa fiche.
-- Remplis chaque fiche à partir de ce que les textes en disent, complété de façon cohérente avec le lore. Si quelqu'un l'a tuée ou détenue, mentionne-le dans sa fiche.
-- Au plus 8 éléments, les plus importants d'abord. S'il n'y a rien de manquant, renvoie une liste vide.
+RÈGLES : ne retiens que ce qui est présenté comme réel : une créature tuée, croisée ou décrite ; une personne nommée ou clairement identifiée ; un lieu où l'on va ou dont on vient ; un objet précis ; un peuple ; une organisation. Ignore les métaphores, les hypothèses et les choses génériques sans identité (« un garde », « une taverne »). Au plus 6 éléments, les plus importants d'abord ; liste vide s'il n'y a rien.
+Réponds uniquement avec un objet JSON : {"items": [{"kind": "creatures" | "characters" | "places" | "artifacts" | "peoples" | "factions", "name": string (nom employé, ou nom à inventer s'il n'en a pas), "evidence": string (courte citation, 20 mots max)}]}`, { cache: false });
+    const list = (found && Array.isArray(found.items) ? found.items : Array.isArray(found) ? found : [])
+      .filter(x => x && ARCH_KINDS[x.kind] && x.kind !== "depth" && x.kind !== "stories" && x.name && !nameExists(w, x.name)).slice(0, 6);
+    const created = [], placed = [], peoplesAdded = [], failed = [];
+    // Step 2: write each sheet separately, so one failure does not lose the others.
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      step.now = `fiche « ${it.name} »`;
+      say(`L'archiviste écrit la fiche ${i + 1} sur ${list.length} : ${it.name}…`);
+      try {
+        if (it.kind === "factions") {
+          const f = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w, 2500)}\n\nÉcris la faction « ${it.name} », mentionnée ainsi : « ${it.evidence} ».\nRéponds uniquement avec un objet JSON : {"name": string, "desc": string (2 phrases)}`, { cache: false, modelTier: "quick" });
+          if (!f || nameExists(w, f.name || it.name)) continue;
+          w.factions.push({ name: String(f.name || it.name), desc: String(f.desc || "") });
+          created.push({ kind: "factions", name: String(f.name || it.name), evidence: String(it.evidence || "") });
+          continue;
+        }
+        const o = await sample.json(`${RULES}
 
-Réponds uniquement avec un objet JSON : {"items": [{"kind": "creatures" | "characters" | "places" | "artifacts" | "peoples" | "factions", "evidence": string (courte citation du texte qui le mentionne), "data": <fiche au format du type>}]}
-Formats :
-${Object.entries(shapes).map(([k, v]) => `- ${k} : ${v}`).join("\n")}`, { cache: false, modelTier: chatId ? "default" : "complex" });
-    const items = (out && Array.isArray(out.items) ? out.items : []).filter(x => x && ARCH_KINDS[x.kind] && x.data && x.data.name);
-    const created = [];
-    const placed = [], peoplesAdded = [];
-    for (const it of items) {
-      if (nameExists(w, it.data.name)) continue;
-      if (it.kind === "factions") { w.factions.push({ name: String(it.data.name), desc: String(it.data.desc || "") }); created.push({ kind: "factions", name: String(it.data.name), evidence: String(it.evidence || "") }); continue; }
-      const o = it.data, item = { id: uid(ID_PRE[it.kind]) };
-      for (const [k, v] of Object.entries(o)) if (k !== "id" && v != null) item[k] = Array.isArray(v) ? v.map(String) : (typeof v === "object" ? v : String(v));
-      normCodex(it.kind, item, o);
-      item.pending = true;
-      w[it.kind].push(item);
-      if (it.kind === "places") placed.push(item);
-      if (it.kind === "peoples") peoplesAdded.push(item);
-      created.push({ kind: it.kind, name: item.name, id: item.id, evidence: String(it.evidence || "") });
+CONTEXTE DU MONDE :
+${worldContext(w, 3500)}
+${it.kind === "characters" || it.kind === "peoples" ? rulesBrief(w) : ""}
+
+ÉLÉMENT À CRÉER (${ARCH_KINDS[it.kind]}) : « ${it.name} »
+Mentionné ainsi : « ${it.evidence} »
+${chatId ? "Extrait de la conversation :\n" + texts.slice(-4000) : ""}
+
+Écris sa fiche à partir de ce que les textes en disent, complétée de façon cohérente avec le lore. Garde le nom « ${it.name} » s'il est employé tel quel. Si quelqu'un l'a tué ou détenu, dis-le dans la fiche.
+Réponds uniquement avec un objet JSON de la forme :
+${SCHEMAS[it.kind]}`, { cache: false });
+        if (!o || !o.name || nameExists(w, o.name)) continue;
+        const item = { id: uid(ID_PRE[it.kind]) };
+        for (const [k, v] of Object.entries(o)) if (k !== "id" && v != null) item[k] = Array.isArray(v) ? v.map(String) : (typeof v === "object" ? v : String(v));
+        normCodex(it.kind, item, o);
+        item.pending = true;
+        w[it.kind].push(item);
+        if (it.kind === "places") placed.push(item);
+        if (it.kind === "peoples") peoplesAdded.push(item);
+        created.push({ kind: it.kind, name: item.name, id: item.id, evidence: String(it.evidence || "") });
+      } catch (e) { console.warn("archivist sheet", it, e); failed.push(it.name); if (e && (e.code === "rate_limited" || e.code === "not_granted")) break; }
     }
     if (placed.length && w.mapInit) { try { ensureMap(w); autoPlace(w, placed); } catch {} }
     if (peoplesAdded.length) syncPeoples(w, peoplesAdded);
-    if (chatId) { const c = w.characters.find(x => x.id === chatId); if (c) markRead(c); }
-    else for (const c of w.characters) markRead(c);
+    // Keep unread what could not be written, so the next pass tries again.
+    if (!failed.length) { if (chatId) { const c = w.characters.find(x => x.id === chatId); if (c) markRead(c); } else for (const c of w.characters) markRead(c); }
     if (created.length) {
       archTasks(w); const now = Date.now();
       w.archTasks = [...(w.archTasks || []), ...created.map((c, i) => ({ id: uid("t"), at: now + i, source, kind: c.kind, name: c.name, ref: c.id || "", evidence: c.evidence, status: "pending" }))].slice(-200);
     }
     persistWorld(w); renderTabs();
     if (tab === "lore") renderLore(); else renderListSoon();
-    const msg = created.length ? `L'archiviste a créé ${created.length} élément${created.length > 1 ? "s" : ""} à valider : ${created.map(c => c.name).join(", ")}. Voir l'onglet Cohérence.` : "L'archiviste n'a rien trouvé de manquant.";
-    if (st()) { st().className = "status"; st().textContent = msg; }
-    if (created.length || !quiet) toast(msg.length > 160 ? msg.slice(0, 157) + "…" : msg);
+    let msg = created.length ? `L'archiviste a créé ${created.length} élément${created.length > 1 ? "s" : ""} à valider : ${created.map(c => c.name).join(", ")}.` : list.length ? "" : "L'archiviste n'a rien trouvé de manquant.";
+    if (failed.length) msg += `${msg ? " " : ""}Fiche${failed.length > 1 ? "s" : ""} non écrite${failed.length > 1 ? "s" : ""} : ${failed.join(", ")} (relance pour réessayer).`;
+    say(msg || "Rien de nouveau.", failed.length && !created.length);
+    if (created.length || failed.length || !quiet) toast(msg.length > 170 ? msg.slice(0, 167) + "…" : (msg || "Rien de nouveau."));
   } catch (e) {
-    if (st()) { st().className = "status err"; st().textContent = aiError(e); }
-    else if (!quiet) toast(aiError(e));
+    console.warn("archivist", e);
+    const detail = e && e.code ? `${aiError(e)} (code : ${e.code}${e.message ? ", " + String(e.message).slice(0, 120) : ""})` : `Erreur de la page : ${e && e.message ? e.message : e}`;
+    const msg = `La relecture a échoué à l'étape ${step.now}. ${detail}`;
+    say(msg, true);
+    if (!st() || quiet) toast(msg.slice(0, 170));
   } finally { archBusy = false; if (btn && document.body.contains(btn)) busy(btn, false); }
 }
 function archiveAfterChat(cid) {
