@@ -1720,7 +1720,11 @@ function openChat(cid) {
       <div class="die" aria-hidden="true">${r.nat}</div>
       <div><b>${esc(r.skill)} · ${crit}</b><br><span class="note">d20 ${r.dice && r.dice.length > 1 ? `(${r.dice.join(" et ")}, ${r.mode === "adv" ? "avantage" : "désavantage"}) ` : ""}= ${r.nat} ${sign(r.bonus)} = <b>${r.total}</b>${r.dd ? ` contre DD ${r.dd}` : ""}</span></div></div>`;
   };
-  const draw = () => {
+  // Show the start of an element near the top of the log (keeps the previous line in sight).
+  const anchor = (el) => { if (!el) return; const gap = Math.min(96, log.clientHeight * .2); log.scrollTop += el.getBoundingClientRect().top - log.getBoundingClientRect().top - gap; };
+  // mode: "bottom" (default), "keep" (leave the reader where they are), "last" (top of the latest reply)
+  const draw = (mode = "bottom") => {
+    const keepAt = log.scrollTop;
     const out = turns.map(t => {
       if (t.roll) return rollHTML(t.roll);
       if (t.role === "user") return `<div class="msg me">${esc(t.content)}</div>`;
@@ -1733,7 +1737,9 @@ function openChat(cid) {
       ${p.reason ? `<span class="note">${esc(p.reason)}</span><br>` : ""}<span class="note">Ton bonus : ${sign(playerBonus(cur(), p.skill))}</span>
       <div class="row" style="margin-top:8px"><button class="btn small primary" id="chRoll">Lancer le d20</button><button class="btn small ghost" id="chSkip">Renoncer</button></div></div></div>`);
     log.innerHTML = out.join("") || `<div class="msg note">${c.quote ? "« " + esc(c.quote) + " »<br>" : ""}Pose une question, provoque-le, négocie. Quand l'issue est incertaine, il te demandera un jet de d20.</div>`;
-    log.scrollTop = log.scrollHeight;
+    if (mode === "keep") log.scrollTop = keepAt;
+    else if (mode === "last") { const all = log.querySelectorAll(".msg.them"); anchor(all[all.length - 1]); }
+    else log.scrollTop = log.scrollHeight;
     if (p) { $("#chRoll").onclick = (e) => doRoll(p, e.currentTarget); $("#chSkip").onclick = () => { turns.push({ role: "user", content: "(Je renonce à tenter ma chance.)" }); save(); ask(); }; }
   };
   const save = () => {
@@ -1764,7 +1770,9 @@ function openChat(cid) {
   }
   async function ask() {
     if (!sample) { log.insertAdjacentHTML("beforeend", `<div class="msg note">La génération par IA n'est pas disponible dans cet affichage.</div>`); return; }
-    const bubble = document.createElement("div"); bubble.className = "msg them"; bubble.textContent = "…"; log.appendChild(bubble); log.scrollTop = log.scrollHeight;
+    const bubble = document.createElement("div"); bubble.className = "msg them"; bubble.textContent = "…"; log.appendChild(bubble);
+    log.style.paddingBottom = log.clientHeight + "px";   // room to pin the reply's start near the top while it grows
+    anchor(bubble);
     const send = $("#chSend"); send.textContent = "Stop"; send.type = "button";
     chatCtl = new AbortController(); send.onclick = () => chatCtl && chatCtl.abort();
     const sheet = { nom: c.name, role: c.role, faction: c.faction, origine: c.origin, lieu_actuel: c.place, description: c.desc, motivation: c.motivation, secret: c.secret, replique: c.quote };
@@ -1787,17 +1795,18 @@ puis une courte réaction d'attente (un geste, une phrase), sans révéler l'iss
 Quand le message contient [[RÉSULTAT ...]], applique-le sans le discuter : RÉUSSITE, il obtient ce qu'il voulait ; ÉCHEC, il échoue et tu réagis en conséquence ; CRITIQUE, l'effet est spectaculaire, dans un sens ou dans l'autre. Pour une estimation de valeur, une réussite donne la vraie valeur, un échec une estimation fausse mais crédible. Ne mentionne jamais les dés ni les chiffres.` : "N'utilise aucune balise."}
 Réponds en français, en 1 à 4 phrases, avec parfois un geste entre astérisques. Il ne sait rien de ce qu'il ne pourrait pas savoir.`;
     try {
-      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24).map(t => ({ role: t.role, content: t.content }))], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { const v = stripTags(t); bubble.textContent = v || "…"; log.scrollTop = log.scrollHeight; } });
+      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24).map(t => ({ role: t.role, content: t.content }))], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { const v = stripTags(t); bubble.textContent = v || "…"; } });
       turns.push({ role: "assistant", content: answer }); save();
     } catch (err) {
       if (err && err.text) { turns.push({ role: "assistant", content: err.text }); save(); }
-      else if (err && err.code !== "cancelled") { bubble.remove(); log.insertAdjacentHTML("beforeend", `<div class="msg note">${esc(aiError(err))}</div>`); return; }
+      else if (err && err.code !== "cancelled") { log.style.paddingBottom = ""; bubble.remove(); log.insertAdjacentHTML("beforeend", `<div class="msg note">${esc(aiError(err))}</div>`); return; }
     } finally {
       chatCtl = null; send.textContent = "Envoyer"; send.type = "submit"; send.onclick = null;
     }
-    draw(); input.focus();
+    const at = log.scrollTop; log.style.paddingBottom = ""; log.scrollTop = at;
+    draw("keep"); input.focus({ preventScroll: true });
   }
-  draw();
+  draw("last");
   $("#chClose").onclick = () => { if (chatCtl) chatCtl.abort(); closeModal(); };
   $("#chOpts").onclick = () => { const mo = $("#chMore"); mo.hidden = !mo.hidden; $("#chOpts").setAttribute("aria-expanded", String(!mo.hidden)); };
   $("#chClear").onclick = () => { turns.length = 0; save(); draw(); };
