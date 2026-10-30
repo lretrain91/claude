@@ -467,6 +467,7 @@ function renderPlate() {
       ${(w.factions || []).length ? `<div><div class="label" style="margin-bottom:8px">Factions</div><div class="factions">${w.factions.map(f => `<div class="faction"><h4>${esc(f.name)}</h4><p>${esc(f.desc)}</p></div>`).join("")}</div></div>` : ""}
       <div class="row">
         <button class="btn small" data-act="editWorld">Modifier le monde</button>
+        <button class="btn small" data-paint="${esc(w.id)}">${imageFor(w.id) ? "Nouvelle illustration du monde" : "Illustrer le monde"}</button>
         <button class="btn small ghost" data-import="${esc(w.id)}">${imageFor(w.id) ? "Changer l'image du monde" : "Image du monde"}</button>
         ${w.example ? "" : '<button class="btn small ghost danger" data-act="delWorld">Supprimer</button>'}
       </div>
@@ -491,8 +492,11 @@ function renderForge() {
       <div class="field hint"><span class="label">Thème graphique</span>
         <div class="themebar">${swatches(t.palette)}<div style="min-width:0"><b>${esc(t.name)}</b> <span class="note">${esc(t.desc)}${nr ? ` · ${nr} image${nr > 1 ? "s" : ""} de référence` : ""}</span></div></div></div>
       <button class="btn" id="themeBtn">Changer de thème</button>
-      <button class="btn primary" id="sketchAll">Esquisser tout ce qui manque</button>
-      <div class="status row" style="justify-content:space-between"><span id="forgeStatus">Chaque élément a un prompt prêt pour Midjourney, DALL·E ou Stable Diffusion, et une esquisse dessinée par Claude dans le thème choisi.</span><button class="btn small ghost" id="redrawAll">Tout redessiner avec ce thème</button></div>`;
+      <button class="btn primary" id="paintAll">Illustrer tout ce qui manque</button>
+      <div class="field hint"><label class="label" for="engineSel">Générateur d'images</label>
+        <select id="engineSel">${Object.entries(ENGINES).map(([k, e]) => `<option value="${k}" ${k === engineKey() ? "selected" : ""}>${esc(e.label)}</option>`).join("")}</select></div>
+      <div class="status row" style="justify-content:space-between"><span id="forgeStatus">Les illustrations sont peintes par FLUX via ton compte Hugging Face, dans le thème choisi. Chaque élément garde aussi un prompt prêt pour Midjourney ou DALL·E.</span>
+        <span class="row"><button class="btn small ghost" id="sketchAll">Esquisses rapides</button><button class="btn small ghost" id="redrawAll">Tout réillustrer</button></span></div>`;
     return;
   }
   const ph = { places: "ex : une cité souterraine tenue par des contrebandiers", characters: "ex : un antagoniste lié aux Foreurs de Nacre", stories: "ex : une quête secondaire courte autour du Phare Muet" }[tab];
@@ -558,6 +562,7 @@ function renderGallery() {
         <div class="prompt" id="pr_${esc(e.id)}">${esc(promptFor(e, w))}</div>
         <div class="row">
           <button class="btn small" data-copy="${esc(e.id)}">Copier le prompt</button>
+          <button class="btn small primary" data-paint="${esc(e.id)}">${imageFor(e.id) ? "Nouvelle illustration" : "Générer l'illustration"}</button>
           <button class="btn small" data-import="${esc(e.id)}">${imageFor(e.id) ? "Remplacer l'image" : "Importer une image"}</button>
           ${imageFor(e.id) ? "" : `<button class="btn small" data-sketch="${esc(e.id)}">${sketches[e.id] ? "Redessiner" : "Esquisser"}</button>`}
         </div>
@@ -595,7 +600,8 @@ function openDrawer(id) {
         return `<div class="field"><label class="label" for="f_${f}">${l}</label>${rows ? `<textarea id="f_${f}" rows="${rows}">${esc(v)}</textarea>` : `<input id="f_${f}" value="${esc(v)}">`}</div>`;
       }).join("")}
       <div class="row">
-        <button class="btn primary" id="dSketch">${sketches[it.id] ? "Redessiner l'esquisse" : "Esquisser l'illustration"}</button>
+        <button class="btn primary" id="dPaint">${imageFor(it.id) ? "Nouvelle illustration" : "Générer l'illustration"}</button>
+        ${imageFor(it.id) ? "" : `<button class="btn" id="dSketch">${sketches[it.id] ? "Redessiner l'esquisse" : "Esquisse rapide"}</button>`}
         <button class="btn" id="dImport">${imageFor(it.id) ? "Remplacer l'image" : "Importer une image"}</button>
         ${imageFor(it.id) ? '<button class="btn ghost" id="dNoImg">Retirer l\'image</button>' : ""}
         <button class="btn" id="dCopy">Copier le prompt image</button>
@@ -615,7 +621,8 @@ function openDrawer(id) {
   }));
   $("#closeD").onclick = closeDrawer;
   $("#dCopy").onclick = () => copy(promptFor({ kind, ref: it }, cur()));
-  $("#dSketch").onclick = (ev) => sketch(it.id, ev.currentTarget, $("#dStatus"));
+  if ($("#dSketch")) $("#dSketch").onclick = (ev) => sketch(it.id, ev.currentTarget, $("#dStatus"));
+  $("#dPaint").onclick = (ev) => paint(it.id, ev.currentTarget, $("#dStatus"));
   $("#dImport").onclick = () => pickImage(it.id);
   if ($("#dNoImg")) $("#dNoImg").onclick = () => removeImage(it.id);
   $("#dDeepen").onclick = (ev) => deepen(k, it, ev.currentTarget);
@@ -1050,6 +1057,95 @@ $("#imgPick").onchange = async (ev) => {
   try { await setImage(id, f, "import"); toast("Image ajoutée"); }
   catch (err) { console.warn(err); toast(err && err.code === "not_granted" ? "Le stockage d'images n'est pas autorisé pour cette page." : "L'image n'a pas pu être importée. Essaie un JPEG ou un PNG plus léger."); }
 };
+
+/* ---------- FLUX illustrations (Hugging Face connector) ---------- */
+const HF = "Hugging face Flux";
+const ENGINES = {
+  krea: { label: "FLUX Krea : qualité livre illustré (≈ 1 min)", tool: "gr1_flux_1_krea_dev_infer", input: (prompt, land) => ({ prompt, width: land ? 1024 : 704, height: land ? 704 : 1024, num_inference_steps: 28, guidance_scale: 4.5 }) },
+  zimage: { label: "Z-Image Turbo : rapide et détaillé (≈ 20 s)", tool: "gr3_z_image_turbo_generate", input: (prompt, land) => ({ prompt, resolution: land ? "1248x832 ( 3:2 )" : "832x1248 ( 2:3 )" }) },
+  schnell: { label: "FLUX Schnell : brouillon express (≈ 10 s)", tool: "gr2_flux1_schnell_infer", input: (prompt, land) => ({ prompt, width: land ? 1024 : 704, height: land ? 704 : 1024, num_inference_steps: 4 }) }
+};
+let mcp = null, engineMem = null;
+function engineKey() {
+  if (!engineMem) { try { engineMem = localStorage.getItem(LS + ":engine"); } catch {} }
+  return ENGINES[engineMem] ? engineMem : "krea";
+}
+function words(t, n) { const a = String(t || "").replace(/\s+/g, " ").trim().split(" "); return a.length > n ? a.slice(0, n).join(" ") : a.join(" "); }
+function paintPrompt(e, w) {
+  const r = e.ref, t = curTheme(w);
+  const style = t.style || "painterly fantasy book illustration, rich detail, dramatic lighting";
+  const base = (e.kind === "world" ? w.imagePrompt : r.imagePrompt) || fallbackPrompt(e, w).replace(/,?\s*$/, "");
+  const frame = { world: "Wide establishing vista, fantasy book frontispiece", place: "Environment illustration, fantasy book plate", character: "Character portrait, half body, fantasy book illustration", story: "Dramatic key scene, fantasy book chapter illustration" }[e.kind];
+  const pal = (w.palette || []).length ? ` Color palette: ${w.palette.join(" ")}.` : "";
+  return `${frame}. ${words(base, 45)}. Style: ${words(style, 25)}.${pal} No text, no watermark.`;
+}
+function b64ToBlob(b64, type) { const bin = atob(b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type }); }
+function imageFromResult(res) {
+  const blocks = (res && res.content) || [];
+  const img = blocks.find(b => b && b.type === "image" && typeof b.data === "string");
+  if (img) return b64ToBlob(img.data, img.mimeType || "image/webp");
+  // some Spaces return a resource block or a data URL in text
+  for (const b of blocks) {
+    const d = b && (b.blob || (b.resource && b.resource.blob));
+    const mt = b && (b.mimeType || (b.resource && b.resource.mimeType));
+    if (typeof d === "string" && /^image\//.test(mt || "")) return b64ToBlob(d, mt);
+    const m = b && typeof b.text === "string" && b.text.match(/data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=]+)/);
+    if (m) return b64ToBlob(m[2], m[1]);
+  }
+  return null;
+}
+function mcpError(e) {
+  const c = e && e.code;
+  if (c === "server_not_connected" || c === "server_not_found" || c === "selection_required") return "Le connecteur « Hugging Face FLUX » n'est pas disponible. Vérifie-le dans claude.ai, Paramètres → Connecteurs.";
+  if (c === "needs_reauth") return "Ta connexion Hugging Face a expiré. Reconnecte le connecteur dans claude.ai, Paramètres → Connecteurs.";
+  if (c === "not_in_manifest" || c === "not_granted" || c === "approval_required") return "L'accès au générateur n'a pas été autorisé pour cette page. Réessaie et accepte la demande.";
+  if (c === "tool_error") return "Le générateur a refusé ou échoué. Ton quota GPU Hugging Face du jour est peut-être épuisé : essaie Z-Image ou FLUX Schnell, ou réessaie plus tard.";
+  if (c === "server_unavailable") return "Le générateur est surchargé ou en train de démarrer. Réessaie dans une minute.";
+  if (c === "cancelled") return "Annulé.";
+  return "La génération d'image a échoué. Réessaie.";
+}
+async function paint(id, btn, statusEl, quiet) {
+  const say = (msg, err) => { if (statusEl) { statusEl.className = "status" + (err ? " err" : ""); statusEl.textContent = msg; } else if (!quiet || err) toast(msg); };
+  if (!mcp) { say("Les connecteurs ne sont pas disponibles dans cet affichage. Ouvre la page dans Claude.", true); return false; }
+  const w = cur(), e = allEntities(w).find(x => x.id === id); if (!e) return false;
+  const eng = ENGINES[engineKey()], land = e.kind !== "character";
+  busy(btn, true, "Peinture…");
+  say(`${eng.label.split(":")[0].trim()} peint « ${e.title} »…`);
+  try {
+    const res = await mcp.callTool(HF, eng.tool, eng.input(paintPrompt(e, w), land), { cache: false });
+    const blob = imageFromResult(res);
+    if (!blob) throw { code: "no_image" };
+    await setImage(id, blob, "flux");
+    say(`Illustration de « ${e.title} » ajoutée.`);
+    return true;
+  } catch (err) {
+    console.warn("paint", err);
+    say(err && err.code === "no_image" ? "Le générateur n'a pas renvoyé d'image. Réessaie ou change de générateur." : (err && err.code && !String(err.code).match(/^(store|too|invalid|unsupported)/) ? mcpError(err) : "L'image a été peinte mais n'a pas pu être enregistrée."), true);
+    return false;
+  } finally { if (btn && document.body.contains(btn)) busy(btn, false); }
+}
+let paintRunning = false;
+async function paintAll(force, btn) {
+  if (paintRunning) return;
+  paintRunning = true;
+  try { await paintAllInner(force, btn); } finally { paintRunning = false; }
+}
+async function paintAllInner(force, btn) {
+  const todo = allEntities(cur()).filter(e => force || !imageFor(e.id));
+  { const st = $("#forgeStatus");
+  if (!todo.length) { st.textContent = "Tout est déjà illustré."; return; } }
+  busy(btn, true, "Peinture en cours…");
+  let ok = 0, i = 0;
+  for (const e of todo) {
+    i++; const st1 = $("#forgeStatus"); if (st1) { st1.className = "status"; st1.textContent = `Illustration ${i} sur ${todo.length} : ${e.title}`; }
+    const done = await paint(e.id, null, null, true);
+    const st = $("#forgeStatus") || document.createElement("p");
+    if (!done) { st.className = "status err"; st.textContent = `Arrêt à « ${e.title} ». ${ok} illustration${ok > 1 ? "s" : ""} terminée${ok > 1 ? "s" : ""}. Relance pour continuer.`; break; }
+    ok++;
+  }
+  if (btn && document.body.contains(btn)) busy(btn, false);
+  if (ok === todo.length) { const s2 = $("#forgeStatus"); if (s2) { s2.className = "status"; s2.textContent = `${ok} illustration${ok > 1 ? "s" : ""} terminée${ok > 1 ? "s" : ""}.`; } }
+}
 
 /* ---------- world map ---------- */
 // World units: 1200 x 760. Scale: 100 units = 25 lieues.
@@ -1496,13 +1592,14 @@ async function genPlaceAt(pt, name, hint, btn) {
 
 /* ---------- events ---------- */
 document.addEventListener("click", (ev) => {
-  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-act]");
+  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-paint],[data-act]");
   if (!t) return;
   if (t.dataset.tab) { tab = t.dataset.tab; renderTabs(); renderForge(); renderList(); wireForge(); }
   else if (t.dataset.open) openDrawer(t.dataset.open);
   else if (t.dataset.copy) { const e = allEntities(cur()).find(x => x.id === t.dataset.copy); copy(promptFor(e, cur()), $("#pr_" + CSS.escape(e.id))); }
   else if (t.dataset.sketch) sketch(t.dataset.sketch, t, null);
   else if (t.dataset.import) pickImage(t.dataset.import);
+  else if (t.dataset.paint) paint(t.dataset.paint, t, null);
   else if (t.dataset.act === "editWorld") openModal(true);
   else if (t.dataset.act === "theme") openThemeModal();
   else if (t.dataset.act === "delWorld") {
@@ -1520,9 +1617,11 @@ function wireForge() {
   const h = $("#hint"); if (h) h.onkeydown = (e) => { if (e.key === "Enter") generate(); };
   const tb = $("#themeBtn"); if (tb) tb.onclick = openThemeModal;
   const a = $("#sketchAll"); if (a) a.onclick = () => sketchAll(false, a);
+  const pa = $("#paintAll"); if (pa) pa.onclick = () => paintAll(false, pa);
+  const es = $("#engineSel"); if (es) es.onchange = () => { try { localStorage.setItem(LS + ":engine", es.value); } catch {} engineMem = es.value; };
   const rd = $("#redrawAll"); if (rd) rd.onclick = () => {
-    if (!rd.dataset.confirm) { rd.dataset.confirm = "1"; rd.textContent = "Remplacer toutes les esquisses ?"; return; }
-    sketchAll(true, rd);
+    if (!rd.dataset.confirm) { rd.dataset.confirm = "1"; rd.textContent = "Remplacer toutes les illustrations ?"; return; }
+    paintAll(true, rd);
   };
 }
 $("#worldSel").onchange = (e) => { currentId = e.target.value; lsSave(); render(); wireForge(); };
@@ -1545,6 +1644,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw
   const [s, d, u, dl] = await Promise.all([claude.use("sample"), claude.use("db"), claude.use("user"), claude.use("downloads")].map(p => p.catch(() => null)));
   sample = s; downloads = dl;
   try { assets = await claude.use("assets"); } catch { assets = null; }
+  try { mcp = await claude.use("mcp"); } catch { mcp = null; }
   if (sample && sample.limits) { try { const lim = await sample.limits(); imgLimits = lim && lim.images || null; } catch {} }
   if (!sample) aiOff("La génération par IA n'est pas disponible dans cet affichage. Tu peux quand même consulter et modifier ton lore.");
   if (d && u) { try { userId = await u.id(); db = d; await cloudLoad(); wireForge(); } catch (e) { console.warn(e); } }
