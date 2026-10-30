@@ -275,6 +275,15 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .issue.done { opacity: .62; }
 .sevtag { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sev); }
 .lore .status:empty { display: none; }
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; min-width: 0; }
+.issue > * { min-width: 0; }
+.issue .meta { flex-wrap: wrap; min-width: 0; }
+.issue .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choice { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; align-content: start; background: var(--ink); }
+.choice b { font-size: 15px; } .choice p { margin: 0; font-size: 14px; color: var(--muted); }
+.choice .btn { justify-self: start; margin-top: 4px; }
+.ownfix { display: grid; gap: 4px; }
+.ownfix input { flex: 1; min-width: 0; background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
 .changes { margin: 0; padding-left: 18px; font-size: 14px; color: var(--fg); }
 .changes li { margin: 2px 0; }
 
@@ -1818,21 +1827,28 @@ function renderLore() {
   $("#auditBtn").onclick = (e) => audit(e.currentTarget);
   wireArchivist();
   $("#list").querySelectorAll("[data-fill]").forEach(b => b.onclick = () => fillIssue(b.dataset.fill, b));
+  $("#list").querySelectorAll("[data-choose]").forEach(b => b.onclick = () => { const [id, n] = b.dataset.choose.split(":"); chooseFix(id, +n); });
+  $("#list").querySelectorAll("[data-own]").forEach(b => { const go = () => { const v = ($("#own_" + CSS.escape(b.dataset.own)) || {}).value || ""; if (v.trim()) fillIssue(b.dataset.own, b, v.trim()); }; b.onclick = go; const inp = $("#own_" + CSS.escape(b.dataset.own)); if (inp) inp.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
   $("#list").querySelectorAll("[data-ignore]").forEach(b => b.onclick = () => setIssue(b.dataset.ignore, "ignored"));
   $("#list").querySelectorAll("[data-reopen]").forEach(b => b.onclick = () => setIssue(b.dataset.reopen, "open"));
 }
 function issueCard(i) {
   const isOpen = i.status === "open";
   return `<article class="issue ${isOpen ? "" : "done"}" data-sev="${esc(i.severity)}">
-    <div class="row" style="justify-content:space-between"><span class="sevtag">${esc(SEV[i.severity] || "Point")}${isOpen ? "" : i.status === "fixed" ? " · comblé" : " · ignoré"}</span>
+    <div class="row" style="justify-content:space-between"><span class="sevtag">${esc(SEV[i.severity] || "Point")}${isOpen ? "" : i.status === "fixed" ? " · résolu" : " · ignoré"}</span>
       ${(i.targets || []).length ? `<span class="meta">${i.targets.slice(0, 4).map(t => `<span class="chip">${esc(t)}</span>`).join("")}</span>` : ""}</div>
     <h4>${esc(i.title)}</h4>
     <p>${esc(i.detail)}</p>
-    ${i.fix && isOpen ? `<p class="fix">Piste : ${esc(i.fix)}</p>` : ""}
-    ${i.applied ? `<ul class="changes">${i.applied.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+    ${i.fix && isOpen && !(i.options || []).length ? `<p class="fix">Piste : ${esc(i.fix)}</p>` : ""}
+    ${isOpen && (i.options || []).length ? `<div class="choices">${i.options.map((o, n) => `<div class="choice">
+        <b>${esc(o.label)}</b><p>${esc(o.summary)}</p>
+        ${(o.preview || []).length ? `<ul class="changes">${o.preview.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+        <button class="btn small primary" data-choose="${esc(i.id)}:${n}">Choisir cette option</button></div>`).join("")}</div>
+      <div class="ownfix"><label class="label" for="own_${esc(i.id)}">Ou décris ta solution</label><div class="row" style="flex-wrap:nowrap"><input id="own_${esc(i.id)}" placeholder="ex : la tortue vit près des sources chaudes sous les Fosses"><button class="btn small" data-own="${esc(i.id)}">Proposer</button></div></div>` : ""}
+    ${i.applied ? `${i.chosen ? `<p class="fix">Choix retenu : ${esc(i.chosen)}</p>` : ""}<ul class="changes">${i.applied.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
     <p class="status" id="is_${esc(i.id)}"></p>
     <div class="row">${isOpen
-      ? `<button class="btn small primary" data-fill="${esc(i.id)}">Combler</button><button class="btn small ghost" data-ignore="${esc(i.id)}">Ignorer</button>`
+      ? `<button class="btn small ${(i.options || []).length ? "" : "primary"}" data-fill="${esc(i.id)}">${(i.options || []).length ? "Autres choix" : "Proposer des choix"}</button><button class="btn small ghost" data-ignore="${esc(i.id)}">Ignorer</button>`
       : `<button class="btn small ghost" data-reopen="${esc(i.id)}">Rouvrir</button>`}</div>
   </article>`;
 }
@@ -1915,30 +1931,54 @@ function applyOps(w, ops) {
   if (placedNew.length && w.mapInit) { try { ensureMap(w); autoPlace(w, placedNew); } catch {} }
   return log;
 }
-async function fillIssue(id, btn) {
+// Readable list of what a set of changes would do, without touching the world.
+function describeOps(w, ops) {
+  const out = [];
+  for (const c of ops || []) {
+    if (!c || !c.op) continue;
+    const d = c.data || {};
+    if (c.op === "add_place") out.push(`Nouveau lieu : ${d.name}`);
+    else if (c.op === "add_character") out.push(`Nouveau personnage : ${d.name}${d.role ? " (" + d.role + ")" : ""}`);
+    else if (c.op === "add_story") out.push(`Nouvelle histoire : ${d.title}`);
+    else if (c.op === "add_era") out.push(`Nouvelle époque : ${d.name}${c.after ? " (après " + c.after + ")" : ""}`);
+    else if (c.op === "add_faction") out.push(`Nouvelle faction : ${d.name}`);
+    else if (c.op === "update" && c.fields) out.push(`Modifie ${c.kind === "world" ? "le monde" : "« " + c.name + " »"} : ${Object.entries(c.fields).map(([f, v]) => `${FIELD_LABEL[f] || f} → « ${String(Array.isArray(v) ? v.join(" · ") : v).slice(0, 140)}${String(v).length > 140 ? "…" : ""} »`).join(" ; ")}`);
+  }
+  return out;
+}
+async function fillIssue(id, btn, ownIdea) {
   const w = ensureEditable(), issue = (w.issues || []).find(x => x.id === id); if (!issue) return;
   const st = $("#is_" + CSS.escape(id));
   if (!sample) { st.className = "status err"; st.textContent = "La génération par IA n'est pas disponible dans cet affichage."; return; }
-  busy(btn, true, "Écriture…"); st.className = "status"; st.textContent = "Claude écrit ce qui manque…";
+  busy(btn, true, ownIdea ? "Écriture…" : "Réflexion…"); st.className = "status"; st.textContent = ownIdea ? "Claude met ta solution en forme…" : "Le gardien imagine plusieurs façons de résoudre ce point…";
   try {
     const out = await sample.json(`${RULES}
 
 MONDE COMPLET (JSON) :
-${fullWorldJSON(w)}
+${fullWorldJSON(w, 45000)}
 
-PROBLÈME À RÉSOUDRE (${SEV[issue.severity] || issue.severity}) : ${issue.title}
+PROBLÈME (${SEV[issue.severity] || issue.severity}) : ${issue.title}
 ${issue.detail}
-Piste proposée : ${issue.fix}
+Piste évoquée : ${issue.fix}
+${(issue.options || []).length && !ownIdea ? "Options déjà proposées, à NE PAS répéter : " + issue.options.map(o => o.label).join(" ; ") : ""}
 
-TÂCHE : résous ce problème avec le minimum de changements, en respectant tout le reste du lore. Ajoute ce qui manque ou modifie les éléments existants (en réécrivant le champ en entier). Utilise les noms exacts.
-Réponds uniquement avec un objet JSON de la forme :
-${OPS_SHAPE}`, { cache: false });
-    const log = applyOps(w, out && out.changes);
-    if (!log.length) throw { code: "invalid_json" };
-    issue.status = "fixed"; issue.applied = log; issue.summary = String(out.summary || "");
-    persistWorld(w); render(); wireForge();
-    toast(out.summary ? String(out.summary).slice(0, 140) : "Point comblé");
-  } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
+TÂCHE : ${ownIdea ? `l'auteur a choisi sa solution : « ${ownIdea} ». Traduis-la en changements concrets (1 option).` : `propose 3 façons NETTEMENT différentes de résoudre ce problème, pour que l'auteur choisisse. Par exemple : corriger le fait gênant ; ajouter un élément qui explique ; transformer la contradiction en mystère assumé dans le lore. Chaque option fait 1 à 3 changements, le minimum nécessaire.`} Respecte tout le reste du lore, utilise les noms exacts, et réécris en entier les champs modifiés.
+Réponds uniquement avec un objet JSON : {"options": [{"label": string (titre court de l'option), "summary": string (ce que ça raconte et ce que ça implique, 1-2 phrases), "changes": ${OPS_SHAPE.replace(/^[\s\S]*?"changes": /, "").replace(/\}\s*$/, "")}}]}`, { cache: false });
+    const opts = (out && Array.isArray(out.options) ? out.options : []).filter(o => o && Array.isArray(o.changes) && o.changes.length)
+      .map(o => ({ label: String(o.label || "Option"), summary: String(o.summary || ""), changes: o.changes, preview: describeOps(w, o.changes) })).filter(o => o.preview.length);
+    if (!opts.length) throw { code: "invalid_json" };
+    issue.options = ownIdea ? [...opts, ...(issue.options || [])].slice(0, 4) : opts;
+    persistWorld(w); renderLore(); renderTabs();
+  } catch (e) { st.className = "status err"; st.textContent = e && e.code ? aiError(e) : `Erreur de la page : ${e && e.message ? e.message : e}`; busy(btn, false); }
+}
+function chooseFix(id, n) {
+  const w = ensureEditable(), issue = (w.issues || []).find(x => x.id === id); if (!issue) return;
+  const o = (issue.options || [])[n]; if (!o) return;
+  const log = applyOps(w, o.changes);
+  if (!log.length) { const st = $("#is_" + CSS.escape(id)); if (st) { st.className = "status err"; st.textContent = "Cette option ne s'applique plus (un élément a changé de nom ?). Demande d'autres choix."; } return; }
+  issue.status = "fixed"; issue.applied = log; issue.chosen = o.label; issue.summary = o.summary; delete issue.options;
+  persistWorld(w); render(); wireForge();
+  toast(`Choix appliqué : ${o.label}`);
 }
 
 /* ---------- world game system: classes, peoples, source of power ---------- */
