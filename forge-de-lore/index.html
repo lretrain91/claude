@@ -207,6 +207,46 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .changes { margin: 0; padding-left: 18px; font-size: 14px; color: var(--fg); }
 .changes li { margin: 2px 0; }
 
+/* World rules */
+.rules { display: grid; gap: 16px; }
+.rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.rcard { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.rcard h4 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 21px; line-height: 1.15; }
+.rcard p { margin: 0; font-size: 14px; color: var(--muted); }
+.rcard input, .rcard textarea { background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+.rcard .k { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--brass); }
+.power { background: var(--plate); border: 1px solid var(--line); border-left: 4px solid var(--brass); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; }
+.power p { margin: 0; font-family: var(--serif); font-size: 17px; }
+
+/* Stat sheet */
+.sheetbox { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; background: var(--ink); }
+.sheetbox h4 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 20px; }
+.eras-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.eras-pick .chip[aria-pressed="true"] { background: var(--verdigris); color: var(--on-accent); border-color: var(--verdigris); }
+.eras-pick .chip.missing { border-style: dashed; }
+.statline { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
+.statline b { font: 700 15px var(--body); }
+.attrs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.attr { border: 1px solid var(--line); border-radius: 8px; padding: 6px 4px; text-align: center; display: grid; gap: 2px; background: var(--plate); }
+.attr .k { font: 600 10px/1 var(--mono); letter-spacing: .1em; color: var(--muted); }
+.attr .m { font: 700 20px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.attr input, .attr .v { font: 500 12px var(--mono); color: var(--muted); text-align: center; width: 100%; background: transparent; border: 0; padding: 0; }
+.attr input { color: var(--fg); border-bottom: 1px dashed var(--line); }
+.delta { font: 600 10px var(--mono); }
+.delta.up { color: var(--verdigris); } .delta.down { color: var(--danger); }
+.vitals { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; }
+.vital { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--plate); display: grid; gap: 2px; }
+.vital .k { font: 600 10px/1 var(--mono); letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
+.vital input, .vital .v { font: 700 16px var(--mono); background: transparent; border: 0; padding: 0; width: 100%; font-variant-numeric: tabular-nums; }
+.skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 14px; font-size: 13px; }
+.skill { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); padding: 2px 0; border-bottom: 1px dotted var(--line); }
+.skill.pro { color: var(--fg); font-weight: 500; }
+.skill .n { font: 600 12px var(--mono); font-variant-numeric: tabular-nums; }
+button.skill { background: none; border: 0; border-bottom: 1px dotted var(--line); cursor: pointer; text-align: left; font: inherit; }
+.change { border-left: 3px solid var(--brass); padding: 4px 10px; font-family: var(--serif); font-style: italic; font-size: 15px; }
+.sheet-list { margin: 0; padding-left: 18px; font-size: 14px; }
+@media (max-width: 480px) { .attrs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
 /* Dialogue */
 .chat { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: min(760px, 88vh); padding: 0; gap: 0; width: min(640px, 100%); overflow: hidden; }
 .chat-head { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
@@ -338,13 +378,31 @@ const EXAMPLE = {
     { name: "Les Veilleurs de la Houle", desc: "Prêtres qui croient que la mer dort et qu'il ne faut jamais la réveiller." },
     { name: "Les Foreurs de Nacre", desc: "Mineurs qui creusent vers les épaves prisonnières pour en piller les trésors." }
   ],
+  rules: {
+    power: { name: "La Lecture de glace", desc: "Certains entendent ce que la glace a gardé en mémoire : voix, chocs, pas de ceux qui sont passés. L'écouter longtemps engourdit les mains et les souvenirs ; seuls ceux nés après la Nuit du Gel y ont accès." },
+    classes: [
+      { name: "Patineur de route", desc: "Pilote de traîneau à voile, éclaireur et marchand des routes de glace.", primary: ["DEX", "SAG"], hitDie: 10, skills: ["Survie", "Perception", "Athlétisme"], features: ["Vent arrière : double sa vitesse sur la glace pendant une minute", "Œil de banquise : avantage pour repérer fissures et pièges", "Poigne de voile : ne peut être désarçonné de son traîneau"], factions: ["La Guilde des Patineurs"] },
+      { name: "Lecteur de glace", desc: "Écoute la mémoire de la glace pour trouver chemins, épaves et secrets.", primary: ["SAG", "INT"], hitDie: 6, skills: ["Perspicacité", "Investigation", "Histoire"], features: ["Écho figé : entend une scène passée à l'endroit touché", "Paume froide : sent les vivants sous la glace", "Le prix du froid : chaque lecture coûte un souvenir"], factions: ["La Guilde des Patineurs", "Les Veilleurs de la Houle"] },
+      { name: "Veilleur", desc: "Prêtre de la Houle qui berce la mer endormie et défend son sommeil.", primary: ["SAG", "CHA"], hitDie: 8, skills: ["Religion", "Persuasion", "Médecine"], features: ["Berceuse : apaise une créature ou une foule", "Chut : impose le silence dans un rayon de 9 m", "Veille : ne peut être surpris pendant qu'il prie"], factions: ["Les Veilleurs de la Houle"] },
+      { name: "Foreur", desc: "Mineur des épaves prisonnières, aussi à l'aise avec un pic qu'avec une explosion.", primary: ["FOR", "CON"], hitDie: 12, skills: ["Athlétisme", "Investigation", "Intimidation"], features: ["Coup de pic : brise glace, porte ou bouclier", "Poumons de fosse : retient son souffle dix minutes", "Charge de nacre : explosion contrôlée"], factions: ["Les Foreurs de Nacre"] },
+      { name: "Contrebandier de banquise", desc: "Passeur et menteur professionnel, il connaît les routes que la Guilde ignore.", primary: ["DEX", "CHA"], hitDie: 8, skills: ["Tromperie", "Discrétion", "Escamotage"], features: ["Route oubliée : connaît toujours un passage secret", "Langue d'argent : avantage pour marchander", "Disparition : se cache dans la brume"], factions: [] }
+    ],
+    peoples: [
+      { name: "Insulaires", desc: "Descendants des cités-ports, perchés sur les anciennes îles.", bonus: "+1 à toutes les caractéristiques", traits: ["Pied montagnard : ignore les pentes raides", "Mémoire des marées : connaît les vieilles chansons de mer"] },
+      { name: "Nés-du-Gel", desc: "Nés sur la glace même, pâles et silencieux, seuls à pouvoir lire la glace.", bonus: "+2 SAG, +1 CON", traits: ["Sang froid : résistance au froid", "Oreille de glace : accès à la Lecture de glace"] },
+      { name: "Gens des épaves", desc: "Descendants des équipages pris dans le gel, vivant dans les coques.", bonus: "+2 CON, +1 FOR", traits: ["Vision de cale : voit dans la pénombre", "Débrouille : répare n'importe quoi avec des débris"] }
+    ]
+  },
   places: [
     { id: "p1", name: "Port-Givre", type: "Cité", region: "Île de Hautbrume", desc: "Ancien port devenu cité perchée : les quais pendent dans le vide au-dessus de la glace, reliés par des treuils. Le marché se tient dans la coque renversée d'un galion.", secrets: "La guilde y cache une carte des fissures récentes.", hooks: "Un treuil s'est rompu cette nuit, et la nacelle est revenue vide mais chaude.", imagePrompt: "" },
     { id: "p2", name: "Le Phare Muet", type: "Ruine", region: "Plaine du Large", desc: "Un phare planté au milieu de la plaine gelée, à des jours de toute île. Sa lumière s'allume seule les nuits sans lune.", secrets: "Le gardien n'est jamais mort ; il est sous la glace, sous le phare.", hooks: "Les traîneaux qui suivent sa lumière arrivent toujours un jour plus tôt que prévu.", imagePrompt: "" },
     { id: "p3", name: "Les Fosses de Nacre", type: "Mine", region: "Banc des Épaves", desc: "Puits creusés dans la glace jusqu'aux navires engloutis. On y descend par des échelles de corde dans une lumière bleue.", secrets: "Dans la fosse la plus profonde, la glace est tiède.", hooks: "Un foreur remonte en parlant une langue disparue.", imagePrompt: "" }
   ],
   characters: [
-    { id: "c1", name: "Ysolde Marrane", role: "Capitaine de traîneau", faction: "La Guilde des Patineurs", place: "Port-Givre", origin: "Port-Givre", desc: "Quarante ans, une jambe de bois de mât, la meilleure lectrice de glace de l'archipel.", motivation: "Retrouver le navire de sa mère, pris dans le gel la Nuit du Gel.", secret: "Elle a vu le navire bouger sous la glace.", quote: "La glace ne ment jamais. Elle se tait, c'est différent.", imagePrompt: "" },
+    { id: "c1", name: "Ysolde Marrane", role: "Capitaine de traîneau", faction: "La Guilde des Patineurs", place: "Port-Givre", origin: "Port-Givre", stats: [
+      { era: "Les Siècles Blancs", level: 3, cls: "Patineur de route", people: "Insulaires", attrs: { FOR: 12, DEX: 16, CON: 13, INT: 11, SAG: 14, CHA: 12 }, hp: 28, ac: 14, speed: 9, prof: ["Survie", "Perception", "Athlétisme", "Persuasion"], abilities: ["Vent arrière : double sa vitesse sur la glace pendant une minute", "Œil de banquise : avantage pour repérer fissures et pièges"], gear: ["Traîneau à voile « La Tenace »", "Crochets à glace", "Carte des routes de sa mère"], change: "Jeune patineuse, elle apprend les routes sur le traîneau de sa mère." },
+      { era: "Aujourd'hui : les Craquements", level: 9, cls: "Patineur de route", people: "Insulaires", attrs: { FOR: 12, DEX: 14, CON: 14, INT: 12, SAG: 18, CHA: 13 }, hp: 76, ac: 15, speed: 7, prof: ["Survie", "Perception", "Athlétisme", "Persuasion", "Perspicacité"], abilities: ["Vent arrière : double sa vitesse sur la glace pendant une minute", "Œil de banquise : avantage pour repérer fissures et pièges", "Poigne de voile : ne peut être désarçonnée de son traîneau", "Lecture de vent : prévoit une tempête un jour à l'avance"], gear: ["Jambe de bois de mât", "Traîneau « La Tenace », voile rapiécée", "Longue-vue en laiton", "Carte des fissures (volée)"], change: "La perte de sa jambe lui a coûté en agilité et en vitesse, mais vingt ans de routes ont fait d'elle la meilleure lectrice de glace de l'archipel (SAG ▲)." }
+    ], desc: "Quarante ans, une jambe de bois de mât, la meilleure lectrice de glace de l'archipel.", motivation: "Retrouver le navire de sa mère, pris dans le gel la Nuit du Gel.", secret: "Elle a vu le navire bouger sous la glace.", quote: "La glace ne ment jamais. Elle se tait, c'est différent.", imagePrompt: "" },
     { id: "c2", name: "Frère Calen", role: "Veilleur de la Houle", faction: "Les Veilleurs de la Houle", place: "Le Phare Muet", origin: "Les Fosses de Nacre", desc: "Jeune prêtre envoyé seul au Phare Muet pour une pénitence dont il ne parle pas.", motivation: "Empêcher à tout prix que quiconque fore sous le phare.", secret: "Il entend une voix qui l'appelle par son nom d'enfance.", quote: "Chut. Elle dort mal ce soir.", imagePrompt: "" }
   ],
   stories: [
@@ -532,16 +590,16 @@ function renderPlate() {
     <div class="plate-art" id="plateArt">${vignette(w.id, w.name, "world")}</div>`;
 }
 
-const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["art", "Illustrations"], ["lore", "Cohérence"]];
+const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["rules", "Règles"], ["art", "Illustrations"], ["lore", "Cohérence"]];
 function renderTabs() {
   const w = cur();
-  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length };
+  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length, rules: ((w.rules && w.rules.classes) || []).length };
   $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}<span class="count">${n[k]}</span></button>`).join("");
 }
 
 function renderForge() {
   const f = $("#forge");
-  f.hidden = tab === "map" || tab === "lore";
+  f.hidden = tab === "map" || tab === "lore" || tab === "rules";
   if (f.hidden) { f.innerHTML = ""; return; }
   if (tab === "art") {
     const w = cur(), t = curTheme(w), nr = (refs[w.id] || []).length;
@@ -569,6 +627,7 @@ function renderList() {
   if (tab === "art") return renderGallery();
   if (tab === "map") return renderMap();
   if (tab === "lore") return renderLore();
+  if (tab === "rules") return renderRules();
   const items = w[tab];
   if (!items.length) { L.innerHTML = `<div class="empty">Aucun élément pour l'instant. Donne une indication ci-dessus et lance la génération, ou laisse-la vide pour laisser l'IA proposer.</div>`; return; }
   if (tab === "stories") {
@@ -584,7 +643,7 @@ function renderList() {
   L.innerHTML = `<div class="grid">${items.map(it => `
     <button class="card" data-open="${esc(it.id)}">
       <div class="vignette${kind === "character" ? " portrait" : ""}">${vignette(it.id, it.name, kind)}</div>
-      <div class="card-body"><span class="sub">${esc(kind === "place" ? `${it.type} · ${it.region}` : `${it.role} · ${it.faction}`)}</span>
+      <div class="card-body"><span class="sub">${esc(kind === "place" ? `${it.type} · ${it.region}` : `${it.role} · ${it.faction}`)}${kind === "character" && latestSnap(it) ? ` · niv. ${esc(latestSnap(it).level)}` : ""}</span>
         <h3>${esc(it.name)}</h3><p>${esc(it.desc)}</p></div>
     </button>`).join("")}</div>`;
 }
@@ -648,6 +707,7 @@ function openDrawer(id) {
     <div class="drawer-body">
       <div class="drawer-head"><input id="f_${nameKey}" value="${esc(it[nameKey])}" aria-label="Nom"><button class="x" id="closeD" aria-label="Fermer">×</button></div>
       ${linked(k, it)}
+      ${k === "characters" ? `<section class="sheetbox" id="statBox">${statHTML(it)}</section>` : ""}
       ${FIELDS[k].map(([f, l, rows]) => {
         const v = Array.isArray(it[f]) ? it[f].join("\n") : (it[f] || "");
         if (rows === "select") {
@@ -692,6 +752,7 @@ function openDrawer(id) {
     else { btn.dataset.confirm = "1"; btn.textContent = "Confirmer la suppression"; }
   };
   d.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => openDrawer(b.dataset.goto));
+  if (k === "characters") wireStats(it.id);
 }
 function linked(k, it) {
   const w = cur(), names = new Map();
@@ -885,7 +946,7 @@ function bible(w) {
   const L = [`# ${w.name}`, "", `*${w.genre} — ${w.tone}*`, "", w.pitch, "", "## Chronologie", ...w.eras.map(e => `- **${e.name}** : ${e.desc}`), "", "## Factions", ...w.factions.map(f => `- **${f.name}** : ${f.desc}`), "", "## Lieux"];
   for (const p of w.places) L.push("", `### ${p.name}`, `*${p.type} · ${p.region}*`, "", p.desc, "", `**Secrets** : ${p.secrets}`, "", `**Accroche** : ${p.hooks}`, "", `> Prompt image : ${promptFor({ kind: "place", ref: p }, w)}`);
   L.push("", "## Personnages");
-  for (const c of w.characters) L.push("", `### ${c.name}`, `*${c.role} · ${c.faction} · originaire de ${c.origin || "?"} · actuellement à ${c.place || "?"}*`, "", c.desc, "", `**Motivation** : ${c.motivation}`, "", `**Secret** : ${c.secret}`, "", `« ${c.quote} »`, "", `> Prompt image : ${promptFor({ kind: "character", ref: c }, w)}`);
+  for (const c of w.characters) L.push("", `### ${c.name}`, `*${c.role} · ${c.faction} · originaire de ${c.origin || "?"} · actuellement à ${c.place || "?"}*`, "", c.desc, "", `**Motivation** : ${c.motivation}`, "", `**Secret** : ${c.secret}`, "", `« ${c.quote} »`, "", ...((c.stats || []).length ? ["**Statistiques (D&D 5e)**", "", ...snapsOf(c).map(sn => `- *${sn.era}* : ${statSummary(sn)}, PV ${sn.hp}, CA ${sn.ac}${sn.change ? ". " + sn.change : ""}`), ""] : []), `> Prompt image : ${promptFor({ kind: "character", ref: c }, w)}`);
   L.push("", "## Histoires");
   for (const s of w.stories) L.push("", `### ${s.title}`, `*${s.kind}*`, "", s.summary, "", ...(s.beats || []).map((b, i) => `${i + 1}. ${b}`), "", `Impliqués : ${(s.involves || []).join(", ")}`);
   return L.join("\n");
@@ -1187,7 +1248,7 @@ function issueCard(i) {
 }
 function setIssue(id, status) { const w = ensureEditable(), i = (w.issues || []).find(x => x.id === id); if (i) { i.status = status; persistWorld(w); renderLore(); renderTabs(); } }
 function fullWorldJSON(w, max = 60000) {
-  const strip = (o) => { const c = { ...o }; for (const k of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue"]) delete c[k]; return c; };
+  const strip = (o) => { const c = { ...o }; for (const k of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "chatRole", "chatSecrets", "chatDice"]) delete c[k]; return c; };
   const data = { nom: w.name, genre: w.genre, ton: w.tone, pitch: w.pitch, epoques: w.eras, factions: w.factions, lieux: w.places.map(strip), personnages: w.characters.map(strip), histoires: w.stories.map(strip) };
   return JSON.stringify(data).slice(0, max);
 }
@@ -1288,6 +1349,268 @@ ${OPS_SHAPE}`, { cache: false });
     persistWorld(w); render(); wireForge();
     toast(out.summary ? String(out.summary).slice(0, 140) : "Point comblé");
   } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
+}
+
+/* ---------- world game system: classes, peoples, source of power ---------- */
+const RULES_SHAPE = () => `{"power": {"name": string (nom de la source de pouvoir ou de magie propre à ce monde), "desc": string (2-3 phrases : comment elle fonctionne, son coût, qui y a accès)},
+"classes": [5 à 7 objets {"name": string (nom de classe propre au monde, jamais Guerrier/Magicien/Voleur etc.), "desc": string (1-2 phrases, rôle dans le monde et dans le jeu), "primary": [1 ou 2 caractéristiques parmi FOR, DEX, CON, INT, SAG, CHA], "hitDie": 6 | 8 | 10 | 12, "skills": [3 compétences typiques parmi ${Object.keys(SKILL_ATTR).join(", ")}], "features": [3 capacités emblématiques "Nom : effet court", liées à la source de pouvoir ou aux métiers du monde], "factions": [factions où on la trouve]}],
+"peoples": [2 à 5 objets {"name": string (peuple ou origine du monde), "desc": string (1-2 phrases), "bonus": string (ex. "+2 CON, +1 SAG"), "traits": [2 traits "Nom : effet"]}]}`;
+let rulesEdit = false;
+const rulesOf = (w) => w.rules || null;
+function rulesBrief(w) {
+  const r = rulesOf(w); if (!r || !(r.classes || []).length) return "";
+  return `SYSTÈME DE JEU DE CE MONDE (obligatoire) :
+Source de pouvoir : ${r.power ? r.power.name + " — " + r.power.desc : "aucune"}
+Classes : ${r.classes.map(c => `${c.name} (${(c.primary || []).join("/")}, d${c.hitDie} ; ${(c.features || []).join(" ; ")})`).join(" | ")}
+Peuples : ${(r.peoples || []).map(p => `${p.name} (${p.bonus} ; ${(p.traits || []).join(" ; ")})`).join(" | ")}`;
+}
+function renderRules() {
+  const w = cur(), r = rulesOf(w), E = rulesEdit;
+  const head = `<div class="lore-head"><div><h3 style="font-size:24px">Système de jeu de ${esc(w.name)}</h3>
+      <p>Les classes, les peuples et la source de pouvoir de cet univers. Les fiches de personnage s'appuient dessus, avec la mécanique de D&amp;D 5e (d20, caractéristiques, compétences).</p></div>
+      <div class="row">${r ? `<button class="btn" id="ruEdit">${E ? "Terminer" : "Modifier"}</button>` : ""}<button class="btn primary" id="ruGen">${r ? "Régénérer depuis le lore" : "Créer le système depuis le lore"}</button></div></div>
+    <p class="status" id="ruStatus"></p>`;
+  if (!r) { $("#list").innerHTML = `<div class="rules">${head}<div class="empty">Aucun système pour l'instant. Claude lit ton univers (factions, époques, lieux, personnages) et en tire des classes, des peuples et une source de pouvoir qui lui ressemblent.</div></div>`; wireRules(); return; }
+  const inp = (path, v, ph) => `<input data-ru="${path}" value="${esc(v)}" placeholder="${esc(ph || "")}">`;
+  const ta = (path, v, rows) => `<textarea data-ru="${path}" rows="${rows || 2}">${esc(v)}</textarea>`;
+  const count = (cls) => w.characters.filter(c => (latestSnap(c) || {}).cls === cls).length;
+  $("#list").innerHTML = `<div class="rules">${head}
+    <div class="power"><span class="label">Source de pouvoir</span>${E ? inp("power.name", r.power?.name, "Nom") + ta("power.desc", r.power?.desc, 3) : `<h3 style="font-size:24px">${esc(r.power?.name || "Aucune")}</h3><p>${esc(r.power?.desc || "")}</p>`}</div>
+    <div class="row" style="justify-content:space-between"><span class="label">Classes · ${r.classes.length}</span><button class="btn small" id="ruAddCls">+ Nouvelle classe</button></div>
+    <div class="rgrid">${r.classes.map((c, i) => `<article class="rcard">
+      ${E ? inp(`classes.${i}.name`, c.name) : `<h4>${esc(c.name)}</h4>`}
+      <span class="k">${(c.primary || []).join(" · ")} · d${c.hitDie}${count(c.name) ? ` · ${count(c.name)} perso.` : ""}</span>
+      ${E ? ta(`classes.${i}.desc`, c.desc) + `<label class="note">Capacités (une par ligne)</label>` + ta(`classes.${i}.features`, (c.features || []).join("\n"), 3) : `<p>${esc(c.desc)}</p><ul class="sheet-list">${(c.features || []).map(f => `<li>${esc(f)}</li>`).join("")}</ul>`}
+      ${(c.skills || []).length ? `<div class="meta">${c.skills.map(x => `<span class="chip">${esc(x)}</span>`).join("")}</div>` : ""}
+      ${E ? `<button class="btn small ghost danger" data-rudel="classes.${i}">Retirer</button>` : ""}
+    </article>`).join("")}</div>
+    <span class="label">Peuples · ${(r.peoples || []).length}</span>
+    <div class="rgrid">${(r.peoples || []).map((p, i) => `<article class="rcard">
+      ${E ? inp(`peoples.${i}.name`, p.name) + inp(`peoples.${i}.bonus`, p.bonus, "+2 CON, +1 SAG") + ta(`peoples.${i}.desc`, p.desc) + ta(`peoples.${i}.traits`, (p.traits || []).join("\n"), 2) : `<h4>${esc(p.name)}</h4><span class="k">${esc(p.bonus || "")}</span><p>${esc(p.desc)}</p><ul class="sheet-list">${(p.traits || []).map(t => `<li>${esc(t)}</li>`).join("")}</ul>`}
+      ${E ? `<button class="btn small ghost danger" data-rudel="peoples.${i}">Retirer</button>` : ""}
+    </article>`).join("")}</div>
+  </div>`;
+  wireRules();
+}
+function wireRules() {
+  const g = $("#ruGen");
+  if (g) g.onclick = () => {
+    if (rulesOf(cur()) && !g.dataset.confirm) { g.dataset.confirm = "1"; g.textContent = "Remplacer tout le système ?"; return; }
+    genRules(g);
+  };
+  const e = $("#ruEdit"); if (e) e.onclick = () => { rulesEdit = !rulesEdit; renderRules(); };
+  const a = $("#ruAddCls"); if (a) a.onclick = () => addClass(a);
+  $("#list").querySelectorAll("[data-ru]").forEach(el => el.oninput = () => {
+    const w = ensureEditable(), parts = el.dataset.ru.split("."); let o = w.rules;
+    for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]] = o[parts[i]] || {};
+    const k = parts[parts.length - 1];
+    o[k] = (k === "features" || k === "traits") ? el.value.split("\n").map(x => x.trim()).filter(Boolean) : el.value;
+    persistWorld(w);
+  });
+  $("#list").querySelectorAll("[data-rudel]").forEach(b => b.onclick = () => { const w = ensureEditable(), [k, i] = b.dataset.rudel.split("."); w.rules[k].splice(+i, 1); persistWorld(w); renderRules(); renderTabs(); });
+}
+function normRules(o) {
+  const S = (v) => String(v ?? ""), L = (v) => [].concat(v || []).map(String);
+  return {
+    power: { name: S(o?.power?.name), desc: S(o?.power?.desc) },
+    classes: [].concat(o?.classes || []).filter(c => c && c.name).map(c => ({ name: S(c.name), desc: S(c.desc), primary: L(c.primary).filter(x => ATTR.includes(x)).slice(0, 2), hitDie: [6, 8, 10, 12].includes(+c.hitDie) ? +c.hitDie : 8, skills: L(c.skills).filter(x => SKILL_ATTR[x]), features: L(c.features), factions: L(c.factions) })),
+    peoples: [].concat(o?.peoples || []).filter(p => p && p.name).map(p => ({ name: S(p.name), desc: S(p.desc), bonus: S(p.bonus), traits: L(p.traits) }))
+  };
+}
+async function genRules(btn, quiet) {
+  const st = $("#ruStatus");
+  if (!sample) { if (st) { st.className = "status err"; st.textContent = "La génération par IA n'est pas disponible dans cet affichage."; } return false; }
+  const w = ensureEditable();
+  busy(btn, true, "Conception…"); if (st) { st.className = "status"; st.textContent = "Claude conçoit le système de jeu de ton univers… (jusqu'à une minute)"; }
+  try {
+    const out = await sample.json(`${RULES}
+Tu es aussi concepteur de jeux de rôle, expert de Donjons et Dragons 5e.
+
+MONDE COMPLET (JSON) :
+${fullWorldJSON(w, 40000)}
+
+TÂCHE : conçois le système de jeu propre à cet univers, en gardant la mécanique de D&D 5e (d20, six caractéristiques, compétences, niveaux). N'utilise AUCUNE classe ni peuple standard de D&D : tout doit naître du lore (métiers, factions, croyances, technologies ou magies de ce monde, avec ses noms et son vocabulaire). Les classes doivent couvrir des rôles variés (combat, soutien, ruse, savoir, influence) et chaque personnage existant doit pouvoir entrer dans l'une d'elles.
+Réponds uniquement avec un objet JSON de la forme :
+${RULES_SHAPE()}`, { cache: false, modelTier: "complex" });
+    const r = normRules(out);
+    if (!r.classes.length) throw { code: "invalid_json" };
+    w.rules = r; rulesEdit = false; persistWorld(w);
+    if (tab === "rules") renderRules(); renderTabs();
+    if (!quiet) toast(`${r.classes.length} classes et ${r.peoples.length} peuples tirés de ton univers`);
+    return true;
+  } catch (e) { const s2 = $("#ruStatus") || $("#stStatus"); if (s2) { s2.className = "status err"; s2.textContent = aiError(e); } return false; }
+  finally { if (btn && document.body.contains(btn)) busy(btn, false); }
+}
+async function addClass(btn) {
+  const st = $("#ruStatus"), w = ensureEditable();
+  if (!sample) { w.rules.classes.push({ name: "Nouvelle classe", desc: "", primary: [], hitDie: 8, skills: [], features: [], factions: [] }); rulesEdit = true; persistWorld(w); renderRules(); return; }
+  busy(btn, true, "…"); st.className = "status"; st.textContent = "Claude invente une classe de plus…";
+  try {
+    const o = await sample.json(`${RULES}\n\nCONTEXTE DU MONDE :\n${worldContext(w, 4000)}\n${rulesBrief(w)}\n\nTÂCHE : invente UNE nouvelle classe pour ce monde, qui comble un rôle absent des classes existantes, avec le vocabulaire du lore.\nRéponds uniquement avec un objet JSON : ${RULES_SHAPE().match(/\{"name": string \(nom de classe[\s\S]*?"factions": \[factions où on la trouve\]\}/)[0]}`, { cache: false });
+    const c = normRules({ classes: [o] }).classes[0]; if (!c) throw { code: "invalid_json" };
+    w.rules.classes.push(c); persistWorld(w); renderRules(); renderTabs(); toast(`Classe ajoutée : ${c.name}`);
+  } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
+}
+
+/* ---------- character stat sheets (D&D 5e), one snapshot per era ---------- */
+const ATTR = ["FOR", "DEX", "CON", "INT", "SAG", "CHA"];
+const ATTR_NAME = { FOR: "Force", DEX: "Dextérité", CON: "Constitution", INT: "Intelligence", SAG: "Sagesse", CHA: "Charisme" };
+const SKILL_ATTR = { "Acrobaties": "DEX", "Arcanes": "INT", "Athlétisme": "FOR", "Discrétion": "DEX", "Dressage": "SAG", "Escamotage": "DEX", "Histoire": "INT", "Intimidation": "CHA", "Investigation": "INT", "Médecine": "SAG", "Nature": "INT", "Perception": "SAG", "Perspicacité": "SAG", "Persuasion": "CHA", "Religion": "INT", "Représentation": "CHA", "Survie": "SAG", "Tromperie": "CHA" };
+const SNAP_SHAPE = `{"era": string (nom exact d'une époque), "level": entier 1-20, "cls": string (nom EXACT d'une classe du système de jeu de ce monde), "people": string (nom EXACT d'un peuple du système),  "attrs": {"FOR": 3-24, "DEX": ..., "CON": ..., "INT": ..., "SAG": ..., "CHA": ...}, "hp": entier, "ac": entier, "speed": entier (en mètres, ex. 9), "prof": [compétences maîtrisées parmi ${Object.keys(SKILL_ATTR).join(", ")}], "abilities": [3 à 5 capacités ou traits, chacun "Nom : effet court"], "gear": [3 à 6 objets notables], "change": string (ce qui a changé depuis l'époque précédente et pourquoi, 1-2 phrases ; pour la première, d'où il part)}`;
+const sheetEra = {};       // UI only: which era each open sheet shows
+let statEdit = false;
+const modOf = (v) => Math.floor(((+v || 10) - 10) / 2);
+const profBonus = (lvl) => 2 + Math.floor((Math.max(1, +lvl || 1) - 1) / 4);
+function eraIndex(w, name) { const i = w.eras.findIndex(e => e.name === name); return i < 0 ? 999 : i; }
+function snapsOf(c) { const w = cur(); return (c.stats || []).slice().sort((a, b) => eraIndex(w, a.era) - eraIndex(w, b.era)); }
+function latestSnap(c) { const s = snapsOf(c); return s[s.length - 1] || null; }
+function skillMod(sn, sk) { return modOf(sn.attrs && sn.attrs[SKILL_ATTR[sk]]) + ((sn.prof || []).includes(sk) ? profBonus(sn.level) : 0); }
+function statSummary(sn) {
+  const a = ATTR.map(k => `${k} ${sn.attrs?.[k] ?? 10} (${sign(modOf(sn.attrs?.[k]))})`).join(", ");
+  const sk = ["Perspicacité", "Persuasion", "Tromperie", "Intimidation", "Investigation"].map(k => `${k} ${sign(skillMod(sn, k))}`).join(", ");
+  return `${sn.cls || "?"}${sn.people ? " (" + sn.people + ")" : ""} niveau ${sn.level}, ${a} ; ${sk}`;
+}
+function normSnap(o, era) {
+  const n = (v, d, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || d));
+  const attrs = {}; for (const k of ATTR) attrs[k] = n(o && o.attrs && o.attrs[k], 10, 1, 30);
+  return {
+    era: String((o && o.era) || era || ""), level: n(o && o.level, 1, 1, 20), cls: String((o && o.cls) || ""), people: String((o && o.people) || ""),
+    attrs, hp: n(o && o.hp, 10, 1, 999), ac: n(o && o.ac, 10, 1, 30), speed: n(o && o.speed, 9, 0, 60),
+    prof: [].concat((o && o.prof) || []).map(String).filter(x => SKILL_ATTR[x]),
+    abilities: [].concat((o && o.abilities) || []).map(String).slice(0, 8), gear: [].concat((o && o.gear) || []).map(String).slice(0, 10),
+    change: String((o && o.change) || "")
+  };
+}
+function pickField(field, label, v, opts) {
+  const st = "background:var(--plate);border:1px solid var(--line);border-radius:6px;padding:3px 6px;max-width:100%";
+  if (!opts.length) return `<label class="note">${label} <input data-st="${field}" value="${esc(v)}" style="${st}"></label>`;
+  const list = opts.includes(v) || !v ? opts : [v, ...opts];
+  return `<label class="note">${label} <select data-st="${field}" style="${st}"><option value="">—</option>${list.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>`;
+}
+function classInfo(w, name) { return ((rulesOf(w) || {}).classes || []).find(x => x.name === name) || null; }
+function statHTML(c) {
+  const w = cur(), snaps = snapsOf(c);
+  const have = new Set(snaps.map(x => x.era));
+  if (!snaps.length) return `<div class="row" style="justify-content:space-between"><h4>Fiche de personnage</h4><span class="label">D&amp;D 5e</span></div>
+    <p class="note">Aucune statistique pour l'instant. Claude peut écrire sa fiche complète, avec une version pour chaque époque où il a vécu, selon son histoire.</p>
+    <div class="row"><button class="btn small primary" id="stGen">Générer la fiche sur toute la chronologie</button><button class="btn small ghost" id="stBlank">Fiche vierge</button></div><p class="status" id="stStatus"></p>`;
+  let sel = sheetEra[c.id]; if (!snaps.find(x => x.era === sel)) sel = snaps[snaps.length - 1].era;
+  const i = snaps.findIndex(x => x.era === sel), sn = snaps[i], prev = snaps[i - 1];
+  const pb = profBonus(sn.level), E = statEdit;
+  const num = (field, v, lo, hi) => E ? `<input type="number" data-st="${field}" min="${lo}" max="${hi}" value="${esc(v)}">` : `<span class="v">${esc(v)}</span>`;
+  const delta = (k) => { if (!prev) return ""; const d = (sn.attrs[k] || 10) - (prev.attrs[k] || 10); return d ? `<span class="delta ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""; };
+  return `<div class="row" style="justify-content:space-between"><h4>Fiche de personnage</h4><span class="label">D&amp;D 5e</span></div>
+    <div class="eras-pick" role="group" aria-label="Époque">${w.eras.map(e => have.has(e.name)
+      ? `<button type="button" class="chip" data-era="${esc(e.name)}" aria-pressed="${e.name === sel}">${esc(e.name)}</button>`
+      : `<button type="button" class="chip missing" data-addera="${esc(e.name)}" title="Ajouter cette époque">+ ${esc(e.name)}</button>`).join("")}
+      ${snaps.filter(x => !w.eras.find(e => e.name === x.era)).map(x => `<button type="button" class="chip" data-era="${esc(x.era)}" aria-pressed="${x.era === sel}">${esc(x.era || "Sans époque")}</button>`).join("")}</div>
+    ${sn.change ? `<div class="change">${esc(sn.change)}</div>` : ""}
+    ${!rulesOf(w) ? `<p class="note">Ce monde n'a pas encore de système de jeu : les classes ci-dessous sont libres. Crée-le dans l'onglet Règles pour des classes tirées de ton univers.</p>` : sn.cls && !classInfo(w, sn.cls) ? `<p class="note">« ${esc(sn.cls)} » n'est pas une classe du système de ce monde. Régénère la fiche ou choisis une classe en mode Modifier.</p>` : ""}
+    <div class="statline">${E ? pickField("cls", "Classe", sn.cls, ((rulesOf(w) || {}).classes || []).map(x => x.name)) + pickField("people", "Peuple", sn.people, ((rulesOf(w) || {}).peoples || []).map(x => x.name)) : `<b>${esc(sn.cls || "Sans classe")}</b>${sn.people ? `<span class="note">${esc(sn.people)}</span>` : ""}`}
+      <span class="note">Niveau ${E ? `<input type="number" data-st="level" min="1" max="20" value="${sn.level}" style="width:52px;background:var(--plate);border:1px solid var(--line);border-radius:6px;padding:3px 6px">` : `<b>${sn.level}</b>`}${prev && prev.level !== sn.level && !E ? ` <span class="delta up">▲${sn.level - prev.level}</span>` : ""}</span>
+      <span class="note">Bonus de maîtrise ${sign(pb)}</span></div>
+    <div class="attrs">${ATTR.map(k => `<div class="attr" title="${ATTR_NAME[k]}"><span class="k">${k}</span><span class="m">${sign(modOf(sn.attrs[k]))}</span>${E ? `<input type="number" min="1" max="30" data-attr="${k}" value="${sn.attrs[k]}" aria-label="${ATTR_NAME[k]}">` : `<span class="v">${sn.attrs[k]} ${delta(k)}</span>`}</div>`).join("")}</div>
+    <div class="vitals">
+      <div class="vital"><span class="k">PV</span>${num("hp", sn.hp, 1, 999)}</div>
+      <div class="vital"><span class="k">CA</span>${num("ac", sn.ac, 1, 30)}</div>
+      <div class="vital"><span class="k">Initiative</span><span class="v">${sign(modOf(sn.attrs.DEX))}</span></div>
+      <div class="vital"><span class="k">Vitesse</span>${E ? num("speed", sn.speed, 0, 60) : `<span class="v">${sn.speed} m</span>`}</div>
+      <div class="vital"><span class="k">Perc. passive</span><span class="v">${10 + skillMod(sn, "Perception")}</span></div>
+    </div>
+    <div><span class="label">Compétences${E ? " · touche pour la maîtrise" : ""}</span>
+      <div class="skills">${Object.keys(SKILL_ATTR).map(sk => { const pro = (sn.prof || []).includes(sk); const inner = `<span>${pro ? "● " : ""}${sk} <span class="note">${SKILL_ATTR[sk]}</span></span><span class="n">${sign(skillMod(sn, sk))}</span>`; return E ? `<button type="button" class="skill ${pro ? "pro" : ""}" data-prof="${esc(sk)}">${inner}</button>` : `<div class="skill ${pro ? "pro" : ""}">${inner}</div>`; }).join("")}</div></div>
+    ${E ? `<div class="field"><label class="label" for="stAb">Capacités (une par ligne)</label><textarea id="stAb" rows="4">${esc(sn.abilities.join("\n"))}</textarea></div>
+      <div class="field"><label class="label" for="stGear">Équipement (un par ligne)</label><textarea id="stGear" rows="3">${esc(sn.gear.join("\n"))}</textarea></div>
+      <div class="field"><label class="label" for="stChange">Évolution à cette époque</label><textarea id="stChange" rows="2">${esc(sn.change)}</textarea></div>`
+    : `${sn.abilities.length ? `<div><span class="label">Capacités</span><ul class="sheet-list">${sn.abilities.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
+      ${sn.gear.length ? `<div><span class="label">Équipement</span><ul class="sheet-list">${sn.gear.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}`}
+    <div class="row"><button type="button" class="btn small" id="stEdit">${E ? "Terminer" : "Modifier"}</button>
+      <button type="button" class="btn small ghost" id="stRegen">Régénérer toute la fiche</button>
+      ${snaps.length > 1 ? `<button type="button" class="btn small ghost danger" id="stDelEra">Retirer cette époque</button>` : ""}</div>
+    <p class="status" id="stStatus"></p>`;
+}
+function wireStats(cid) {
+  const box = $("#statBox"); if (!box) return;
+  const getC = () => cur().characters.find(x => x.id === cid);
+  const redraw = () => { const c = getC(); if (!c) return; box.innerHTML = statHTML(c); wireStats(cid); };
+  const editable = () => { const w = ensureEditable(); return w.characters.find(x => x.id === cid); };
+  const curSnap = (c) => { const sn = snapsOf(c); return sn.find(x => x.era === sheetEra[cid]) || sn[sn.length - 1]; };
+  const st = () => $("#stStatus");
+  box.querySelectorAll("[data-era]").forEach(b => b.onclick = () => { sheetEra[cid] = b.dataset.era; redraw(); });
+  box.querySelectorAll("[data-addera]").forEach(b => b.onclick = () => genSnap(cid, b.dataset.addera, b));
+  const g = $("#stGen"); if (g) g.onclick = () => genSheet(cid, g);
+  const r = $("#stRegen"); if (r) r.onclick = () => { if (!r.dataset.confirm) { r.dataset.confirm = "1"; r.textContent = "Remplacer toutes les époques ?"; return; } genSheet(cid, r); };
+  const bl = $("#stBlank"); if (bl) bl.onclick = () => { const c = editable(); const era = cur().eras.length ? cur().eras[cur().eras.length - 1].name : ""; c.stats = [normSnap({}, era)]; statEdit = true; persistWorld(cur()); redraw(); };
+  const ed = $("#stEdit"); if (ed) ed.onclick = () => { statEdit = !statEdit; redraw(); renderListSoon(); };
+  const de = $("#stDelEra"); if (de) de.onclick = () => { if (!de.dataset.confirm) { de.dataset.confirm = "1"; de.textContent = "Confirmer"; return; } const c = editable(), sn = curSnap(c); c.stats = c.stats.filter(x => x !== sn); delete sheetEra[cid]; persistWorld(cur()); redraw(); };
+  if (!statEdit) return;
+  const upd = (fn) => { const c = editable(), sn = curSnap(c); if (!sn) return; fn(sn); persistWorld(cur()); };
+  box.querySelectorAll("[data-attr]").forEach(el => el.onchange = () => { upd(sn => sn.attrs[el.dataset.attr] = Math.max(1, Math.min(30, parseInt(el.value, 10) || 10))); redraw(); });
+  box.querySelectorAll("[data-st]").forEach(el => el.onchange = () => { const f = el.dataset.st; upd(sn => sn[f] = (f === "cls" || f === "people") ? el.value : (parseInt(el.value, 10) || sn[f])); redraw(); });
+  box.querySelectorAll("[data-prof]").forEach(el => el.onclick = () => { const sk = el.dataset.prof; upd(sn => { sn.prof = sn.prof || []; sn.prof = sn.prof.includes(sk) ? sn.prof.filter(x => x !== sk) : [...sn.prof, sk]; }); redraw(); });
+  const lines = (v) => v.split("\n").map(x => x.trim()).filter(Boolean);
+  [["stAb", "abilities", lines], ["stGear", "gear", lines], ["stChange", "change", (v) => v]].forEach(([id, f, conv]) => { const el = $("#" + id); if (el) el.oninput = () => upd(sn => sn[f] = conv(el.value)); });
+}
+function charContext(c) { return JSON.stringify({ nom: c.name, role: c.role, faction: c.faction, origine: c.origin, lieu_actuel: c.place, description: c.desc, motivation: c.motivation, secret: c.secret }); }
+async function genSheet(cid, btn) {
+  const status = $("#stStatus");
+  if (!sample) { status.className = "status err"; status.textContent = "La génération par IA n'est pas disponible dans cet affichage."; return; }
+  const w = ensureEditable(), c = w.characters.find(x => x.id === cid); if (!c) return;
+  if (!rulesOf(w) || !(w.rules.classes || []).length) {
+    status.className = "status"; status.textContent = "Ce monde n'a pas encore de système de jeu : Claude crée d'abord ses classes et ses peuples à partir de ton lore…";
+    busy(btn, true, "Système de jeu…");
+    const ok = await genRules(null, true);
+    busy(btn, false);
+    if (!ok) { const s2 = $("#stStatus"); if (s2) { s2.className = "status err"; s2.textContent = "Le système de jeu n'a pas pu être créé. Réessaie, ou crée-le dans l'onglet Règles."; } return; }
+  }
+  busy(btn, true, "Écriture de la fiche…"); status.className = "status"; status.textContent = "Claude établit ses statistiques à travers les époques… (jusqu'à une minute)";
+  try {
+    const out = await sample.json(`${RULES}
+Tu es aussi concepteur de règles de jeu de rôle, expert de Donjons et Dragons 5e.
+
+CONTEXTE DU MONDE :
+${worldContext(w, 4000)}
+
+${rulesBrief(w)}
+
+PERSONNAGE : ${charContext(c)}
+CHRONOLOGIE (dans l'ordre) : ${w.eras.map(e => e.name).join(" → ")}
+
+TÂCHE : écris la fiche de statistiques D&D 5e de ce personnage pour chaque époque où il était vivant et actif (au moins l'époque actuelle, la dernière de la liste ; n'invente pas de présence impossible). Fais évoluer la fiche de façon cohérente avec son histoire : progression de niveau, blessures, vieillissement, objets gagnés ou perdus, compétences apprises. Sa classe et son peuple viennent OBLIGATOIREMENT du système de jeu de ce monde (il peut changer de classe d'une époque à l'autre si son histoire le justifie) ; ses capacités reprennent celles de sa classe et la source de pouvoir du monde. Les valeurs suivent les règles (caractéristiques 3 à 20, 24 pour un être légendaire ; PV cohérents avec le niveau et la Constitution).
+Réponds uniquement avec un objet JSON : {"snaps": [${SNAP_SHAPE}]}`, { cache: false });
+    const arr = (out && Array.isArray(out.snaps) ? out.snaps : Array.isArray(out) ? out : []).filter(x => x && x.attrs);
+    if (!arr.length) throw { code: "invalid_json" };
+    c.stats = arr.map(x => normSnap(x));
+    delete sheetEra[cid]; statEdit = false;
+    persistWorld(w); if ($("#statBox")) { $("#statBox").innerHTML = statHTML(c); wireStats(cid); } renderListSoon();
+    toast(`Fiche de ${c.name} écrite sur ${c.stats.length} époque${c.stats.length > 1 ? "s" : ""}`);
+  } catch (e) { const s2 = $("#stStatus"); if (s2) { s2.className = "status err"; s2.textContent = aiError(e); } busy(btn, false); }
+}
+async function genSnap(cid, era, btn) {
+  const status = $("#stStatus");
+  const w = ensureEditable(), c = w.characters.find(x => x.id === cid); if (!c) return;
+  const snaps = snapsOf(c), ei = eraIndex(w, era);
+  const before = snaps.filter(x => eraIndex(w, x.era) < ei).pop(), after = snaps.find(x => eraIndex(w, x.era) > ei);
+  if (!sample) { c.stats.push(normSnap({ ...(before || after), era, change: "" }, era)); sheetEra[cid] = era; statEdit = true; persistWorld(w); $("#statBox").innerHTML = statHTML(c); wireStats(cid); return; }
+  busy(btn, true, "…"); status.className = "status"; status.textContent = `Claude imagine ${c.name} à l'époque « ${era} »…`;
+  try {
+    const o = await sample.json(`${RULES}
+Tu es aussi expert de Donjons et Dragons 5e.
+
+CONTEXTE DU MONDE :
+${worldContext(w, 3500)}
+${rulesBrief(w)}
+ÉPOQUE VISÉE : ${era} — ${(w.eras.find(e => e.name === era) || {}).desc || ""}
+PERSONNAGE : ${charContext(c)}
+${before ? "FICHE À L'ÉPOQUE PRÉCÉDENTE : " + JSON.stringify(before) : ""}
+${after ? "FICHE À L'ÉPOQUE SUIVANTE : " + JSON.stringify(after) : ""}
+
+TÂCHE : écris sa fiche à cette époque (classe et peuple pris dans le système de jeu du monde), cohérente avec les fiches voisines (progression logique entre les deux). S'il n'était pas encore né ou actif, donne la fiche la plus plausible (enfant, apprenti…) et dis-le dans "change".
+Réponds uniquement avec un objet JSON de la forme : ${SNAP_SHAPE}`, { cache: false });
+    if (!o || !o.attrs) throw { code: "invalid_json" };
+    c.stats = (c.stats || []).filter(x => x.era !== era); c.stats.push(normSnap({ ...o, era }));
+    sheetEra[cid] = era; persistWorld(w); $("#statBox").innerHTML = statHTML(c); wireStats(cid);
+  } catch (e) { const s2 = $("#stStatus"); if (s2) { s2.className = "status err"; s2.textContent = aiError(e); } busy(btn, false); }
 }
 
 /* ---------- talk to a character ---------- */
@@ -1398,6 +1721,7 @@ function openChat(cid) {
     const send = $("#chSend"); send.textContent = "Stop"; send.type = "button";
     chatCtl = new AbortController(); send.onclick = () => chatCtl && chatCtl.abort();
     const sheet = { nom: c.name, role: c.role, faction: c.faction, origine: c.origin, lieu_actuel: c.place, description: c.desc, motivation: c.motivation, secret: c.secret, replique: c.quote };
+    const snap = latestSnap(c), statLine = snap ? statSummary(snap) : "";
     const dice = $("#chDiceOn").checked;
     const rules = `Tu joues ${c.name} dans un jeu de rôle, et tu es aussi le maître du jeu discret de cette scène. Reste toujours dans le personnage : parle à la première personne, avec sa voix, son vocabulaire et ses émotions. Ne dis jamais que tu es une IA.
 FICHE DU PERSONNAGE : ${JSON.stringify(sheet)}
@@ -1409,7 +1733,8 @@ ${dice ? `JETS DE DÉS (règles de Donjons et Dragons) : quand l'interlocuteur t
 [[JET compétence=Persuasion dd=15 avantage=non raison="ce qu'il tente, en quelques mots"]]
 puis une courte réaction d'attente (un geste, une phrase), sans révéler l'issue.
 - compétence parmi : ${SKILLS.join(", ")}.
-- dd selon ta résistance et la situation : 5 très facile, 10 facile, 15 moyen, 20 difficile, 25 très difficile, 30 quasi impossible.
+- dd selon ta résistance et la situation : 5 très facile, 10 facile, 15 moyen, 20 difficile, 25 très difficile, 30 quasi impossible.${statLine ? `
+- Tes statistiques actuelles (D&D 5e) : ${statLine}. Base le DD sur elles : pour te mentir ou deviner tes intentions, pars de 10 + ton modificateur de Perspicacité ; pour te convaincre ou te faire baisser un prix, de 10 + ton modificateur de Sagesse ou de Charisme ; pour t'intimider, de 10 + ton modificateur de Sagesse ou de Force, puis ajuste selon la situation.` : ""}
 - avantage=oui si un argument, un cadeau ou une preuve l'aide vraiment ; avantage=désavantage si sa demande te heurte ou s'il t'a menti avant.
 - Pas de jet pour une simple question, une demande raisonnable ou une action sans enjeu. Au plus un jet par réplique, et jamais deux fois pour la même tentative.
 Quand le message contient [[RÉSULTAT ...]], applique-le sans le discuter : RÉUSSITE, il obtient ce qu'il voulait ; ÉCHEC, il échoue et tu réagis en conséquence ; CRITIQUE, l'effet est spectaculaire, dans un sens ou dans l'autre. Pour une estimation de valeur, une réussite donne la vraie valeur, un échec une estimation fausse mais crédible. Ne mentionne jamais les dés ni les chiffres.` : "N'utilise aucune balise."}
@@ -2049,7 +2374,8 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDra
 
 /* ---------- boot ---------- */
 lsLoad();
-if (!worlds.find(w => w.example)) worlds.unshift(JSON.parse(JSON.stringify(EXAMPLE)));
+// The example world is read-only (edits make a copy), so always load its latest version.
+worlds = [JSON.parse(JSON.stringify(EXAMPLE)), ...worlds.filter(w => !w.example)];
 if (!worlds.find(w => w.id === currentId)) currentId = worlds[worlds.length - 1].id;
 render(); wireForge();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawMapSoon());
