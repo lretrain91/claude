@@ -225,6 +225,12 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .linkish { background: none; border: 0; padding: 0; text-align: left; font: 700 16px var(--body); color: var(--fg); cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 .linkish:hover { text-decoration-color: var(--verdigris); }
 .hist summary { cursor: pointer; padding: 4px 0; }
+.artdir textarea { font: 13px/1.5 var(--mono); }
+.artbar { grid-column: 1 / -1; display: grid; gap: 14px; min-width: 0; }
+.artrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; min-width: 0; }
+.artdir { display: grid; gap: 6px; }
+.artdir input[type="checkbox"] { width: auto; flex: none; }
+.artdir textarea { background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; width: 100%; resize: vertical; }
 .diff { border-left: 2px solid var(--verdigris); padding-left: 10px; }
 .diff summary { cursor: pointer; }
 .diff p { margin: 2px 0 8px; font-size: 14px; white-space: pre-wrap; }
@@ -744,15 +750,20 @@ function renderForge() {
   if (f.hidden) { f.innerHTML = ""; return; }
   if (tab === "art") {
     const w = cur(), t = curTheme(w), nr = (refs[w.id] || []).length;
-    f.innerHTML = `
-      <div class="field hint"><span class="label">Thème graphique</span>
-        <div class="themebar">${swatches(t.palette)}<div style="min-width:0"><b>${esc(t.name)}</b> <span class="note">${esc(t.desc)}${nr ? ` · ${nr} image${nr > 1 ? "s" : ""} de référence` : ""}</span></div></div></div>
-      <button class="btn" id="themeBtn">Changer de thème</button>
-      <button class="btn primary" id="paintAll">Illustrer tout ce qui manque</button>
-      <div class="field hint"><label class="label" for="engineSel">Générateur d'images</label>
-        <select id="engineSel">${Object.entries(ENGINES).map(([k, e]) => `<option value="${k}" ${k === engineKey() ? "selected" : ""}>${esc(e.label)}</option>`).join("")}</select></div>
-      <div class="status row" style="justify-content:space-between"><span id="forgeStatus">Les illustrations sont peintes par FLUX via ton compte Hugging Face, dans le thème choisi. Chaque élément garde aussi un prompt prêt pour Midjourney ou DALL·E.</span>
-        <span class="row"><button class="btn small ghost" id="sketchAll">Esquisses rapides</button><button class="btn small ghost" id="redrawAll">Tout réillustrer</button></span></div>`;
+    f.innerHTML = `<div class="artbar">
+      <div class="artrow"><div class="field" style="flex:1 1 280px"><span class="label">Thème graphique</span>
+          <div class="themebar">${swatches(t.palette)}<div style="min-width:0"><b>${esc(t.name)}</b> <span class="note">${esc(t.desc)}${nr ? ` · ${nr} image${nr > 1 ? "s" : ""} de référence` : ""}</span></div></div></div>
+        <button class="btn" id="themeBtn">Changer de thème</button></div>
+      <div class="field artdir"><label class="label" for="artDirTxt">Direction artistique · ajoutée mot pour mot à chaque image</label>
+        <textarea id="artDirTxt" rows="2" placeholder="Écrite automatiquement à la première illustration, à partir du thème.">${esc((w.artDir && w.artDir.style) || "")}</textarea>
+        <div class="artrow"><label class="note" style="display:inline-flex;gap:6px;align-items:center;flex:1 1 240px"><input type="checkbox" id="artSeedOn" ${artSeed(w) == null ? "" : "checked"}> Même graine pour toutes les images (style plus homogène)</label>
+          <button class="btn small ghost" id="artDirRegen" type="button">Réécrire depuis le thème</button></div></div>
+      <div class="artrow"><div class="field" style="flex:1 1 260px"><label class="label" for="engineSel">Générateur d'images</label>
+          <select id="engineSel">${Object.entries(ENGINES).map(([k, e]) => `<option value="${k}" ${k === engineKey() ? "selected" : ""}>${esc(e.label)}</option>`).join("")}</select></div>
+        <button class="btn primary" id="paintAll">Illustrer tout ce qui manque</button></div>
+      <div class="artrow" style="justify-content:space-between"><span class="status" id="forgeStatus" style="flex:1 1 260px">Chaque image reprend la direction artistique et la signature visuelle des personnages, créatures et lieux, pour que tout ressemble à une seule série.</span>
+        <span class="row"><button class="btn small ghost" id="sketchAll">Esquisses rapides</button><button class="btn small ghost" id="redrawAll">Tout réillustrer</button></span></div>
+    </div>`;
     return;
   }
   const key = listKey();
@@ -843,10 +854,10 @@ function renderGallery() {
 
 /* ---------- drawer (detail + edit) ---------- */
 const FIELDS = {
-  places: [["type", "Type"], ["region", "Région"], ["desc", "Description", 4], ["secrets", "Secrets", 2], ["hooks", "Accroche de quête", 2], ["imagePrompt", "Prompt image", 3]],
-  characters: [["role", "Rôle"], ["faction", "Faction"], ["origin", "Lieu d'origine", "select"], ["place", "Lieu actuel"], ["desc", "Description", 3], ["motivation", "Motivation", 2], ["secret", "Secret", 2], ["quote", "Réplique", 2], ["imagePrompt", "Prompt image", 3]],
-  creatures: [["type", "Type"], ["habitat", "Habitat"], ["desc", "Description", 3], ["lore", "Légendes", 2], ["danger", "Danger", 2], ["loot", "Butin", 2], ["imagePrompt", "Prompt image", 3]],
-  peoples: [["homeland", "Terre natale"], ["lifespan", "Longévité"], ["languages", "Langues"], ["desc", "Description", 3], ["appearance", "Apparence", 2], ["culture", "Culture", 3], ["relations", "Relations", 2], ["bonus", "Bonus de caractéristiques"], ["traits", "Traits raciaux (un par ligne)", 3], ["names", "Noms typiques", 2], ["imagePrompt", "Prompt image", 3]],
+  places: [["visual", "Signature visuelle (anglais, reprise dans chaque image)", 2], ["type", "Type"], ["region", "Région"], ["desc", "Description", 4], ["secrets", "Secrets", 2], ["hooks", "Accroche de quête", 2], ["imagePrompt", "Prompt image", 3]],
+  characters: [["visual", "Signature visuelle (anglais, reprise dans chaque image)", 2], ["role", "Rôle"], ["faction", "Faction"], ["origin", "Lieu d'origine", "select"], ["place", "Lieu actuel"], ["desc", "Description", 3], ["motivation", "Motivation", 2], ["secret", "Secret", 2], ["quote", "Réplique", 2], ["imagePrompt", "Prompt image", 3]],
+  creatures: [["visual", "Signature visuelle (anglais, reprise dans chaque image)", 2], ["type", "Type"], ["habitat", "Habitat"], ["desc", "Description", 3], ["lore", "Légendes", 2], ["danger", "Danger", 2], ["loot", "Butin", 2], ["imagePrompt", "Prompt image", 3]],
+  peoples: [["visual", "Signature visuelle (anglais, reprise dans chaque image)", 2], ["homeland", "Terre natale"], ["lifespan", "Longévité"], ["languages", "Langues"], ["desc", "Description", 3], ["appearance", "Apparence", 2], ["culture", "Culture", 3], ["relations", "Relations", 2], ["bonus", "Bonus de caractéristiques"], ["traits", "Traits raciaux (un par ligne)", 3], ["names", "Noms typiques", 2], ["imagePrompt", "Prompt image", 3]],
   artifacts: [["type", "Type"], ["rarity", "Rareté"], ["location", "Où il se trouve"], ["owner", "Détenteur"], ["desc", "Description", 2], ["powers", "Pouvoirs", 3], ["history", "Histoire", 3], ["curse", "Prix ou malédiction", 2], ["imagePrompt", "Prompt image", 3]],
   stories: [["kind", "Type"], ["summary", "Résumé", 5], ["beats", "Étapes (une par ligne)", 5], ["involves", "Impliqués (un par ligne)", 3], ["novel", "Nouvelle complète (texte modifiable)", 6], ["imagePrompt", "Prompt image", 3]]
 };
@@ -1222,6 +1233,7 @@ function applyTheme(t, refUrls) {
   const w = ensureEditable();
   w.themeName = String(t.name || "Thème"); w.themeDesc = String(t.desc || ""); w.artStyle = String(t.style || "");
   w.palette = (Array.isArray(t.palette) ? t.palette : []).map(safeHex).slice(0, 6); w.svgGuide = String(t.guide || "");
+  if (w.artDir) delete w.artDir.style;   // the art direction follows the new theme
   persistWorld(w); persistRefs(w.id, refUrls || []);
   thumbs.clear(); closeModal(); render(); wireForge();
   toast(`Thème « ${w.themeName} » appliqué`);
@@ -2397,9 +2409,9 @@ ${SCHEMAS.characters.replace(/\}$/, "")}${withStats ? `, "stats": ${SNAP_SHAPE}`
 /* ---------- FLUX illustrations (Hugging Face connector) ---------- */
 const HF = "Hugging face Flux";
 const ENGINES = {
-  krea: { label: "FLUX Krea : qualité livre illustré (≈ 1 min)", tool: "gr1_flux_1_krea_dev_infer", input: (prompt, land) => ({ prompt, width: land ? 1024 : 704, height: land ? 704 : 1024, num_inference_steps: 28, guidance_scale: 4.5 }) },
-  zimage: { label: "Z-Image Turbo : rapide et détaillé (≈ 20 s)", tool: "gr3_z_image_turbo_generate", input: (prompt, land) => ({ prompt, resolution: land ? "1248x832 ( 3:2 )" : "832x1248 ( 2:3 )" }) },
-  schnell: { label: "FLUX Schnell : brouillon express (≈ 10 s)", tool: "gr2_flux1_schnell_infer", input: (prompt, land) => ({ prompt, width: land ? 1024 : 704, height: land ? 704 : 1024, num_inference_steps: 4 }) }
+  krea: { label: "FLUX Krea : qualité livre illustré (≈ 1 min)", tool: "gr1_flux_1_krea_dev_infer", input: (prompt, land, seed) => ({ prompt, width: land ? 1024 : 704, height: land ? 704 : 1024, num_inference_steps: 28, guidance_scale: 4.5, ...(seed != null ? { seed, randomize_seed: false } : {}) }) },
+  zimage: { label: "Z-Image Turbo : rapide et détaillé (≈ 20 s)", tool: "gr3_z_image_turbo_generate", input: (prompt, land, seed) => ({ prompt, resolution: land ? "1248x832 ( 3:2 )" : "832x1248 ( 2:3 )", ...(seed != null ? { seed, random_seed: false } : {}) }) },
+  schnell: { label: "FLUX Schnell : brouillon express (≈ 10 s)", tool: "gr2_flux1_schnell_infer", input: (prompt, land, seed) => ({ prompt, width: land ? 1024 : 704, height: land ? 704 : 1024, num_inference_steps: 4, ...(seed != null ? { seed, randomize_seed: false } : {}) }) }
 };
 let mcp = null, engineMem = null;
 function engineKey() {
@@ -2407,13 +2419,63 @@ function engineKey() {
   return ENGINES[engineMem] ? engineMem : "krea";
 }
 function words(t, n) { const a = String(t || "").replace(/\s+/g, " ").trim().split(" "); return a.length > n ? a.slice(0, n).join(" ") : a.join(" "); }
+/* Visual consistency: one art direction per world (same words, same seed) and one visual
+   signature per character / creature / people, reused in every image that shows them. */
+const ANCHORED = ["character", "creature", "people", "place"];
+function artDirection(w) {
+  const t = curTheme(w);
+  return (w.artDir && w.artDir.style) || [t.style || "painterly fantasy book illustration, rich detail, dramatic lighting", (w.palette || []).length ? "limited palette" : ""].filter(Boolean).join(", ");
+}
+function artSeed(w) { return w.artDir && w.artDir.seedOn === false ? null : ((w.artDir && w.artDir.seed) || (hash(w.id + ":art") % 2147483647)); }
+function anchorOf(it) { return it && it.visual ? String(it.visual) : ""; }
+function sceneCast(w, r) {
+  // Who and where appears in a story scene, with their fixed look.
+  const out = [];
+  for (const n of (r.involves || [])) {
+    const c = w.characters.find(x => eqName(x.name, n)), p = w.places.find(x => eqName(x.name, n));
+    if (c) out.push(`${c.name.split(" ")[0]}: ${anchorOf(c) || words(c.desc, 14)}`);
+    else if (p) out.push(`setting ${p.name}: ${anchorOf(p) || words(p.desc, 12)}`);
+    if (out.length >= 3) break;
+  }
+  return out.join("; ");
+}
 function paintPrompt(e, w) {
-  const r = e.ref, t = curTheme(w);
-  const style = t.style || "painterly fantasy book illustration, rich detail, dramatic lighting";
+  const r = e.ref;
   const base = (e.kind === "world" ? w.imagePrompt : r.imagePrompt) || fallbackPrompt(e, w).replace(/,?\s*$/, "");
   const frame = { world: "Wide establishing vista, fantasy book frontispiece", place: "Environment illustration, fantasy book plate", character: "Character portrait, head and shoulders to waist, subject centered and facing the viewer, face clearly visible in the upper third, plain atmospheric background, fantasy book illustration", story: "Dramatic key scene, fantasy book chapter illustration", creature: "Bestiary plate, full body creature in its habitat, naturalist fantasy illustration", people: "Anthropological plate, two members of this people in traditional dress, full body, fantasy book illustration", artifact: "Single object study, centered on a plain parchment background, fantasy book illustration" }[e.kind];
-  const pal = (w.palette || []).length ? ` Color palette: ${w.palette.join(" ")}.` : "";
-  return `${frame}. ${words(base, e.kind === "character" ? 35 : 45)}. Style: ${words(style, 25)}.${pal} No text, no watermark.`;
+  const anchor = ANCHORED.includes(e.kind) ? anchorOf(r) : "";
+  const subject = anchor ? `${anchor}. ${words(base, 20)}` : words(base, e.kind === "story" ? 28 : 40);
+  const cast = e.kind === "story" ? sceneCast(w, r) : "";
+  return `${frame}. ${subject}.${cast ? " Featuring " + cast + "." : ""} Art direction, identical for the whole series: ${words(artDirection(w), 45)}. No text, no watermark.`;
+}
+async function ensureArtDirection(w) {
+  if ((w.artDir && w.artDir.style) || !sample) return;
+  const t = curTheme(w);
+  try {
+    const o = await sample.json(`You are the art director of a video game. Write the single art-direction line that will be appended, word for word, to every illustration prompt of this world so all images look like one series by the same artist.
+World: ${w.name} (${w.genre}, ${w.tone}). ${w.pitch}
+Graphic theme: ${t.name} — ${t.style}. Palette (hex): ${(w.palette || []).join(" ") || "free"}.
+Rules: 30 to 45 English words; name the medium and technique, brushwork or line quality, lighting, level of detail, mood, and the palette in plain colour words (no hex codes). No subject matter.
+Reply only with JSON: {"style": string}`, { cache: false, modelTier: "quick" });
+    if (o && o.style) { w.artDir = { ...(w.artDir || {}), style: String(o.style).slice(0, 400) }; persistWorld(w); }
+  } catch (e) { console.warn("art direction", e); }
+}
+async function ensureAnchors(w, ids) {
+  // Write a fixed visual signature for whoever has none yet (one quick call for all).
+  const need = [];
+  for (const id of ids) {
+    const [k, it] = findItem(id);
+    if (it && !it.visual && ["characters", "creatures", "peoples", "places"].includes(k)) need.push([k, it]);
+  }
+  if (!need.length || !sample) return;
+  try {
+    const o = await sample.json(`You are a character and concept designer. For each element below, write its fixed VISUAL SIGNATURE in English (20 to 35 words): only the permanent, recognisable visual traits an illustrator must repeat in every image (age, build, face, hair, skin, scars, missing limbs, signature clothing and colours, iconic object; for a place: architecture, materials, light, landmark). No action, no background, no style words.
+World: ${w.name} (${w.genre}).
+${need.map(([k, it]) => `- ${it.name} [${k}]: ${String(it.desc || "").slice(0, 300)} ${String(it.appearance || "").slice(0, 200)}`).join("\n")}
+Reply only with JSON: {"items": [{"name": string, "visual": string}]}`, { cache: false, modelTier: "quick" });
+    for (const x of (o && o.items) || []) { const hit = need.find(([, it]) => eqName(it.name, x.name)); if (hit && x.visual) hit[1].visual = String(x.visual).slice(0, 400); }
+    persistWorld(w);
+  } catch (e) { console.warn("anchors", e); }
 }
 function b64ToBlob(b64, type) { const bin = atob(b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type }); }
 function imageFromResult(res) {
@@ -2453,15 +2515,24 @@ function mcpError(e) {
 async function paint(id, btn, statusEl, quiet) {
   const say = (msg, err) => { if (statusEl) { statusEl.className = "status" + (err ? " err" : ""); statusEl.textContent = msg; } else if (!quiet || err) toast(msg); };
   if (!mcp) { say("Les connecteurs ne sont pas disponibles dans cet affichage. Ouvre la page dans Claude.", true); return false; }
-  const w = cur(), e = allEntities(w).find(x => x.id === id); if (!e) return false;
-  const eng = ENGINES[engineKey()], land = e.kind !== "character";
+  const w0 = cur(); if (!allEntities(w0).find(x => x.id === id)) return false;
+  const eng = ENGINES[engineKey()];
   busy(btn, true, "Peinture…");
-  say(`${eng.label.split(":")[0].trim()} peint « ${e.title} »…`);
   try {
-    const res = await mcp.callTool(HF, eng.tool, eng.input(paintPrompt(e, w), land), { cache: false });
+    const w = ensureLists(ensureEditable());
+    const e = allEntities(w).find(x => x.id === (id === w0.id ? w.id : id)) || allEntities(w).find(x => x.kind === "world");
+    const land = e.kind !== "character";
+    say("Préparation de la direction artistique…");
+    await ensureArtDirection(w);
+    await ensureAnchors(w, e.kind === "story" ? [...(e.ref.involves || []).map(n => (w.characters.find(c => eqName(c.name, n)) || w.places.find(p => eqName(p.name, n)) || {}).id).filter(Boolean)] : [e.id]);
+    // Same seed for the whole world; a new try on the same element shifts it so it can still change.
+    const base = artSeed(w), seed = base == null ? null : (base + (e.ref.imgTry || 0) * 7919) % 2147483647;
+    say(`${eng.label.split(":")[0].trim()} peint « ${e.title} »…`);
+    const res = await mcp.callTool(HF, eng.tool, eng.input(paintPrompt(e, w), land, seed), { cache: false });
+    e.ref.imgTry = (e.ref.imgTry || 0) + 1;
     const blob = imageFromResult(res);
     if (!blob) throw { code: "no_image" };
-    await setImage(id, blob, "flux");
+    await setImage(e.id, blob, "flux");
     say(`Illustration de « ${e.title} » ajoutée.`);
     return true;
   } catch (err) {
@@ -2970,6 +3041,9 @@ function wireForge() {
   const g = $("#genBtn"); if (g) g.onclick = generate;
   const h = $("#hint"); if (h) h.onkeydown = (e) => { if (e.key === "Enter") generate(); };
   const tb = $("#themeBtn"); if (tb) tb.onclick = openThemeModal;
+  const ad = $("#artDirTxt"); if (ad) ad.oninput = () => { const w = ensureEditable(); w.artDir = { ...(w.artDir || {}), style: ad.value.trim() }; persistWorld(w); };
+  const so = $("#artSeedOn"); if (so) so.onchange = () => { const w = ensureEditable(); w.artDir = { ...(w.artDir || {}), seedOn: so.checked }; persistWorld(w); };
+  const ar = $("#artDirRegen"); if (ar) ar.onclick = async () => { const w = ensureEditable(); if (w.artDir) delete w.artDir.style; busy(ar, true, "Écriture…"); await ensureArtDirection(w); busy(ar, false); renderForge(); wireForge(); };
   const a = $("#sketchAll"); if (a) a.onclick = () => sketchAll(false, a);
   const pa = $("#paintAll"); if (pa) pa.onclick = () => paintAll(false, pa);
   const es = $("#engineSel"); if (es) es.onchange = () => { try { localStorage.setItem(LS + ":engine", es.value); } catch {} engineMem = es.value; };
