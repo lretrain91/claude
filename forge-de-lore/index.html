@@ -1,10 +1,4 @@
-<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-</head>
-<body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Forge de Lore</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,6 +68,12 @@ select.worlds { background: var(--plate); border: 1px solid var(--line); border-
 .btn.small { padding: 5px 10px; font-size: 14px; }
 
 /* World plate */
+.plate.compact { display: flex; align-items: center; gap: 14px; padding: 10px 14px; }
+.plate-thumb { width: 56px; height: 56px; flex: none; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); padding: 0; cursor: pointer; background: var(--plate-2); }
+.plate-thumb svg, .plate-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.plate-line { min-width: 0; flex: 1; display: grid; gap: 6px; }
+.plate-line h2 { font-size: clamp(20px, 3.4vw, 28px); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 560px) { .plate.compact > .btn { display: none; } .plate-line .meta .chip:not(.accent):not([data-act]) { display: none; } }
 .plate { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
 .plate-main { padding: 26px 28px; display: grid; gap: 14px; min-width: 0; }
 .plate-main h2 { font-size: clamp(30px, 5vw, 46px); line-height: 1.05; }
@@ -129,6 +129,14 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .empty { border: 1px dashed var(--line); border-radius: 10px; padding: 28px; text-align: center; color: var(--muted); }
 
 .story { display: grid; grid-template-columns: 140px minmax(0, 1fr); }
+.novel-box { border: 1px solid var(--line); border-left: 4px solid var(--brass); border-radius: 10px; background: var(--ink); padding: 12px 16px; }
+.novel-box summary { cursor: pointer; font-family: var(--display); font-size: 20px; }
+.novel { font-family: var(--serif); font-size: 18px; line-height: 1.6; max-width: 68ch; }
+.novel p { margin: 0 0 .9em; }
+.novel h4 { font-family: var(--display); font-weight: 400; font-size: 21px; margin: 1.2em 0 .4em; color: var(--brass); }
+.novel ul { margin: 0 0 .9em; padding-left: 20px; font-family: var(--body); font-size: 15px; color: var(--muted); }
+.novel hr { border: 0; border-top: 1px solid var(--line); margin: 1em 0; }
+.chip.novel-tag { color: var(--brass); border-color: color-mix(in srgb, var(--brass) 50%, transparent); }
 .story .vignette { aspect-ratio: auto; border-bottom: 0; border-right: 1px solid var(--line); }
 
 /* Illustrations tab */
@@ -399,7 +407,7 @@ button.skill { background: none; border: 0; border-bottom: 1px dotted var(--line
 
   <p class="status err" id="aiWarn" hidden></p>
 
-  <section class="plate" id="plate"></section>
+  <section class="plate compact" id="plate"></section>
 
   <div class="resume" id="resume" hidden></div>
 
@@ -679,9 +687,28 @@ function renderWorldSel() {
   sel.innerHTML = worlds.map(w => `<option value="${esc(w.id)}" ${w.id === cur().id ? "selected" : ""}>${esc(w.name)}${w.example ? " (exemple)" : ""}</option>`).join("");
 }
 
+// Top of the page: one compact line. The full overview lives in the « Univers » tab.
 function renderPlate() {
   const w = cur();
   $("#plate").innerHTML = `
+    <button class="plate-thumb" data-tab="world" aria-label="Voir l'univers">${vignette(w.id, w.name, "world")}</button>
+    <div class="plate-line">
+      <h2>${esc(w.name)}</h2>
+      <div class="meta">
+        ${w.example ? '<span class="chip example">Monde d\'exemple</span>' : ""}
+        <span class="chip accent">${esc(w.genre)}</span>
+        ${w.tone ? `<span class="chip">${esc(w.tone)}</span>` : ""}
+        <button class="chip" data-act="theme" title="Changer le thème graphique"><span class="mini">${(w.palette || []).map(c => `<i style="background:${safeHex(c)}"></i>`).join("")}</span>Thème : ${esc(curTheme(w).name)}</button>
+      </div>
+    </div>
+    ${tab === "world" ? "" : `<button class="btn small" data-tab="world">Voir l'univers</button>`}`;
+  if (tab === "world") renderWorldTab();
+}
+function renderWorldTab() {
+  $("#list").innerHTML = `<section class="plate">${worldOverviewHTML(cur())}</section>`;
+}
+function worldOverviewHTML(w) {
+  return `
     <div class="plate-main">
       <div class="meta">
         ${w.example ? '<span class="chip example">Monde d\'exemple</span>' : ""}
@@ -703,16 +730,16 @@ function renderPlate() {
     <div class="plate-art" id="plateArt">${vignette(w.id, w.name, "world")}</div>`;
 }
 
-const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["codex", "Bestiaire"], ["rules", "Règles"], ["art", "Illustrations"], ["lore", "Cohérence"]];
+const TABS = [["world", "Univers"], ["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["codex", "Bestiaire"], ["rules", "Règles"], ["art", "Illustrations"], ["lore", "Cohérence"]];
 function renderTabs() {
   const w = cur();
   const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, codex: (w.creatures || []).length + (w.peoples || []).length + (w.artifacts || []).length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length + pendingTasks(w).length, rules: ((w.rules && w.rules.classes) || []).length };
-  $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}<span class="count">${n[k]}</span></button>`).join("");
+  $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}${n[k] == null ? "" : `<span class="count">${n[k]}</span>`}</button>`).join("");
 }
 
 function renderForge() {
   const f = $("#forge");
-  f.hidden = tab === "map" || tab === "lore" || tab === "rules";
+  f.hidden = tab === "map" || tab === "lore" || tab === "rules" || tab === "world";
   if (f.hidden) { f.innerHTML = ""; return; }
   if (tab === "art") {
     const w = cur(), t = curTheme(w), nr = (refs[w.id] || []).length;
@@ -741,6 +768,7 @@ function renderList() {
   const w = cur(), L = $("#list");
   if (tab === "art") return renderGallery();
   if (tab === "map") return renderMap();
+  if (tab === "world") return renderWorldTab();
   if (tab === "lore") return renderLore();
   if (tab === "rules") return renderRules();
   const lk = listKey(), items = w[lk] || [];
@@ -751,7 +779,7 @@ function renderList() {
       <button class="card story" data-open="${esc(s.id)}">
         <div class="vignette">${vignette(s.id, s.title, "story")}</div>
         <div class="card-body"><span class="sub">${esc(s.kind)}</span><h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
-          <div class="meta">${(s.involves || []).slice(0, 5).map(n => `<span class="chip">${esc(n)}</span>`).join("")}</div></div>
+          <div class="meta">${s.novel ? `<span class="chip novel-tag">Nouvelle à lire</span>` : ""}${(s.involves || []).slice(0, 5).map(n => `<span class="chip">${esc(n)}</span>`).join("")}</div></div>
       </button>`).join("")}</div>`;
     return;
   }
@@ -819,8 +847,18 @@ const FIELDS = {
   creatures: [["type", "Type"], ["habitat", "Habitat"], ["desc", "Description", 3], ["lore", "Légendes", 2], ["danger", "Danger", 2], ["loot", "Butin", 2], ["imagePrompt", "Prompt image", 3]],
   peoples: [["homeland", "Terre natale"], ["lifespan", "Longévité"], ["languages", "Langues"], ["desc", "Description", 3], ["appearance", "Apparence", 2], ["culture", "Culture", 3], ["relations", "Relations", 2], ["bonus", "Bonus de caractéristiques"], ["traits", "Traits raciaux (un par ligne)", 3], ["names", "Noms typiques", 2], ["imagePrompt", "Prompt image", 3]],
   artifacts: [["type", "Type"], ["rarity", "Rareté"], ["location", "Où il se trouve"], ["owner", "Détenteur"], ["desc", "Description", 2], ["powers", "Pouvoirs", 3], ["history", "Histoire", 3], ["curse", "Prix ou malédiction", 2], ["imagePrompt", "Prompt image", 3]],
-  stories: [["kind", "Type"], ["summary", "Résumé", 5], ["beats", "Étapes (une par ligne)", 5], ["involves", "Impliqués (un par ligne)", 3], ["imagePrompt", "Prompt image", 3]]
+  stories: [["kind", "Type"], ["summary", "Résumé", 5], ["beats", "Étapes (une par ligne)", 5], ["involves", "Impliqués (un par ligne)", 3], ["novel", "Nouvelle complète (texte modifiable)", 6], ["imagePrompt", "Prompt image", 3]]
 };
+// Full prose of a played episode: paragraphs, "## " headings, "- " lists, *italics*.
+function novelHTML(t) {
+  const inl = (s) => esc(s).replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+  return String(t || "").split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
+    if (/^-{3,}$/.test(b)) return "<hr>";
+    if (b.startsWith("## ")) return `<h4>${inl(b.slice(3))}</h4>`;
+    if (b.split("\n").every(l => l.trim().startsWith("- "))) return `<ul>${b.split("\n").map(l => `<li>${inl(l.trim().slice(2))}</li>`).join("")}</ul>`;
+    return `<p>${inl(b).replace(/\n/g, "<br>")}</p>`;
+  }).join("");
+}
 let openRef = null;
 function findItem(id) { const w = cur(); for (const k of LISTS) { const it = (w[k] || []).find(x => x.id === id); if (it) return [k, it]; } return [null, null]; }
 
@@ -837,6 +875,7 @@ function openDrawer(id) {
       ${it.pending ? pendingBanner(it) : ""}
       ${depthBanner(it)}
       ${linked(k, it)}
+      ${k === "stories" && it.novel ? `<details class="novel-box" open><summary>Lire la nouvelle</summary><div class="novel">${novelHTML(it.novel)}</div></details>` : ""}
       ${k === "characters" ? `<section class="sheetbox" id="statBox">${statHTML(it)}</section>` : ""}
       ${k === "creatures" ? `<section class="sheetbox" id="beastBox">${beastHTML(it)}</section>` : ""}
       ${FIELDS[k].map(([f, l, rows]) => {
@@ -1099,7 +1138,7 @@ function bible(w) {
   if ((w.creatures || []).length) { L.push("", "## Bestiaire"); for (const c of w.creatures) L.push("", `### ${c.name}`, `*${c.type || ""} · FP ${c.cr || "?"} · ${c.habitat || ""}*`, "", c.desc, "", `**CA** ${c.ac || "?"} · **PV** ${c.hp || "?"} · **Vitesse** ${c.speed || "?"}`, "", ATTR.map(a => `${a} ${(c.attrs || {})[a] ?? 10}`).join(" · "), "", ...(c.abilities || []).map(t => `- ${t}`), ...(c.actions || []).map(t => `- **Action** : ${t}`), "", `**Légendes** : ${c.lore || ""}`, "", `**Butin** : ${c.loot || ""}`); }
   if ((w.artifacts || []).length) { L.push("", "## Objets et artefacts"); for (const a of w.artifacts) L.push("", `### ${a.name}`, `*${a.type || ""} · ${a.rarity || ""}*`, "", a.desc, "", `**Pouvoirs** : ${a.powers || ""}`, "", `**Histoire** : ${a.history || ""}`, "", `**Où** : ${a.location || "?"} · **Détenteur** : ${a.owner || "?"}`, ...(a.curse ? ["", `**Prix** : ${a.curse}`] : [])); }
   L.push("", "## Histoires");
-  for (const s of w.stories) L.push("", `### ${s.title}`, `*${s.kind}*`, "", s.summary, "", ...(s.beats || []).map((b, i) => `${i + 1}. ${b}`), "", `Impliqués : ${(s.involves || []).join(", ")}`);
+  for (const s of w.stories) L.push("", `### ${s.title}`, `*${s.kind}*`, "", s.summary, "", ...(s.beats || []).map((b, i) => `${i + 1}. ${b}`), "", `Impliqués : ${(s.involves || []).join(", ")}`, ...(s.novel ? ["", "#### Nouvelle", "", String(s.novel).replace(/^## /gm, "##### ")] : []));
   return L.join("\n");
 }
 async function doExport() {
@@ -1488,7 +1527,7 @@ async function proposeDepth({ btn, ref, statusEl } = {}) {
   if (!targets.length) { archBusy = false; say("Rien à approfondir pour l'instant."); return; }
   if (btn) busy(btn, true, "Réflexion…");
   say(ref ? "L'archiviste cherche des idées pour cette fiche…" : `L'archiviste cherche de la profondeur pour ${targets.length} fiches…`);
-  const strip = (it) => { const c = { ...it }; for (const f of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "pending", "chatRole", "chatSecrets", "chatDice", "chatPlayerId", "archivedMark", "attrs"]) delete c[f]; return c; };
+  const strip = (it) => { const c = { ...it }; for (const f of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "pending", "chatRole", "chatSecrets", "chatDice", "chatPlayerId", "archivedMark", "attrs", "novel"]) delete c[f]; return c; };
   try {
     const out = await sample.json(`${RULES}
 Tu es l'archiviste de cet univers. Tu proposes des ajouts qui donnent de la PROFONDEUR aux fiches : un secret, une contradiction intérieure, un détail sensoriel, une coutume, une rivalité, une dette, une rumeur, un lien concret avec un autre élément existant du monde, une conséquence d'un événement de la chronologie. Pas de remplissage : chaque proposition doit ouvrir une possibilité de jeu ou d'histoire.
@@ -1730,7 +1769,7 @@ function issueCard(i) {
 }
 function setIssue(id, status) { const w = ensureEditable(), i = (w.issues || []).find(x => x.id === id); if (i) { i.status = status; persistWorld(w); renderLore(); renderTabs(); } }
 function fullWorldJSON(w, max = 60000) {
-  const strip = (o) => { const c = { ...o }; for (const k of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "chatRole", "chatSecrets", "chatDice"]) delete c[k]; return c; };
+  const strip = (o) => { const c = { ...o }; for (const k of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "chatRole", "chatSecrets", "chatDice", "novel"]) delete c[k]; return c; };
   const data = { nom: w.name, genre: w.genre, ton: w.tone, pitch: w.pitch, epoques: w.eras, factions: w.factions, lieux: w.places.map(strip), personnages: w.characters.map(strip), histoires: w.stories.map(strip), peuples: (w.peoples || []).map(strip), creatures: (w.creatures || []).map(x => { const c = strip(x); delete c.attrs; delete c.actions; return c; }), objets: (w.artifacts || []).map(strip) };
   return JSON.stringify(data).slice(0, max);
 }
@@ -2907,7 +2946,7 @@ document.addEventListener("click", (ev) => {
   if (sub) { codexKind = sub.dataset.codex; renderForge(); renderList(); wireForge(); return; }
   const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-paint],[data-chat],[data-act]");
   if (!t) return;
-  if (t.dataset.tab) { tab = t.dataset.tab; renderTabs(); renderForge(); renderList(); wireForge(); }
+  if (t.dataset.tab) { tab = t.dataset.tab; renderPlate(); renderTabs(); renderForge(); renderList(); wireForge(); }
   else if (t.dataset.open) openDrawer(t.dataset.open);
   else if (t.dataset.copy) { const e = allEntities(cur()).find(x => x.id === t.dataset.copy); copy(promptFor(e, cur()), $("#pr_" + CSS.escape(e.id))); }
   else if (t.dataset.sketch) sketch(t.dataset.sketch, t, null);
@@ -2967,5 +3006,4 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw
 })();
 </script>
 
-</body>
-</html>
+</body></html>

@@ -17,6 +17,8 @@ Outil de création de lore pour jeu vidéo, propulsé par l'IA générative (Cla
 - **Dialogue avec les personnages** : discussion en direct avec un personnage, dans sa voix, avec ses secrets protégés ou non ; l'historique est conservé. Jets de d20 façon Donjons et Dragons : le personnage demande un jet (Persuasion, Tromperie, Intimidation, Perspicacité, Investigation, Marchandage) avec une difficulté (DD) quand l'issue est incertaine, le joueur ajoute ses bonus, et la réponse suit le résultat (réussites et échecs critiques compris). Création de personnage depuis la conversation : `/create` (son propre personnage), `/create <description>` (quelqu'un d'autre), bouton « + Perso » ou demande hors-jeu en langage naturel ; le personnage du joueur fournit ensuite ses bonus de jets.
 - **Export** : bible du monde en Markdown, sauvegarde JSON réimportable.
 
+- **Onglet Univers** : le résumé complet du monde (pitch, chronologie, factions, image) ; en haut de page ne reste qu'une ligne compacte.
+
 ## Utilisation
 
 La génération par IA fonctionne quand la page est ouverte comme artifact dans Claude (capacités `sample`, `db`, `user`, `downloads`).
