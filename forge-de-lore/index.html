@@ -292,6 +292,9 @@ button.skill { background: none; border: 0; border-bottom: 1px dotted var(--line
 .chat-opts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
 .chat-opts label { display: inline-flex; gap: 6px; align-items: center; }
 .dicepick { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 480px) { .wide-only { display: none; } .chat-foot form .btn { padding-inline: 11px; } }
+.newpick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.newpick input { flex: 1 1 200px; min-width: 0; background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
 .sheet { display: grid; gap: 8px; }
 .sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 14px; }
 @media (max-width: 560px) { .sheet-grid { grid-template-columns: 1fr 1fr; } .sheet-grid label { font-size: 12px; } .sheet-grid input { width: 46px; } }
@@ -1676,7 +1679,11 @@ function parseRoll(text) {
 }
 const stripTags = (t) => String(t || "").replace(/\[\[[^\]]*(\]\]|$)/g, "").replace(/^\s+/, "");
 const d20 = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return 1 + (a[0] % 20); };
-function playerBonus(w, skill) { const b = (w.player && w.player.bonus) || {}; const k = Object.keys(b).find(x => x.toLowerCase() === String(skill).toLowerCase()); return k ? (+b[k] || 0) : 0; }
+function playerBonus(w, skill, pc) {
+  const sn = pc && typeof latestSnap === "function" ? latestSnap(pc) : null;
+  if (sn) return skillMod(sn, skill === "Marchandage" ? "Persuasion" : skill);
+  const b = (w.player && w.player.bonus) || {}; const k = Object.keys(b).find(x => x.toLowerCase() === String(skill).toLowerCase()); return k ? (+b[k] || 0) : 0;
+}
 const sign = (n) => (n >= 0 ? "+" : "−") + Math.abs(n);
 // *gesture* becomes an italic stage direction; an unclosed one (still streaming) too.
 function speechHTML(t) { return esc(t).replace(/\*([^*]+)(\*|$)/g, '<em class="act">$1</em>'); }
@@ -1684,6 +1691,8 @@ function speechHTML(t) { return esc(t).replace(/\*([^*]+)(\*|$)/g, '<em class="a
 function openChat(cid) {
   const w0 = cur(), c = w0.characters.find(x => x.id === cid); if (!c) return;
   const turns = Array.isArray(c.dialogue) ? c.dialogue.map(t => ({ ...t })) : [];
+  let playerId = c.chatPlayerId || "";
+  const pc = () => playerId ? cur().characters.find(x => x.id === playerId) || null : null;
   const m = $("#modal");
   m.innerHTML = `<div class="modal-card chat" role="dialog" aria-label="Dialogue avec ${esc(c.name)}">
     <div class="chat-head"><div class="face">${vignette(c.id, c.name, "character")}</div>
@@ -1692,9 +1701,15 @@ function openChat(cid) {
       <button class="x" id="chClose" aria-label="Fermer">×</button></div>
     <div class="chat-log" id="chLog" aria-live="polite"></div>
     <div class="chat-foot">
-      <form id="chForm"><label for="chIn" hidden>Ton message</label><textarea id="chIn" rows="1" placeholder="Parle à ${esc(c.name.split(" ")[0])}…"></textarea>
-        <div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn" type="button" id="chDice" title="Tenter un jet de compétence" aria-label="Tenter un jet de compétence">d20</button><button class="btn primary" id="chSend">Envoyer</button></div></form>
-      <div class="dicepick" id="chPick" hidden>${SKILLS.map(s => `<button type="button" class="chip" data-skill="${s}">${s} ${sign(playerBonus(w0, s))}</button>`).join("")}</div>
+      <form id="chForm"><label for="chIn" hidden>Ton message</label><textarea id="chIn" rows="1" placeholder="Parle à ${esc(c.name.split(" ")[0])}… ou /create"></textarea>
+        <div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn" type="button" id="chNew" title="Créer un personnage depuis la conversation (/create)" aria-label="Créer un personnage">+<span class="wide-only"> Perso</span></button><button class="btn" type="button" id="chDice" title="Tenter un jet de compétence" aria-label="Tenter un jet de compétence">d20</button><button class="btn primary" id="chSend">Envoyer</button></div></form>
+      <div class="dicepick" id="chPick" hidden>${SKILLS.map(s => `<button type="button" class="chip" data-skill="${s}">${s} ${sign(playerBonus(w0, s, pc()))}</button>`).join("")}</div>
+      <div class="newpick" id="chNewBox" hidden>
+        <button type="button" class="btn small primary" id="chNewMe">Créer mon personnage</button>
+        <span class="note">ou</span>
+        <input id="chNewWho" placeholder="Quelqu'un d'autre : le marchand dont elle parle…" aria-label="Personnage à créer">
+        <button type="button" class="btn small" id="chNewOther">Créer</button>
+      </div>
       <div class="chat-more" id="chMore" hidden><div class="chat-opts">
         <label for="chRole" style="flex:1 1 240px">Tu es <input id="chRole" style="background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0;flex:1" value="${esc(c.chatRole || "un voyageur inconnu")}"></label>
         <label><input type="checkbox" id="chSecrets" ${c.chatSecrets ? "checked" : ""}> Peut céder ses secrets</label>
@@ -1703,8 +1718,8 @@ function openChat(cid) {
         <button class="btn small ghost" id="chClear" type="button">Effacer</button>
       </div>
       <div class="sheet" id="chSheetBox" hidden>
-        <span class="note">Bonus ajoutés à tes jets (comme le modificateur de compétence dans D&amp;D, de −5 à +10) :</span>
-        <div class="sheet-grid">${SKILLS.map(s => `<label>${s}<input type="number" min="-5" max="10" step="1" data-bonus="${s}" value="${playerBonus(w0, s)}"></label>`).join("")}</div>
+        <span class="note" id="chBonusNote">${pc() ? `Tes bonus viennent de la fiche de ${esc(pc().name)}.` : "Bonus ajoutés à tes jets (comme le modificateur de compétence dans D&amp;D, de −5 à +10) :"}</span>
+        <div class="sheet-grid">${SKILLS.map(s => `<label>${s}<input type="number" min="-5" max="10" step="1" data-bonus="${s}" value="${playerBonus(w0, s, pc())}" ${pc() ? "disabled" : ""}></label>`).join("")}</div>
       </div></div>
     </div></div>`;
   m.hidden = false; $("#scrim").hidden = false;
@@ -1730,6 +1745,7 @@ function openChat(cid) {
   const draw = (mode = "bottom") => {
     const keepAt = log.scrollTop;
     const out = turns.map(t => {
+      if (t.note) return `<div class="msg note">${esc(t.note)}${t.ref ? ` <button type="button" class="chip" data-chatref="${esc(t.ref)}">Voir la fiche</button>` : ""}</div>`;
       if (t.roll) return rollHTML(t.roll);
       if (t.role === "user") return `<div class="msg me">${esc(t.content)}</div>`;
       const txt = stripTags(t.content);
@@ -1738,7 +1754,7 @@ function openChat(cid) {
     const p = $("#chDiceOn") && $("#chDiceOn").checked ? pendingRoll() : null;
     if (p) out.push(`<div class="roll ask"><div class="die" aria-hidden="true">20</div><div style="min-width:0">
       <b>Jet de ${esc(p.skill)}</b> · difficulté ${DD_WORD(p.dd)}${p.mode ? ` · ${p.mode === "adv" ? "avec avantage" : "avec désavantage"}` : ""}<br>
-      ${p.reason ? `<span class="note">${esc(p.reason)}</span><br>` : ""}<span class="note">Ton bonus : ${sign(playerBonus(cur(), p.skill))}</span>
+      ${p.reason ? `<span class="note">${esc(p.reason)}</span><br>` : ""}<span class="note">Ton bonus : ${sign(playerBonus(cur(), p.skill, pc()))}${pc() ? ` (fiche de ${esc(pc().name)})` : ""}</span>
       <div class="row" style="margin-top:8px"><button class="btn small primary" id="chRoll">Lancer le d20</button><button class="btn small ghost" id="chSkip">Renoncer</button></div></div></div>`);
     log.innerHTML = out.join("") || `<div class="msg note">${c.quote ? "« " + esc(c.quote) + " »<br>" : ""}Pose une question, provoque-le, négocie. Quand l'issue est incertaine, il te demandera un jet de d20.</div>`;
     if (mode === "keep") log.scrollTop = keepAt;
@@ -1748,6 +1764,7 @@ function openChat(cid) {
   };
   const save = () => {
     const w2 = ensureEditable(), c2 = w2.characters.find(x => x.id === cid) || c;
+    c2.chatPlayerId = playerId;
     c2.dialogue = turns.slice(-40); c2.dialogueAt = turns.length ? Date.now() : 0; c2.chatRole = $("#chRole").value.trim(); c2.chatSecrets = $("#chSecrets").checked; c2.chatDice = $("#chDiceOn").checked;
     persistWorld(w2); renderResume(); if (tab === "characters") renderListSoon();
   };
@@ -1762,7 +1779,7 @@ function openChat(cid) {
   }
   async function doRoll(p, btn) {
     if (btn) btn.disabled = true;
-    const w = cur(), bonus = playerBonus(w, p.skill);
+    const w = cur(), bonus = playerBonus(w, p.skill, pc());
     const dice = p.mode ? [d20(), d20()] : [d20()];
     const nat = p.mode === "adv" ? Math.max(...dice) : p.mode === "dis" ? Math.min(...dice) : dice[0];
     const total = nat + bonus;
@@ -1797,9 +1814,18 @@ puis une courte réaction d'attente (un geste, une phrase), sans révéler l'iss
 - avantage=oui si un argument, un cadeau ou une preuve l'aide vraiment ; avantage=désavantage si sa demande te heurte ou s'il t'a menti avant.
 - Pas de jet pour une simple question, une demande raisonnable ou une action sans enjeu. Au plus un jet par réplique, et jamais deux fois pour la même tentative.
 Quand le message contient [[RÉSULTAT ...]], applique-le sans le discuter : RÉUSSITE, il obtient ce qu'il voulait ; ÉCHEC, il échoue et tu réagis en conséquence ; CRITIQUE, l'effet est spectaculaire, dans un sens ou dans l'autre. Pour une estimation de valeur, une réussite donne la vraie valeur, un échec une estimation fausse mais crédible. Ne mentionne jamais les dés ni les chiffres.` : "N'utilise aucune balise."}
+HORS-JEU : si l'interlocuteur te demande explicitement, hors du jeu, de créer un personnage (par exemple « crée mon personnage », « ajoute ce marchand au monde »), ne joue pas la scène : réponds UNIQUEMENT par la balise [[CREER qui="moi"]] pour son propre personnage, ou [[CREER qui="description courte de la personne"]] pour quelqu'un d'autre.
 Réponds en français, en 1 à 4 phrases. Les paroles sont à la première personne. Tu peux ajouter un geste ou une attitude entre astérisques, toujours écrit à la troisième personne avec son prénom, jamais avec « je » (exemple : *${c.name.split(" ")[0]} croise les bras.*). Il ne sait rien de ce qu'il ne pourrait pas savoir.`;
     try {
-      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24).map(t => ({ role: t.role, content: t.content }))], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { const v = stripTags(t); say.innerHTML = speechHTML(v) || "…"; } });
+      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.filter(t => !t.note).slice(-24).map(t => ({ role: t.role, content: t.content }))], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { const v = stripTags(t); say.innerHTML = speechHTML(v) || "…"; } });
+      const cr = String(answer).match(/\[\[\s*CR[EÉ]ER\b[^\]]*?qui\s*=\s*"([^"]*)"[^\]]*\]\]/i);
+      if (cr) {
+        bubble.remove(); log.style.paddingBottom = "";
+        chatCtl = null; send.textContent = "Envoyer"; send.type = "submit"; send.onclick = null;
+        const who = cr[1].trim();
+        await createFromChat(/^(moi|me|joueur|mon personnage)$/i.test(who) ? "" : who);
+        return;
+      }
       turns.push({ role: "assistant", content: answer }); save();
     } catch (err) {
       if (err && err.text) { turns.push({ role: "assistant", content: err.text }); save(); }
@@ -1810,6 +1836,56 @@ Réponds en français, en 1 à 4 phrases. Les paroles sont à la première perso
     const at = log.scrollTop; log.style.paddingBottom = ""; log.scrollTop = at;
     draw("keep"); input.focus({ preventScroll: true });
   }
+  async function createFromChat(who) {
+    const forMe = !who;
+    if (!sample) { turns.push({ role: "user", note: "La génération par IA n'est pas disponible dans cet affichage." }); draw(); return; }
+    const note = document.createElement("div"); note.className = "msg note"; note.textContent = forMe ? "Création de ton personnage à partir de la conversation…" : `Création de « ${who} »…`;
+    log.appendChild(note); log.scrollTop = log.scrollHeight;
+    const w = ensureEditable(), role = $("#chRole").value.trim() || "un voyageur inconnu";
+    const transcript = turns.filter(t => !t.note).slice(-40).map(t => t.roll ? `(jet de ${t.roll.skill} : ${t.roll.total}${t.roll.dd ? " contre DD " + t.roll.dd : ""}, ${t.roll.success ? "réussi" : "raté"})` : `${t.role === "user" ? "JOUEUR" : c.name.toUpperCase()} : ${stripTags(t.content)}`).join("\n");
+    const era = w.eras.length ? w.eras[w.eras.length - 1].name : "";
+    const withStats = !!(w.rules && (w.rules.classes || []).length);
+    const bonus = SKILLS.map(sk => `${sk} ${sign(playerBonus(w, sk, pc()))}`).join(", ");
+    try {
+      const o = await sample.json(`${RULES}
+
+CONTEXTE DU MONDE :
+${worldContext(w, 3500)}
+${withStats ? rulesBrief(w) : ""}
+
+CONVERSATION EN COURS entre le joueur (qui se présente comme : ${role}) et ${c.name} (${c.role}, à ${c.place || "?"}) :
+${transcript || "(pas encore d'échange)"}
+
+TÂCHE : crée ${forMe ? `le personnage du JOUEUR, tel qu'il se présente : « ${role} ». Utilise tout ce que la conversation révèle de lui (nom, origine, métier, actes, objets, mensonges, jets réussis ou ratés). S'il n'a pas de nom, invente-en un qui sonne juste dans ce monde.${withStats ? ` Ses bonus de jeu actuels sont : ${bonus}.` : ""}` : `ce personnage : « ${who} ». Appuie-toi sur ce que la conversation en dit et sur le lore.`}
+Son lieu actuel est ${c.place || "le lieu de la scène"} si rien ne dit le contraire.
+Réponds uniquement avec un objet JSON de la forme :
+${SCHEMAS.characters.replace(/\}$/, "")}${withStats ? `, "stats": ${SNAP_SHAPE}` : ""}}`, { cache: false });
+      if (!o || !o.name) throw { code: "invalid_json" };
+      const it = { id: uid("c") };
+      for (const [k, v] of Object.entries(o)) if (k !== "id" && k !== "stats" && v != null) it[k] = String(v);
+      if (withStats && o.stats && o.stats.attrs) it.stats = [normSnap({ ...o.stats, era: o.stats.era || era }, era)];
+      w.characters.push(it);
+      if (forMe) {
+        playerId = it.id;
+        $("#chRole").value = `${it.name}, ${it.role || "voyageur"}`;
+        $("#chBonusNote").textContent = `Tes bonus viennent de la fiche de ${it.name}.`;
+        $("#chSheetBox").querySelectorAll("[data-bonus]").forEach(el => { el.value = playerBonus(w, el.dataset.bonus, it); el.disabled = true; });
+        $("#chPick").innerHTML = SKILLS.map(sk => `<button type="button" class="chip" data-skill="${sk}">${sk} ${sign(playerBonus(w, sk, it))}</button>`).join("");
+      }
+      turns.push({ role: "user", note: forMe ? `Ton personnage a été créé : ${it.name}, ${it.role || ""}.${it.stats ? " Ses statistiques servent désormais à tes jets." : ""}` : `Personnage créé : ${it.name}, ${it.role || ""}.`, ref: it.id });
+      save(); renderTabs(); if (tab === "characters" || tab === "map") renderList();
+      note.remove(); draw(); toast(`${it.name} a rejoint le monde`);
+    } catch (err) { note.className = "msg note"; note.textContent = "La création a échoué : " + aiError(err); }
+  }
+  log.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-chatref]"); if (!b) return;
+    e.stopPropagation(); if (chatCtl) chatCtl.abort(); closeModal(); openDrawer(b.dataset.chatref);
+  });
+  $("#chNew").onclick = () => { const b = $("#chNewBox"); b.hidden = !b.hidden; $("#chPick").hidden = true; if (!b.hidden) $("#chNewWho").focus(); };
+  $("#chNewMe").onclick = () => { if (chatCtl) return; $("#chNewBox").hidden = true; createFromChat(""); };
+  const other = () => { const v = $("#chNewWho").value.trim(); if (!v || chatCtl) return; $("#chNewWho").value = ""; $("#chNewBox").hidden = true; createFromChat(v); };
+  $("#chNewOther").onclick = other;
+  $("#chNewWho").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); other(); } });
   draw("last");
   $("#chClose").onclick = () => { if (chatCtl) chatCtl.abort(); closeModal(); };
   $("#chOpts").onclick = () => { const mo = $("#chMore"); mo.hidden = !mo.hidden; $("#chOpts").setAttribute("aria-expanded", String(!mo.hidden)); };
@@ -1823,7 +1899,7 @@ Réponds en français, en 1 à 4 phrases. Les paroles sont à la première perso
     $("#chPick").innerHTML = SKILLS.map(s => `<button type="button" class="chip" data-skill="${s}">${s} ${sign(playerBonus(w2, s))}</button>`).join("");
     draw();
   });
-  $("#chDice").onclick = () => { const p = $("#chPick"); p.hidden = !p.hidden; };
+  $("#chDice").onclick = () => { const p = $("#chPick"); p.hidden = !p.hidden; $("#chNewBox").hidden = true; };
   $("#chPick").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-skill]"); if (!b || chatCtl) return;
     $("#chPick").hidden = true;
@@ -1837,8 +1913,10 @@ Réponds en français, en 1 à 4 phrases. Les paroles sont à la première perso
   $("#chForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const text = input.value.trim(); if (!text || chatCtl) return;
+    const cmd = text.match(/^\/(create|cr[ée]er|perso)\b\s*(.*)$/i);
+    if (cmd) { input.value = ""; input.style.height = ""; $("#chNewBox").hidden = true; createFromChat(cmd[2].trim()); return; }
     turns.push({ role: "user", content: text }); input.value = ""; input.style.height = "";
-    $("#chSheetBox").hidden = true; $("#chPick").hidden = true; $("#chMore").hidden = true;
+    $("#chNewBox").hidden = true; $("#chSheetBox").hidden = true; $("#chPick").hidden = true; $("#chMore").hidden = true;
     draw(); ask();
   });
   setTimeout(() => input.focus(), 50);
