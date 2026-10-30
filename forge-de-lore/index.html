@@ -223,6 +223,23 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .chat-foot textarea { background: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; resize: none; min-height: 44px; max-height: 120px; }
 .chat-opts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
 .chat-opts label { display: inline-flex; gap: 6px; align-items: center; }
+.dicepick { display: flex; flex-wrap: wrap; gap: 6px; }
+.sheet { display: grid; gap: 8px; }
+.sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 14px; }
+@media (max-width: 560px) { .sheet-grid { grid-template-columns: 1fr 1fr; } .sheet-grid label { font-size: 12px; } .sheet-grid input { width: 46px; } }
+.sheet-grid label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.sheet-grid input { width: 58px; background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-variant-numeric: tabular-nums; }
+.roll { align-self: center; display: flex; gap: 12px; align-items: center; background: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; max-width: 92%; font-size: 14px; }
+.roll .die { width: 46px; height: 46px; flex: none; display: grid; place-items: center; font: 700 18px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--fg); background: var(--plate-2); border: 2px solid var(--brass); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.roll.ask { border-color: var(--brass); }
+.roll.ok { border-color: var(--verdigris); }
+.roll.ok .die { border-color: var(--verdigris); color: var(--verdigris); }
+.roll.ko { border-color: var(--danger); }
+.roll.ko .die { color: var(--danger); }
+.roll.crit .die { background: var(--brass); color: var(--ink); }
+.roll.rolling .die { animation: wob .18s linear infinite; }
+@keyframes wob { 0% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } 100% { transform: rotate(-12deg); } }
+@media (prefers-reduced-motion: reduce) { .roll.rolling .die { animation: none; } }
 
 /* Drawer */
 .scrim { position: fixed; inset: 0; background: rgba(5, 8, 11, .6); z-index: 40; }
@@ -1275,9 +1292,25 @@ ${OPS_SHAPE}`, { cache: false });
 
 /* ---------- talk to a character ---------- */
 let chatCtl = null;
+/* d20 checks, D&D style: d20 + bonus >= DD. 20 natural = critical success, 1 natural = critical failure. */
+const SKILLS = ["Persuasion", "Tromperie", "Intimidation", "Perspicacité", "Investigation", "Marchandage"];
+const DD_WORD = (dd) => dd <= 5 ? "très facile" : dd <= 10 ? "facile" : dd <= 15 ? "moyenne" : dd <= 20 ? "difficile" : dd <= 25 ? "très difficile" : "quasi impossible";
+const TAG_RE = /\[\[\s*JET\b([^\]]*)\]\]/i;
+function parseRoll(text) {
+  const m = String(text || "").match(TAG_RE); if (!m) return null;
+  const a = m[1], get = (k) => { const r = a.match(new RegExp(k + '\\s*=\\s*(?:"([^"]*)"|([^\\s"]+))', "i")); return r ? (r[1] ?? r[2]) : ""; };
+  const dd = Math.max(1, Math.min(30, parseInt(get("dd"), 10) || 15));
+  const adv = (get("avantage") || "").toLowerCase();
+  return { skill: get("comp[eé]tence") || "Persuasion", dd, mode: /^(oui|avantage)/.test(adv) ? "adv" : /^(d[eé]s|desavantage)/.test(adv) ? "dis" : "", reason: get("raison") };
+}
+const stripTags = (t) => String(t || "").replace(/\[\[[^\]]*(\]\]|$)/g, "").replace(/^\s+/, "");
+const d20 = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return 1 + (a[0] % 20); };
+function playerBonus(w, skill) { const b = (w.player && w.player.bonus) || {}; const k = Object.keys(b).find(x => x.toLowerCase() === String(skill).toLowerCase()); return k ? (+b[k] || 0) : 0; }
+const sign = (n) => (n >= 0 ? "+" : "−") + Math.abs(n);
+
 function openChat(cid) {
-  const w = cur(), c = w.characters.find(x => x.id === cid); if (!c) return;
-  const turns = Array.isArray(c.dialogue) ? c.dialogue.slice() : [];
+  const w0 = cur(), c = w0.characters.find(x => x.id === cid); if (!c) return;
+  const turns = Array.isArray(c.dialogue) ? c.dialogue.map(t => ({ ...t })) : [];
   const m = $("#modal");
   m.innerHTML = `<div class="modal-card chat" role="dialog" aria-label="Dialogue avec ${esc(c.name)}">
     <div class="chat-head"><div class="face">${vignette(c.id, c.name, "character")}</div>
@@ -1285,52 +1318,142 @@ function openChat(cid) {
       <button class="x" id="chClose" aria-label="Fermer">×</button></div>
     <div class="chat-log" id="chLog" aria-live="polite"></div>
     <div class="chat-foot">
-      <form id="chForm"><label for="chIn" hidden>Ton message</label><textarea id="chIn" rows="1" placeholder="Parle à ${esc(c.name.split(" ")[0])}…"></textarea><button class="btn primary" id="chSend">Envoyer</button></form>
+      <form id="chForm"><label for="chIn" hidden>Ton message</label><textarea id="chIn" rows="1" placeholder="Parle à ${esc(c.name.split(" ")[0])}…"></textarea>
+        <div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn" type="button" id="chDice" title="Tenter un jet de compétence" aria-label="Tenter un jet de compétence">d20</button><button class="btn primary" id="chSend">Envoyer</button></div></form>
+      <div class="dicepick" id="chPick" hidden>${SKILLS.map(s => `<button type="button" class="chip" data-skill="${s}">${s} ${sign(playerBonus(w0, s))}</button>`).join("")}</div>
       <div class="chat-opts">
         <label for="chRole" style="flex:1 1 240px">Tu es <input id="chRole" style="background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0;flex:1" value="${esc(c.chatRole || "un voyageur inconnu")}"></label>
         <label><input type="checkbox" id="chSecrets" ${c.chatSecrets ? "checked" : ""}> Peut céder ses secrets</label>
+        <label><input type="checkbox" id="chDiceOn" ${c.chatDice === false ? "" : "checked"}> Jets de dés</label>
+        <button class="btn small ghost" id="chSheet" type="button">Tes bonus</button>
         <button class="btn small ghost" id="chClear" type="button">Effacer</button>
+      </div>
+      <div class="sheet" id="chSheetBox" hidden>
+        <span class="note">Bonus ajoutés à tes jets (comme le modificateur de compétence dans D&amp;D, de −5 à +10) :</span>
+        <div class="sheet-grid">${SKILLS.map(s => `<label>${s}<input type="number" min="-5" max="10" step="1" data-bonus="${s}" value="${playerBonus(w0, s)}"></label>`).join("")}</div>
       </div>
     </div></div>`;
   m.hidden = false; $("#scrim").hidden = false;
   const log = $("#chLog"), input = $("#chIn");
-  const draw = () => {
-    log.innerHTML = turns.length ? turns.map(t => `<div class="msg ${t.role === "user" ? "me" : "them"}">${esc(t.content)}</div>`).join("")
-      : `<div class="msg note">${c.quote ? "« " + esc(c.quote) + " »<br>" : ""}Pose une question, provoque-le, négocie. Il répond dans sa voix, avec ce qu'il sait du monde.</div>`;
-    log.scrollTop = log.scrollHeight;
+
+  const pendingRoll = () => {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      const t = turns[i];
+      if (t.roll) return null;
+      if (t.role === "assistant") { const r = parseRoll(t.content); return r ? { ...r, idx: i } : null; }
+    }
+    return null;
   };
-  draw();
-  const save = () => { const w2 = ensureEditable(), c2 = w2.characters.find(x => x.id === cid) || c; c2.dialogue = turns.slice(-40); c2.chatRole = $("#chRole").value.trim(); c2.chatSecrets = $("#chSecrets").checked; persistWorld(w2); };
-  $("#chClose").onclick = () => { if (chatCtl) chatCtl.abort(); closeModal(); };
-  $("#chClear").onclick = () => { turns.length = 0; save(); draw(); };
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#chForm").requestSubmit(); } });
-  input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(120, input.scrollHeight) + "px"; });
-  $("#chForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const text = input.value.trim(); if (!text || chatCtl) return;
+  const rollHTML = (r) => {
+    const crit = r.nat === 20 ? "Réussite critique !" : r.nat === 1 ? "Échec critique !" : r.success ? "Réussite" : "Échec";
+    return `<div class="roll ${r.success ? "ok" : "ko"}${r.nat === 20 || r.nat === 1 ? " crit" : ""}">
+      <div class="die" aria-hidden="true">${r.nat}</div>
+      <div><b>${esc(r.skill)} · ${crit}</b><br><span class="note">d20 ${r.dice && r.dice.length > 1 ? `(${r.dice.join(" et ")}, ${r.mode === "adv" ? "avantage" : "désavantage"}) ` : ""}= ${r.nat} ${sign(r.bonus)} = <b>${r.total}</b>${r.dd ? ` contre DD ${r.dd}` : ""}</span></div></div>`;
+  };
+  const draw = () => {
+    const out = turns.map(t => {
+      if (t.roll) return rollHTML(t.roll);
+      if (t.role === "user") return `<div class="msg me">${esc(t.content)}</div>`;
+      const txt = stripTags(t.content);
+      return txt ? `<div class="msg them">${esc(txt)}</div>` : "";
+    });
+    const p = $("#chDiceOn") && $("#chDiceOn").checked ? pendingRoll() : null;
+    if (p) out.push(`<div class="roll ask"><div class="die" aria-hidden="true">20</div><div style="min-width:0">
+      <b>Jet de ${esc(p.skill)}</b> · difficulté ${DD_WORD(p.dd)}${p.mode ? ` · ${p.mode === "adv" ? "avec avantage" : "avec désavantage"}` : ""}<br>
+      ${p.reason ? `<span class="note">${esc(p.reason)}</span><br>` : ""}<span class="note">Ton bonus : ${sign(playerBonus(cur(), p.skill))}</span>
+      <div class="row" style="margin-top:8px"><button class="btn small primary" id="chRoll">Lancer le d20</button><button class="btn small ghost" id="chSkip">Renoncer</button></div></div></div>`);
+    log.innerHTML = out.join("") || `<div class="msg note">${c.quote ? "« " + esc(c.quote) + " »<br>" : ""}Pose une question, provoque-le, négocie. Quand l'issue est incertaine, il te demandera un jet de d20.</div>`;
+    log.scrollTop = log.scrollHeight;
+    if (p) { $("#chRoll").onclick = (e) => doRoll(p, e.currentTarget); $("#chSkip").onclick = () => { turns.push({ role: "user", content: "(Je renonce à tenter ma chance.)" }); save(); ask(); }; }
+  };
+  const save = () => {
+    const w2 = ensureEditable(), c2 = w2.characters.find(x => x.id === cid) || c;
+    c2.dialogue = turns.slice(-40); c2.chatRole = $("#chRole").value.trim(); c2.chatSecrets = $("#chSecrets").checked; c2.chatDice = $("#chDiceOn").checked;
+    persistWorld(w2);
+  };
+  const resultLine = (r) => `[[RÉSULTAT jet de ${r.skill} : d20 = ${r.nat}${r.dice && r.dice.length > 1 ? ` (dés ${r.dice.join(" et ")})` : ""}, bonus ${sign(r.bonus)}, total ${r.total}${r.dd ? ` contre DD ${r.dd}` : ""} → ${r.nat === 20 ? "RÉUSSITE CRITIQUE" : r.nat === 1 ? "ÉCHEC CRITIQUE" : r.success ? "RÉUSSITE" : "ÉCHEC"}]]`;
+  async function animateDie(final) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const card = document.createElement("div"); card.className = "roll ask rolling"; card.innerHTML = `<div class="die" aria-hidden="true">?</div><div><b>Le dé roule…</b></div>`;
+    log.appendChild(card); log.scrollTop = log.scrollHeight;
+    if (!reduce) for (let i = 0; i < 12; i++) { card.querySelector(".die").textContent = 1 + Math.floor(Math.random() * 20); await new Promise(r => setTimeout(r, 45 + i * 9)); }
+    card.querySelector(".die").textContent = final;
+    await new Promise(r => setTimeout(r, reduce ? 0 : 260));
+  }
+  async function doRoll(p, btn) {
+    if (btn) btn.disabled = true;
+    const w = cur(), bonus = playerBonus(w, p.skill);
+    const dice = p.mode ? [d20(), d20()] : [d20()];
+    const nat = p.mode === "adv" ? Math.max(...dice) : p.mode === "dis" ? Math.min(...dice) : dice[0];
+    const total = nat + bonus;
+    const success = nat === 20 ? true : nat === 1 ? false : p.dd ? total >= p.dd : null;
+    const roll = { skill: p.skill, dd: p.dd || 0, nat, bonus, total, success, dice, mode: p.mode || "" };
+    await animateDie(nat);
+    turns.push({ role: "user", content: resultLine(roll), roll });
+    save(); draw(); ask();
+  }
+  async function ask() {
     if (!sample) { log.insertAdjacentHTML("beforeend", `<div class="msg note">La génération par IA n'est pas disponible dans cet affichage.</div>`); return; }
-    turns.push({ role: "user", content: text }); input.value = ""; input.style.height = "";
-    draw();
     const bubble = document.createElement("div"); bubble.className = "msg them"; bubble.textContent = "…"; log.appendChild(bubble); log.scrollTop = log.scrollHeight;
-    const send = $("#chSend"); send.disabled = true; send.textContent = "Stop"; send.type = "button";
+    const send = $("#chSend"); send.textContent = "Stop"; send.type = "button";
     chatCtl = new AbortController(); send.onclick = () => chatCtl && chatCtl.abort();
     const sheet = { nom: c.name, role: c.role, faction: c.faction, origine: c.origin, lieu_actuel: c.place, description: c.desc, motivation: c.motivation, secret: c.secret, replique: c.quote };
-    const rules = `Tu joues ${c.name} dans un jeu de rôle. Reste toujours dans le personnage : parle à la première personne, avec sa voix, son vocabulaire et ses émotions. Ne dis jamais que tu es une IA.
+    const dice = $("#chDiceOn").checked;
+    const rules = `Tu joues ${c.name} dans un jeu de rôle, et tu es aussi le maître du jeu discret de cette scène. Reste toujours dans le personnage : parle à la première personne, avec sa voix, son vocabulaire et ses émotions. Ne dis jamais que tu es une IA.
 FICHE DU PERSONNAGE : ${JSON.stringify(sheet)}
 CE QU'IL SAIT DU MONDE :
 ${worldContext(cur(), 3500)}
 Ton interlocuteur est : ${$("#chRole").value.trim() || "un voyageur inconnu"}.
 ${$("#chSecrets").checked ? "Il peut finir par révéler son secret si on le met en confiance ou sous pression." : "Il ne révèle JAMAIS son secret, même sous la pression : il esquive, ment ou change de sujet."}
+${dice ? `JETS DE DÉS (règles de Donjons et Dragons) : quand l'interlocuteur tente quelque chose dont l'issue est vraiment incertaine et qui compte (te convaincre, te mentir, t'intimider, marchander un prix, estimer la vraie valeur d'un objet, deviner tes intentions), ne tranche pas toi-même. Commence alors ta réponse par une balise sur sa propre ligne :
+[[JET compétence=Persuasion dd=15 avantage=non raison="ce qu'il tente, en quelques mots"]]
+puis une courte réaction d'attente (un geste, une phrase), sans révéler l'issue.
+- compétence parmi : ${SKILLS.join(", ")}.
+- dd selon ta résistance et la situation : 5 très facile, 10 facile, 15 moyen, 20 difficile, 25 très difficile, 30 quasi impossible.
+- avantage=oui si un argument, un cadeau ou une preuve l'aide vraiment ; avantage=désavantage si sa demande te heurte ou s'il t'a menti avant.
+- Pas de jet pour une simple question, une demande raisonnable ou une action sans enjeu. Au plus un jet par réplique, et jamais deux fois pour la même tentative.
+Quand le message contient [[RÉSULTAT ...]], applique-le sans le discuter : RÉUSSITE, il obtient ce qu'il voulait ; ÉCHEC, il échoue et tu réagis en conséquence ; CRITIQUE, l'effet est spectaculaire, dans un sens ou dans l'autre. Pour une estimation de valeur, une réussite donne la vraie valeur, un échec une estimation fausse mais crédible. Ne mentionne jamais les dés ni les chiffres.` : "N'utilise aucune balise."}
 Réponds en français, en 1 à 4 phrases, avec parfois un geste entre astérisques. Il ne sait rien de ce qu'il ne pourrait pas savoir.`;
     try {
-      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24)], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { bubble.textContent = t; log.scrollTop = log.scrollHeight; } });
+      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24).map(t => ({ role: t.role, content: t.content }))], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { const v = stripTags(t); bubble.textContent = v || "…"; log.scrollTop = log.scrollHeight; } });
       turns.push({ role: "assistant", content: answer }); save();
     } catch (err) {
       if (err && err.text) { turns.push({ role: "assistant", content: err.text }); save(); }
-      else { bubble.remove(); if (err && err.code !== "cancelled") log.insertAdjacentHTML("beforeend", `<div class="msg note">${esc(aiError(err))}</div>`); }
+      else if (err && err.code !== "cancelled") { bubble.remove(); log.insertAdjacentHTML("beforeend", `<div class="msg note">${esc(aiError(err))}</div>`); return; }
     } finally {
-      chatCtl = null; send.disabled = false; send.textContent = "Envoyer"; send.type = "submit"; send.onclick = null; input.focus();
+      chatCtl = null; send.textContent = "Envoyer"; send.type = "submit"; send.onclick = null;
     }
+    draw(); input.focus();
+  }
+  draw();
+  $("#chClose").onclick = () => { if (chatCtl) chatCtl.abort(); closeModal(); };
+  $("#chClear").onclick = () => { turns.length = 0; save(); draw(); };
+  $("#chDiceOn").onchange = () => { save(); draw(); };
+  $("#chSheet").onclick = () => { const b = $("#chSheetBox"); b.hidden = !b.hidden; };
+  $("#chSheetBox").addEventListener("input", (e) => {
+    const el = e.target.closest("[data-bonus]"); if (!el) return;
+    const w2 = ensureEditable(); w2.player = w2.player || { bonus: {} }; w2.player.bonus = w2.player.bonus || {};
+    w2.player.bonus[el.dataset.bonus] = Math.max(-5, Math.min(10, parseInt(el.value, 10) || 0)); persistWorld(w2);
+    $("#chPick").innerHTML = SKILLS.map(s => `<button type="button" class="chip" data-skill="${s}">${s} ${sign(playerBonus(w2, s))}</button>`).join("");
+    draw();
+  });
+  $("#chDice").onclick = () => { const p = $("#chPick"); p.hidden = !p.hidden; };
+  $("#chPick").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-skill]"); if (!b || chatCtl) return;
+    $("#chPick").hidden = true;
+    const text = input.value.trim();
+    if (text) { turns.push({ role: "user", content: text }); input.value = ""; input.style.height = ""; }
+    // A roll the player starts: no DD known, the character judges the total.
+    await doRoll({ skill: b.dataset.skill, dd: 0, mode: "" }, null);
+  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#chForm").requestSubmit(); } });
+  input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(120, input.scrollHeight) + "px"; });
+  $("#chForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim(); if (!text || chatCtl) return;
+    turns.push({ role: "user", content: text }); input.value = ""; input.style.height = "";
+    $("#chSheetBox").hidden = true; $("#chPick").hidden = true;
+    draw(); ask();
   });
   setTimeout(() => input.focus(), 50);
 }

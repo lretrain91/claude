@@ -10,7 +10,7 @@ Outil de création de lore pour jeu vidéo, propulsé par l'IA générative (Cla
 - **Illustrations FLUX** : bouton « Générer l'illustration » sur chaque élément, peint par FLUX Krea, Z-Image Turbo ou FLUX Schnell via le connecteur Hugging Face de Claude (URL `https://huggingface.co/mcp?gradio=mcp-tools/FLUX.1-Krea-dev`), en suivant le thème graphique et la palette du monde.
 - **Images** : chaque lieu, personnage, histoire et le monde lui-même peuvent recevoir une vraie image (importée depuis Midjourney, DALL·E, etc.), qui remplace l'esquisse sur les fiches, la carte et la galerie.
 - **Gardien de cohérence** : Claude relit tout le monde, liste contradictions, trous et éléments isolés, et « Combler » écrit directement les ajouts ou corrections nécessaires.
-- **Dialogue avec les personnages** : discussion en direct avec un personnage, dans sa voix, avec ses secrets protégés ou non ; l'historique est conservé.
+- **Dialogue avec les personnages** : discussion en direct avec un personnage, dans sa voix, avec ses secrets protégés ou non ; l'historique est conservé. Jets de d20 façon Donjons et Dragons : le personnage demande un jet (Persuasion, Tromperie, Intimidation, Perspicacité, Investigation, Marchandage) avec une difficulté (DD) quand l'issue est incertaine, le joueur ajoute ses bonus, et la réponse suit le résultat (réussites et échecs critiques compris).
 - **Export** : bible du monde en Markdown, sauvegarde JSON réimportable.
 
 ## Utilisation
