@@ -201,6 +201,17 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .resume-item small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip.talk { color: var(--verdigris); border-color: color-mix(in srgb, var(--verdigris) 50%, transparent); }
 
+/* Archivist */
+.archivist { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.archivist .row label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+.alog { display: grid; gap: 8px; }
+.alog-item { display: grid; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.alog-item .note { font-size: 12px; }
+.found { display: grid; gap: 6px; }
+.found-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; font-size: 14px; }
+.found-row q { color: var(--muted); font-style: italic; quotes: "« " " »"; }
+.kindtag { font: 600 10px/1.8 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--brass); }
+
 /* Bestiary */
 .subtabs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
 .subtabs .chip[aria-selected="true"] { background: var(--verdigris); color: var(--on-accent); border-color: var(--verdigris); }
@@ -1012,7 +1023,9 @@ function openModal(edit) {
   $("#m_cancel").onclick = closeModal;
   $("#wf").addEventListener("submit", (ev) => { ev.preventDefault(); edit ? saveWorldEdit() : forgeWorld(); });
 }
-function closeModal() { $("#modal").hidden = true; if ($("#drawer").hidden) $("#scrim").hidden = true; }
+function closeModal() {
+  const openChatId = $("#modal").querySelector(".chat") && $("#modal").dataset.chatOpen;
+  if (openChatId && !$("#modal").hidden) setTimeout(() => archiveAfterChat(openChatId), 0); $("#modal").hidden = true; if ($("#drawer").hidden) $("#scrim").hidden = true; }
 function saveWorldEdit() {
   const w = ensureEditable();
   w.genre = $("#m_genre").value; w.tone = $("#m_tone").value; w.name = $("#m_name").value || w.name; w.pitch = $("#m_idea").value; w.artStyle = $("#m_style").value;
@@ -1376,6 +1389,138 @@ function wireBeast(id) {
   [["bAb", "abilities"], ["bAct", "actions"]].forEach(([i, f]) => { const el = $("#" + i); if (el) el.oninput = () => upd(b => b[f] = lines(el.value)); });
 }
 
+/* ---------- archivist agent: creates what is mentioned but missing ---------- */
+const ARCH_KINDS = { creatures: "Créature", characters: "Personnage", places: "Lieu", artifacts: "Objet", peoples: "Peuple", factions: "Faction" };
+let archBusy = false;
+function archAuto(w) { return w.archAuto !== false; }
+function archivistHTML(w) {
+  const log = (w.archive || []).slice(-8).reverse();
+  return `<section class="archivist" aria-label="Archiviste">
+    <div class="row" style="justify-content:space-between;align-items:flex-start"><div style="min-width:0;flex:1 1 280px"><h3 style="font-size:24px">Archiviste</h3>
+      <p class="note" style="margin:4px 0 0;max-width:62ch">Il relit tes conversations et tous les textes du monde, repère ce qui est mentionné mais n'existe pas encore (une tortue géante de feu tuée par Brum, un marchand cité en passant, une relique racontée dans une légende) et le crée.</p></div>
+      <button class="btn primary" id="archBtn">Tout relire maintenant</button></div>
+    <div class="row"><label><input type="checkbox" id="archAuto" ${archAuto(w) ? "checked" : ""}> Relire chaque conversation quand je la ferme</label></div>
+    <p class="status" id="archStatus"></p>
+    ${log.length ? `<div class="alog"><span class="label">Dernières créations</span>${log.map(e => `<div class="alog-item"><span class="note">${esc(new Date(e.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }))} · ${esc(e.source)}</span>
+      <div class="meta">${e.created.map(c => c.id ? `<button class="chip" data-open="${esc(c.id)}">${esc(ARCH_KINDS[c.kind] || "")} : ${esc(c.name)}</button>` : `<span class="chip">${esc(ARCH_KINDS[c.kind] || "")} : ${esc(c.name)}</span>`).join("")}</div></div>`).join("")}</div>`
+      : `<p class="note" style="margin:0">Rien créé pour l'instant.</p>`}
+  </section>`;
+}
+function wireArchivist() {
+  const b = $("#archBtn"); if (b) b.onclick = () => runArchivist({ btn: b, source: "Relecture complète" });
+  const a = $("#archAuto"); if (a) a.onchange = () => { const w = ensureEditable(); w.archAuto = a.checked; persistWorld(w); };
+}
+function allNames(w) {
+  const out = [];
+  for (const k of ["places", "characters", "creatures", "peoples", "artifacts"]) for (const x of (w[k] || [])) out.push(x.name);
+  for (const f of w.factions || []) out.push(f.name);
+  for (const p of ((w.rules || {}).peoples || [])) out.push(p.name);
+  return out.filter(Boolean);
+}
+function nameExists(w, n) { return allNames(w).some(x => eqName(x, n)); }
+// Conversations keep only their last 40 turns, so remember the last turn read rather than a count.
+const turnKey = (t) => t ? (t.role || "") + "|" + String(t.content || t.note || "").slice(0, 80) : "";
+function unreadFrom(c) {
+  const d = c.dialogue || [];
+  if (!c.archivedMark) return 0;
+  for (let i = d.length - 1; i >= 0; i--) if (turnKey(d[i]) === c.archivedMark) return i + 1;
+  return 0;
+}
+function markRead(c) { const d = c.dialogue || []; c.archivedMark = turnKey(d[d.length - 1]); }
+function transcriptOf(w, c, from = 0) {
+  return (c.dialogue || []).slice(from).filter(t => !t.note).map(t => t.roll ? `(jet de ${t.roll.skill} ${t.roll.success ? "réussi" : "raté"})` : `${t.role === "user" ? (c.chatRole || "JOUEUR") : c.name} : ${stripTags(t.content)}`).join("\n");
+}
+function loreCorpus(w, max) {
+  const parts = [];
+  const add = (label, txt) => { if (txt && String(txt).trim()) parts.push(`[${label}] ${String(txt).replace(/\s+/g, " ").trim()}`); };
+  add("Monde", w.pitch);
+  for (const e of w.eras || []) add("Époque " + e.name, e.desc);
+  for (const f of w.factions || []) add("Faction " + f.name, f.desc);
+  for (const p of w.places || []) add("Lieu " + p.name, [p.desc, p.secrets, p.hooks].join(" "));
+  for (const c of w.characters || []) add("Personnage " + c.name, [c.desc, c.motivation, c.secret, c.quote, ...((c.stats || []).map(s => [s.change, ...(s.gear || [])].join(" ")))].join(" "));
+  for (const s of w.stories || []) add("Histoire " + s.title, [s.summary, ...(s.beats || [])].join(" "));
+  for (const k of ["creatures", "peoples", "artifacts"]) for (const x of (w[k] || [])) add(ARCH_KINDS[k] + " " + x.name, [x.desc, x.lore, x.culture, x.relations, x.history, x.powers, x.loot].filter(Boolean).join(" "));
+  return parts.join("\n").slice(0, max);
+}
+async function runArchivist({ btn, source, chatId, quiet } = {}) {
+  if (archBusy || !sample) { if (!sample && !quiet) { const st = $("#archStatus"); if (st) { st.className = "status err"; st.textContent = "La génération par IA n'est pas disponible dans cet affichage."; } } return; }
+  archBusy = true;
+  const w = ensureLists(ensureEditable());
+  const st = () => $("#archStatus");
+  if (btn) busy(btn, true, "Relecture…");
+  if (st()) { st().className = "status"; st().textContent = "L'archiviste relit les conversations et le lore… (jusqu'à une minute)"; }
+  // What to read: one conversation (new turns only) or everything.
+  let convo = "", corpus = "";
+  if (chatId) {
+    const c = w.characters.find(x => x.id === chatId); if (!c) { archBusy = false; return; }
+    convo = `CONVERSATION avec ${c.name} :\n` + transcriptOf(w, c, unreadFrom(c));
+  } else {
+    convo = w.characters.filter(c => (c.dialogue || []).length).map(c => `CONVERSATION avec ${c.name} :\n${transcriptOf(w, c)}`).join("\n\n").slice(0, 40000);
+    corpus = loreCorpus(w, 40000);
+  }
+  const shapes = { creatures: SCHEMAS.creatures, characters: SCHEMAS.characters, places: SCHEMAS.places, artifacts: SCHEMAS.artifacts, peoples: SCHEMAS.peoples, factions: `{"name": string, "desc": string}` };
+  try {
+    const out = await sample.json(`Tu es l'archiviste d'un univers de jeu vidéo. Ton travail : repérer tout ce qui est MENTIONNÉ comme existant dans les textes ci-dessous mais qui n'a pas encore de fiche, puis écrire ces fiches.
+
+${RULES}
+
+CONTEXTE DU MONDE :
+${worldContext(w, 3000)}
+${rulesBrief(w)}
+
+ÉLÉMENTS QUI EXISTENT DÉJÀ (ne les recrée pas, même sous un autre nom ou une autre orthographe) :
+${allNames(w).join(", ")}
+
+TEXTES À RELIRE :
+${convo}
+${corpus ? "\nLORE ÉCRIT :\n" + corpus : ""}
+
+RÈGLES :
+- Ne crée que ce qui est présenté comme réel dans le monde : une créature tuée, croisée ou décrite ; une personne nommée ou clairement identifiée ; un lieu où l'on va ou dont on vient ; un objet précis ; un peuple ; une organisation. Ignore les métaphores, les hypothèses, les choses génériques (« un garde », « une taverne » sans identité).
+- Garde le nom tel qu'il est employé ; s'il n'en a pas (« une tortue géante de feu »), donne-lui un nom qui sonne juste dans ce monde et garde le descriptif dans sa fiche.
+- Remplis chaque fiche à partir de ce que les textes en disent, complété de façon cohérente avec le lore. Si quelqu'un l'a tuée ou détenue, mentionne-le dans sa fiche.
+- Au plus 8 éléments, les plus importants d'abord. S'il n'y a rien de manquant, renvoie une liste vide.
+
+Réponds uniquement avec un objet JSON : {"items": [{"kind": "creatures" | "characters" | "places" | "artifacts" | "peoples" | "factions", "evidence": string (courte citation du texte qui le mentionne), "data": <fiche au format du type>}]}
+Formats :
+${Object.entries(shapes).map(([k, v]) => `- ${k} : ${v}`).join("\n")}`, { cache: false, modelTier: chatId ? "default" : "complex" });
+    const items = (out && Array.isArray(out.items) ? out.items : []).filter(x => x && ARCH_KINDS[x.kind] && x.data && x.data.name);
+    const created = [];
+    const placed = [], peoplesAdded = [];
+    for (const it of items) {
+      if (nameExists(w, it.data.name)) continue;
+      if (it.kind === "factions") { w.factions.push({ name: String(it.data.name), desc: String(it.data.desc || "") }); created.push({ kind: "factions", name: String(it.data.name), evidence: String(it.evidence || "") }); continue; }
+      const o = it.data, item = { id: uid(ID_PRE[it.kind]) };
+      for (const [k, v] of Object.entries(o)) if (k !== "id" && v != null) item[k] = Array.isArray(v) ? v.map(String) : (typeof v === "object" ? v : String(v));
+      normCodex(it.kind, item, o);
+      w[it.kind].push(item);
+      if (it.kind === "places") placed.push(item);
+      if (it.kind === "peoples") peoplesAdded.push(item);
+      created.push({ kind: it.kind, name: item.name, id: item.id, evidence: String(it.evidence || "") });
+    }
+    if (placed.length && w.mapInit) { try { ensureMap(w); autoPlace(w, placed); } catch {} }
+    if (peoplesAdded.length) syncPeoples(w, peoplesAdded);
+    if (chatId) { const c = w.characters.find(x => x.id === chatId); if (c) markRead(c); }
+    else for (const c of w.characters) markRead(c);
+    if (created.length) { w.archive = [...(w.archive || []), { at: Date.now(), source, created }].slice(-30); }
+    persistWorld(w); renderTabs();
+    if (tab === "lore") renderLore(); else renderListSoon();
+    const msg = created.length ? `L'archiviste a créé ${created.length} élément${created.length > 1 ? "s" : ""} : ${created.map(c => c.name).join(", ")}.` : "L'archiviste n'a rien trouvé de manquant.";
+    if (st()) { st().className = "status"; st().textContent = msg; }
+    if (created.length || !quiet) toast(msg.length > 160 ? msg.slice(0, 157) + "…" : msg);
+  } catch (e) {
+    if (st()) { st().className = "status err"; st().textContent = aiError(e); }
+    else if (!quiet) toast(aiError(e));
+  } finally { archBusy = false; if (btn && document.body.contains(btn)) busy(btn, false); }
+}
+function archiveAfterChat(cid) {
+  const w = cur(), c = w.characters.find(x => x.id === cid);
+  if (!c || !archAuto(w)) return;
+  const fresh = (c.dialogue || []).slice(unreadFrom(c)).filter(t => !t.note).length;
+  if (fresh < 2) return;                       // nothing new worth reading
+  runArchivist({ source: `Conversation avec ${c.name}`, chatId: cid, quiet: true });
+}
+
 /* ---------- coherence guardian ---------- */
 const SEV = { contradiction: "Contradiction", trou: "Trou", lien: "Lien manquant" };
 let loreBusy = false;
@@ -1385,6 +1530,7 @@ function renderLore() {
   const order = { contradiction: 0, trou: 1, lien: 2 };
   open.sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3));
   $("#list").innerHTML = `<div class="lore">
+    ${archivistHTML(w)}
     <div class="lore-head"><div><h3 style="font-size:24px">Gardien de cohérence</h3>
       <p>${w.lastAudit ? `Dernière analyse : ${new Date(w.lastAudit).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}. ` : ""}Claude relit tout le monde et signale les contradictions, les trous et les éléments isolés. « Combler » écrit ce qui manque directement dans le monde.</p></div>
       <button class="btn primary" id="auditBtn">${issues.length ? "Relancer l'analyse" : "Analyser le monde"}</button></div>
@@ -1394,6 +1540,7 @@ function renderLore() {
     ${done.length ? `<div class="label">Traités · ${done.length}</div><div class="issues">${done.map(issueCard).join("")}</div>` : ""}
   </div>`;
   $("#auditBtn").onclick = (e) => audit(e.currentTarget);
+  wireArchivist();
   $("#list").querySelectorAll("[data-fill]").forEach(b => b.onclick = () => fillIssue(b.dataset.fill, b));
   $("#list").querySelectorAll("[data-ignore]").forEach(b => b.onclick = () => setIssue(b.dataset.ignore, "ignored"));
   $("#list").querySelectorAll("[data-reopen]").forEach(b => b.onclick = () => setIssue(b.dataset.reopen, "open"));
@@ -1810,6 +1957,7 @@ function openChat(cid) {
   let playerId = c.chatPlayerId || "";
   const pc = () => playerId ? cur().characters.find(x => x.id === playerId) || null : null;
   const m = $("#modal");
+  m.dataset.chatOpen = cid;   // not data-chat: that attribute opens a chat when clicked
   m.innerHTML = `<div class="modal-card chat" role="dialog" aria-label="Dialogue avec ${esc(c.name)}">
     <div class="chat-head"><div class="face">${vignette(c.id, c.name, "character")}</div>
       <div style="min-width:0;flex:1"><h2>${esc(c.name)}</h2><span class="note">${esc([c.role, c.place && "à " + c.place].filter(Boolean).join(" · "))}</span></div>
