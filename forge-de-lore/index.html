@@ -116,7 +116,12 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .card:hover { border-color: var(--verdigris); transform: translateY(-2px); }
 .vignette { aspect-ratio: 400 / 240; background: var(--plate-2); border-bottom: 1px solid var(--line); max-width: 100%; overflow: hidden; }
 .vignette svg, .vignette img, .plate-art img, .panel .thumb img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.person .face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.person .face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
+/* Portraits: vertical frame, focus on the face (upper part of the image) */
+.vignette.portrait { aspect-ratio: 3 / 4; }
+.vignette.portrait img { object-position: 50% 18%; }
+.drawer .vignette.portrait { aspect-ratio: 4 / 5; max-height: 62vh; width: 100%; }
+.gallery .vignette.portrait { aspect-ratio: 4 / 5; }
 .card-body { padding: 14px 16px 16px; display: grid; gap: 6px; align-content: start; }
 .card-body h3 { font-size: 22px; line-height: 1.15; }
 .card-body .sub { font: 600 11px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--brass); }
@@ -525,7 +530,7 @@ function renderList() {
   const kind = tab === "places" ? "place" : "character";
   L.innerHTML = `<div class="grid">${items.map(it => `
     <button class="card" data-open="${esc(it.id)}">
-      <div class="vignette">${vignette(it.id, it.name, kind)}</div>
+      <div class="vignette${kind === "character" ? " portrait" : ""}">${vignette(it.id, it.name, kind)}</div>
       <div class="card-body"><span class="sub">${esc(kind === "place" ? `${it.type} · ${it.region}` : `${it.role} · ${it.faction}`)}</span>
         <h3>${esc(it.name)}</h3><p>${esc(it.desc)}</p></div>
     </button>`).join("")}</div>`;
@@ -556,7 +561,7 @@ function renderGallery() {
   const w = cur();
   $("#list").innerHTML = `<div class="gallery">${allEntities(w).map(e => `
     <article class="shot">
-      <div class="vignette">${vignette(e.id, e.title, e.kind)}</div>
+      <div class="vignette${e.kind === "character" ? " portrait" : ""}">${vignette(e.id, e.title, e.kind)}</div>
       <div class="shot-body">
         <div class="row" style="justify-content:space-between"><h3 style="font-size:20px">${esc(e.title)}</h3><span class="label">${e.sub}</span></div>
         <div class="prompt" id="pr_${esc(e.id)}">${esc(promptFor(e, w))}</div>
@@ -586,7 +591,7 @@ function openDrawer(id) {
   const nameKey = k === "stories" ? "title" : "name";
   const d = $("#drawer");
   d.innerHTML = `
-    <div class="vignette" id="dv">${vignette(it.id, it[nameKey], kind)}</div>
+    <div class="vignette${kind === "character" ? " portrait" : ""}" id="dv">${vignette(it.id, it[nameKey], kind)}</div>
     <div class="drawer-body">
       <div class="drawer-head"><input id="f_${nameKey}" value="${esc(it[nameKey])}" aria-label="Nom"><button class="x" id="closeD" aria-label="Fermer">×</button></div>
       ${linked(k, it)}
@@ -1105,9 +1110,9 @@ function paintPrompt(e, w) {
   const r = e.ref, t = curTheme(w);
   const style = t.style || "painterly fantasy book illustration, rich detail, dramatic lighting";
   const base = (e.kind === "world" ? w.imagePrompt : r.imagePrompt) || fallbackPrompt(e, w).replace(/,?\s*$/, "");
-  const frame = { world: "Wide establishing vista, fantasy book frontispiece", place: "Environment illustration, fantasy book plate", character: "Character portrait, half body, fantasy book illustration", story: "Dramatic key scene, fantasy book chapter illustration" }[e.kind];
+  const frame = { world: "Wide establishing vista, fantasy book frontispiece", place: "Environment illustration, fantasy book plate", character: "Character portrait, head and shoulders to waist, subject centered and facing the viewer, face clearly visible in the upper third, plain atmospheric background, fantasy book illustration", story: "Dramatic key scene, fantasy book chapter illustration" }[e.kind];
   const pal = (w.palette || []).length ? ` Color palette: ${w.palette.join(" ")}.` : "";
-  return `${frame}. ${words(base, 45)}. Style: ${words(style, 25)}.${pal} No text, no watermark.`;
+  return `${frame}. ${words(base, e.kind === "character" ? 35 : 45)}. Style: ${words(style, 25)}.${pal} No text, no watermark.`;
 }
 function b64ToBlob(b64, type) { const bin = atob(b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type }); }
 function imageFromResult(res) {
@@ -1316,10 +1321,10 @@ function factionSpots(w) {
 }
 
 /* thumbnails: the same visuals as the cards, rasterised for the canvas */
-function drawCover(ctx, img, x, y, w, h) {
+function drawCover(ctx, img, x, y, w, h, fy = .5) {
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height; if (!iw || !ih) return;
   const k = Math.max(w / iw, h / ih), sw = w / k, sh = h / k;
-  ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, x, y, w, h);
+  ctx.drawImage(img, (iw - sw) / 2, (ih - sh) * fy, sw, sh, x, y, w, h);
 }
 function thumbFor(id, seed, kind) {
   let t = thumbs.get(id); if (t) return t;
@@ -1392,7 +1397,7 @@ function drawMap() {
       const cx = g.x + g.S + 2 - k * 13, cy = g.y + 2, R = 11;
       const ct = thumbFor(c.id, c.name, "character");
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = "#17202a"; ctx.fill(); ctx.clip();
-      if (ct.ready) drawCover(ctx, ct.img, cx - R, cy - R, R * 2, R * 2);
+      if (ct.ready) drawCover(ctx, ct.img, cx - R, cy - R, R * 2, R * 2, imageFor(c.id) ? .12 : .5);
       ctx.restore(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.lineWidth = 1.5; ctx.strokeStyle = "#e6e0d2"; ctx.stroke();
     });
     if (from.length > 3) { ctx.font = `700 11px "Alegreya Sans", sans-serif`; ctx.fillStyle = "#e6e0d2"; ctx.textAlign = "left"; ctx.fillText("+" + (from.length - 3), g.x + g.S + 14, g.y + 6); }
