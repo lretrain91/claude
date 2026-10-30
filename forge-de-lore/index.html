@@ -777,7 +777,7 @@ function renderForge() {
           <select id="engineSel">${Object.entries(ENGINES).map(([k, e]) => `<option value="${k}" ${k === engineKey() ? "selected" : ""}>${esc(e.label)}</option>`).join("")}</select></div>
         <button class="btn primary" id="paintAll">Illustrer tout ce qui manque</button></div>
       <div class="artrow" style="justify-content:space-between"><span class="status" id="forgeStatus" style="flex:1 1 260px">Chaque image reprend la direction artistique et la signature visuelle des personnages, créatures et lieux, pour que tout ressemble à une seule série.</span>
-        <span class="row"><button class="btn small ghost" id="sketchAll">Esquisses rapides</button><button class="btn small ghost" id="redrawAll">Tout réillustrer</button></span></div>
+        <span class="row"><button class="btn small ghost" id="repromptAll">Refaire tous les prompts</button><button class="btn small ghost" id="sketchAll">Esquisses rapides</button><button class="btn small ghost" id="redrawAll">Tout réillustrer</button></span></div>
     </div>`;
     return;
   }
@@ -859,6 +859,7 @@ function renderGallery() {
         <div class="prompt" id="pr_${esc(e.id)}">${esc(promptFor(e, w))}</div>
         <div class="row">
           <button class="btn small" data-copy="${esc(e.id)}">Copier le prompt</button>
+          <button class="btn small" data-reprompt="${esc(e.id)}" title="Réécrire le prompt d'après la fiche actuelle">Refaire le prompt</button>
           <button class="btn small primary" data-paint="${esc(e.id)}">${imageFor(e.id) ? "Nouvelle illustration" : "Générer l'illustration"}</button>
           <button class="btn small" data-import="${esc(e.id)}">${imageFor(e.id) ? "Remplacer l'image" : "Importer une image"}</button>
           ${imageFor(e.id) ? "" : `<button class="btn small" data-sketch="${esc(e.id)}">${sketches[e.id] ? "Redessiner" : "Esquisser"}</button>`}
@@ -920,6 +921,7 @@ function openDrawer(id) {
         <button class="btn" id="dImport">${imageFor(it.id) ? "Remplacer l'image" : "Importer une image"}</button>
         ${imageFor(it.id) ? '<button class="btn ghost" id="dNoImg">Retirer l\'image</button>' : ""}
         <button class="btn" id="dCopy">Copier le prompt image</button>
+        <button class="btn" id="dReprompt" title="Réécrire le prompt et la signature visuelle d'après la fiche actuelle">Refaire le prompt image</button>
         ${k === "characters" ? `<button class="btn" id="dTalk">Parler à ${esc(it.name.split(" ")[0])}</button>` : ""}
         <button class="btn" id="dDeepen">Approfondir</button>
         <button class="btn" id="dPropose" title="L'archiviste propose des ajouts à valider">Proposer de la profondeur</button>
@@ -938,6 +940,7 @@ function openDrawer(id) {
   }));
   $("#closeD").onclick = closeDrawer;
   $("#dCopy").onclick = () => copy(promptFor({ kind, ref: it }, cur()));
+  $("#dReprompt").onclick = (ev) => reprompt(it.id, ev.currentTarget, $("#dStatus"));
   if ($("#dSketch")) $("#dSketch").onclick = (ev) => sketch(it.id, ev.currentTarget, $("#dStatus"));
   $("#dPaint").onclick = (ev) => paint(it.id, ev.currentTarget, $("#dStatus"));
   $("#dImport").onclick = () => pickImage(it.id);
@@ -2502,6 +2505,56 @@ ${SCHEMAS.characters.replace(/\}$/, "")}${withStats ? `, "stats": ${SNAP_SHAPE}`
   setTimeout(() => input.focus(), 50);
 }
 
+/* ---------- rewrite image prompts from the current sheets ---------- */
+const VISUAL_KINDS = ["character", "creature", "people", "place"];
+async function reprompt(id, btn, statusEl, quiet) {
+  const say = (m, err) => { if (statusEl) { statusEl.className = "status" + (err ? " err" : ""); statusEl.textContent = m; } else if (!quiet || err) toast(m); };
+  if (!sample) { say("La génération par IA n'est pas disponible dans cet affichage.", true); return false; }
+  const w0 = cur(); if (!allEntities(w0).find(x => x.id === id)) return false;
+  const w = ensureLists(ensureEditable());
+  const e = allEntities(w).find(x => x.id === (id === w0.id ? w.id : id)); if (!e) return false;
+  const r = e.ref, withVisual = VISUAL_KINDS.includes(e.kind);
+  const clean = { ...r }; for (const f of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "pending", "imgTry", "visual", "novel", "issues", "archTasks", "archive", "characters", "places", "stories", "creatures", "peoples", "artifacts", "rules", "artDir", "eras", "factions"]) delete clean[f];
+  if (e.kind === "character") { const sn = latestSnap(r); if (sn) clean.equipement = sn.gear; delete clean.stats; }
+  if (e.kind === "story") clean.apparence_des_impliques = sceneCast(w, r);
+  busy(btn, true, "Réécriture…"); say(`Claude réécrit le prompt de « ${e.title} »…`);
+  try {
+    const o = await sample.json(`You write prompts for an image generator (FLUX) illustrating a video game world.
+World: ${w.name} (${w.genre}, ${w.tone}). ${String(w.pitch || "").slice(0, 400)}
+Element (${e.sub}), current sheet, in French: ${e.kind === "world" ? JSON.stringify({ nom: w.name, pitch: w.pitch, epoques: w.eras, factions: w.factions }).slice(0, 2500) : JSON.stringify(clean).slice(0, 3000)}
+
+Write, in English:
+- "imagePrompt": 40 to 60 words describing WHAT to show, matching the sheet exactly as it is now: subject, pose or action, setting, composition, lighting, key details. No art-style or medium words (a fixed art direction is added separately), no text in the image.${withVisual ? `
+- "visual": 20 to 35 words, the permanent recognisable visual traits to repeat in every image of it (${e.kind === "place" ? "architecture, materials, light, landmark" : "age, build, face, hair, skin, scars, missing limbs, signature clothing and colours, iconic object"}). No style words.` : ""}
+Reply only with JSON: {"imagePrompt": string${withVisual ? ', "visual": string' : ""}}`, { cache: false, modelTier: "quick" });
+    if (!o || !o.imagePrompt) throw { code: "invalid_json" };
+    if (e.kind === "world") w.imagePrompt = String(o.imagePrompt); else r.imagePrompt = String(o.imagePrompt);
+    if (withVisual && o.visual) r.visual = String(o.visual).slice(0, 400);
+    persistWorld(w);
+    if (!quiet) {
+      if (tab === "art") { renderList(); }
+      if (openRef && openRef.id === e.id) openDrawer(e.id);
+      const s2 = statusEl && document.body.contains(statusEl) ? statusEl : (openRef && openRef.id === e.id ? $("#dStatus") : null);
+      if (s2) { s2.className = "status"; s2.textContent = "Prompt réécrit d'après la fiche actuelle."; } else toast(`Prompt de « ${e.title} » réécrit`);
+    }
+    return true;
+  } catch (err) { say(err && err.code ? `${aiError(err)} (code : ${err.code})` : `Erreur de la page : ${err && err.message ? err.message : err}`, true); return false; }
+  finally { if (btn && document.body.contains(btn)) busy(btn, false); }
+}
+async function repromptAll(btn) {
+  const list = allEntities(cur());
+  busy(btn, true, "Réécriture…");
+  let ok = 0;
+  for (let i = 0; i < list.length; i++) {
+    const st = $("#forgeStatus"); if (st) { st.className = "status"; st.textContent = `Prompt ${i + 1} sur ${list.length} : ${list[i].title}`; }
+    const id = list[i].kind === "world" ? cur().id : list[i].id;
+    if (await reprompt(id, null, null, true)) ok++; else break;
+  }
+  if (tab === "art") { renderForge(); renderList(); wireForge(); }
+  toast(`${ok} prompt${ok > 1 ? "s" : ""} réécrit${ok > 1 ? "s" : ""} sur ${list.length}`);
+  if (btn && document.body.contains(btn)) busy(btn, false);
+}
+
 /* ---------- FLUX illustrations (Hugging Face connector) ---------- */
 const HF = "Hugging face Flux";
 const ENGINES = {
@@ -3112,7 +3165,7 @@ async function genPlaceAt(pt, name, hint, btn) {
 document.addEventListener("click", (ev) => {
   const sub = ev.target.closest("[data-codex]");
   if (sub) { codexKind = sub.dataset.codex; renderForge(); renderList(); wireForge(); return; }
-  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-paint],[data-chat],[data-act]");
+  const t = ev.target.closest("[data-tab],[data-open],[data-copy],[data-sketch],[data-import],[data-paint],[data-reprompt],[data-chat],[data-act]");
   if (!t) return;
   if (t.dataset.tab) { tab = t.dataset.tab; renderPlate(); renderTabs(); renderForge(); renderList(); wireForge(); }
   else if (t.dataset.open) openDrawer(t.dataset.open);
@@ -3120,6 +3173,7 @@ document.addEventListener("click", (ev) => {
   else if (t.dataset.sketch) sketch(t.dataset.sketch, t, null);
   else if (t.dataset.import) pickImage(t.dataset.import);
   else if (t.dataset.paint) paint(t.dataset.paint, t, null);
+  else if (t.dataset.reprompt) reprompt(t.dataset.reprompt, t, null);
   else if (t.dataset.chat) { ev.stopPropagation(); closeDrawer(); openChat(t.dataset.chat); }
   else if (t.dataset.act === "editWorld") openModal(true);
   else if (t.dataset.act === "theme") openThemeModal();
@@ -3142,6 +3196,7 @@ function wireForge() {
   const ar = $("#artDirRegen"); if (ar) ar.onclick = async () => { const w = ensureEditable(); if (w.artDir) delete w.artDir.style; busy(ar, true, "Écriture…"); await ensureArtDirection(w); busy(ar, false); renderForge(); wireForge(); };
   const a = $("#sketchAll"); if (a) a.onclick = () => sketchAll(false, a);
   const pa = $("#paintAll"); if (pa) pa.onclick = () => paintAll(false, pa);
+  const ra = $("#repromptAll"); if (ra) ra.onclick = () => { if (!ra.dataset.confirm) { ra.dataset.confirm = "1"; ra.textContent = "Réécrire tous les prompts ?"; return; } repromptAll(ra); };
   const es = $("#engineSel"); if (es) es.onchange = () => { try { localStorage.setItem(LS + ":engine", es.value); } catch {} engineMem = es.value; };
   const rd = $("#redrawAll"); if (rd) rd.onclick = () => {
     if (!rd.dataset.confirm) { rd.dataset.confirm = "1"; rd.textContent = "Remplacer toutes les illustrations ?"; return; }
