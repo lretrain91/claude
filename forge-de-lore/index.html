@@ -204,6 +204,24 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 /* Archivist */
 .archivist { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
 .archivist .row label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+.chain { list-style: none; margin: 0; padding: 0 0 0 6px; display: grid; gap: 0; }
+.task { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding-bottom: 14px; }
+.task::before { content: ""; position: absolute; left: 5px; top: 14px; bottom: 0; width: 2px; background: var(--line); }
+.task:last-child::before { display: none; }
+.task .dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; border: 2px solid var(--brass); background: var(--plate); position: relative; z-index: 1; }
+.task.ok .dot { border-color: var(--verdigris); background: var(--verdigris); }
+.task.rejected .dot { border-color: var(--danger); background: var(--plate); }
+.task.rejected b, .task.rejected .linkish { text-decoration: line-through; color: var(--muted); }
+.task-body { display: grid; gap: 4px; min-width: 0; }
+.task-body q, .pendbox q { color: var(--muted); font-style: italic; quotes: "« " " »"; font-size: 14px; }
+.linkish { background: none; border: 0; padding: 0; text-align: left; font: 700 16px var(--body); color: var(--fg); cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.linkish:hover { text-decoration-color: var(--verdigris); }
+.hist summary { cursor: pointer; padding: 4px 0; }
+.diff { border-left: 2px solid var(--verdigris); padding-left: 10px; }
+.diff summary { cursor: pointer; }
+.diff p { margin: 2px 0 8px; font-size: 14px; white-space: pre-wrap; }
+.hist[open] summary { margin-bottom: 8px; }
+.pendbox { border: 1px solid var(--brass); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; background: color-mix(in srgb, var(--brass) 8%, transparent); }
 .alog { display: grid; gap: 8px; }
 .alog-item { display: grid; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
 .alog-item .note { font-size: 12px; }
@@ -688,7 +706,7 @@ function renderPlate() {
 const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["codex", "Bestiaire"], ["rules", "Règles"], ["art", "Illustrations"], ["lore", "Cohérence"]];
 function renderTabs() {
   const w = cur();
-  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, codex: (w.creatures || []).length + (w.peoples || []).length + (w.artifacts || []).length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length, rules: ((w.rules && w.rules.classes) || []).length };
+  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, codex: (w.creatures || []).length + (w.peoples || []).length + (w.artifacts || []).length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length + pendingTasks(w).length, rules: ((w.rules && w.rules.classes) || []).length };
   $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}<span class="count">${n[k]}</span></button>`).join("");
 }
 
@@ -744,6 +762,7 @@ function renderList() {
       <div class="vignette${kind === "character" ? " portrait" : ""}">${vignette(it.id, it.name, kind)}</div>
       <div class="card-body"><span class="sub">${esc(subOf(it))}${kind === "character" && latestSnap(it) ? ` · niv. ${esc(latestSnap(it).level)}` : ""}</span>
         <h3>${esc(it.name)}</h3><p>${esc(it.desc)}</p>
+        ${it.pending ? `<div class="meta"><span class="chip example">À valider</span></div>` : ""}
         ${kind === "character" && (it.dialogue || []).length ? `<div class="meta"><span class="chip talk" role="button" tabindex="0" data-chat="${esc(it.id)}">Reprendre la conversation</span></div>` : ""}</div>
     </button>`).join("")}</div>`;
 }
@@ -815,6 +834,8 @@ function openDrawer(id) {
     <div class="vignette${kind === "character" ? " portrait" : ""}" id="dv">${vignette(it.id, it[nameKey], kind)}</div>
     <div class="drawer-body">
       <div class="drawer-head"><input id="f_${nameKey}" value="${esc(it[nameKey])}" aria-label="Nom"><button class="x" id="closeD" aria-label="Fermer">×</button></div>
+      ${it.pending ? pendingBanner(it) : ""}
+      ${depthBanner(it)}
       ${linked(k, it)}
       ${k === "characters" ? `<section class="sheetbox" id="statBox">${statHTML(it)}</section>` : ""}
       ${k === "creatures" ? `<section class="sheetbox" id="beastBox">${beastHTML(it)}</section>` : ""}
@@ -835,6 +856,7 @@ function openDrawer(id) {
         <button class="btn" id="dCopy">Copier le prompt image</button>
         ${k === "characters" ? `<button class="btn" id="dTalk">Parler à ${esc(it.name.split(" ")[0])}</button>` : ""}
         <button class="btn" id="dDeepen">Approfondir</button>
+        <button class="btn" id="dPropose" title="L'archiviste propose des ajouts à valider">Proposer de la profondeur</button>
         <button class="btn ghost danger" id="dDel">Supprimer</button>
       </div>
       <p class="status" id="dStatus"></p>
@@ -855,6 +877,7 @@ function openDrawer(id) {
   $("#dImport").onclick = () => pickImage(it.id);
   if ($("#dNoImg")) $("#dNoImg").onclick = () => removeImage(it.id);
   $("#dDeepen").onclick = (ev) => deepen(k, it, ev.currentTarget);
+  $("#dPropose").onclick = (ev) => proposeDepth({ btn: ev.currentTarget, ref: it.id, statusEl: $("#dStatus") });
   if ($("#dTalk")) $("#dTalk").onclick = () => { closeDrawer(); openChat(it.id); };
   $("#dDel").onclick = () => {
     const btn = $("#dDel");
@@ -864,6 +887,8 @@ function openDrawer(id) {
   d.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => openDrawer(b.dataset.goto));
   if (k === "characters") wireStats(it.id);
   if (k === "creatures") wireBeast(it.id);
+  d.querySelectorAll("[data-tok]").forEach(x => x.onclick = () => decideTask(x.dataset.tok, true));
+  d.querySelectorAll("[data-tno]").forEach(x => x.onclick = () => decideTask(x.dataset.tno, false));
 }
 function linked(k, it) {
   const w = cur(), names = new Map();
@@ -1390,24 +1415,145 @@ function wireBeast(id) {
 }
 
 /* ---------- archivist agent: creates what is mentioned but missing ---------- */
-const ARCH_KINDS = { creatures: "Créature", characters: "Personnage", places: "Lieu", artifacts: "Objet", peoples: "Peuple", factions: "Faction" };
+const ARCH_KINDS = { creatures: "Créature", characters: "Personnage", places: "Lieu", artifacts: "Objet", peoples: "Peuple", factions: "Faction", stories: "Histoire", depth: "Profondeur" };
+const FIELD_LABEL = { desc: "Description", secrets: "Secrets", secret: "Secret", hooks: "Accroche", motivation: "Motivation", quote: "Réplique", summary: "Résumé", beats: "Étapes", lore: "Légendes", danger: "Danger", loot: "Butin", culture: "Culture", relations: "Relations", appearance: "Apparence", traits: "Traits", powers: "Pouvoirs", history: "Histoire", curse: "Prix ou malédiction", abilities: "Traits", actions: "Actions", region: "Région", habitat: "Habitat", names: "Noms typiques", languages: "Langues" };
 let archBusy = false;
 function archAuto(w) { return w.archAuto !== false; }
+function archTasks(w) {
+  if (!w.archTasks && (w.archive || []).length) {   // older journal → tasks to validate
+    w.archTasks = w.archive.flatMap(e => e.created.map(c => ({ id: uid("t"), at: e.at, source: e.source, kind: c.kind, name: c.name, ref: c.id || "", evidence: c.evidence || "", status: "pending" })));
+  }
+  return w.archTasks || [];
+}
+const pendingTasks = (w) => archTasks(w).filter(t => t.status === "pending");
+function taskRow(t, w) {
+  const exists = t.kind === "depth" ? !!findItem(t.ref)[1] : t.kind === "factions" ? (w.factions || []).some(f => eqName(f.name, t.name)) : !!findItem(t.ref)[1];
+  const when = new Date(t.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  return `<li class="task ${t.status}" data-task="${esc(t.id)}">
+    <span class="dot" aria-hidden="true"></span>
+    <div class="task-body">
+      <div class="row" style="justify-content:space-between;gap:6px"><span class="kindtag">${esc(ARCH_KINDS[t.kind] || "")}</span><span class="note">${esc(when)} · ${esc(t.source)}</span></div>
+      ${t.kind === "depth" ? `<b>${esc(t.idea || "Approfondissement")}</b> <span class="note">pour</span> ${exists ? `<button class="linkish" data-open="${esc(t.ref)}">${esc(t.name)}</button>` : `<b>${esc(t.name)}</b>`}`
+        : t.ref && exists ? `<button class="linkish" data-open="${esc(t.ref)}">${esc(t.name)}</button>` : `<b>${esc(t.name)}</b>`}
+      ${t.evidence ? `<q>${esc(t.evidence)}</q>` : ""}
+      ${t.kind === "depth" && t.fields ? `<details class="diff"${t.status === "pending" ? " open" : ""}><summary class="note">Ce qui change</summary>${Object.entries(t.fields).map(([f, v]) => `<div><span class="kindtag">${esc(FIELD_LABEL[f] || f)}</span><p>${esc(Array.isArray(v) ? v.join(" · ") : v)}</p></div>`).join("")}</details>` : ""}
+      ${t.status === "pending"
+        ? `<div class="row"><button class="btn small primary" data-tok="${esc(t.id)}">${t.kind === "depth" ? "Valider et appliquer" : "Valider"}</button><button class="btn small ghost danger" data-tno="${esc(t.id)}">Rejeter</button></div>`
+        : `<span class="note">${t.status === "ok" ? (t.kind === "depth" ? "Validé et appliqué" : "Validé") : (t.kind === "depth" ? "Rejeté" : "Rejeté et supprimé du monde")}${t.decidedAt ? " le " + esc(new Date(t.decidedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })) : ""}</span>`}
+    </div></li>`;
+}
 function archivistHTML(w) {
-  const log = (w.archive || []).slice(-8).reverse();
+  const tasks = archTasks(w), pend = tasks.filter(t => t.status === "pending").sort((a, b) => a.at - b.at), done = tasks.filter(t => t.status !== "pending").sort((a, b) => (b.decidedAt || b.at) - (a.decidedAt || a.at)).slice(0, 30);
   return `<section class="archivist" aria-label="Archiviste">
     <div class="row" style="justify-content:space-between;align-items:flex-start"><div style="min-width:0;flex:1 1 280px"><h3 style="font-size:24px">Archiviste</h3>
-      <p class="note" style="margin:4px 0 0;max-width:62ch">Il relit tes conversations et tous les textes du monde, repère ce qui est mentionné mais n'existe pas encore (une tortue géante de feu tuée par Brum, un marchand cité en passant, une relique racontée dans une légende) et le crée.</p></div>
-      <button class="btn primary" id="archBtn">Tout relire maintenant</button></div>
+      <p class="note" style="margin:4px 0 0;max-width:62ch">Il relit tes conversations et tous les textes du monde, repère ce qui est mentionné mais n'existe pas encore (une tortue géante de feu tuée par Brum, un marchand cité en passant, une relique racontée dans une légende) et le crée. Chaque création attend ta validation ; un rejet la retire du monde.</p></div>
+      <div class="row"><button class="btn" id="deepBtn">Proposer de la profondeur</button><button class="btn primary" id="archBtn">Tout relire maintenant</button></div></div>
     <div class="row"><label><input type="checkbox" id="archAuto" ${archAuto(w) ? "checked" : ""}> Relire chaque conversation quand je la ferme</label></div>
     <p class="status" id="archStatus"></p>
-    ${log.length ? `<div class="alog"><span class="label">Dernières créations</span>${log.map(e => `<div class="alog-item"><span class="note">${esc(new Date(e.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }))} · ${esc(e.source)}</span>
-      <div class="meta">${e.created.map(c => c.id ? `<button class="chip" data-open="${esc(c.id)}">${esc(ARCH_KINDS[c.kind] || "")} : ${esc(c.name)}</button>` : `<span class="chip">${esc(ARCH_KINDS[c.kind] || "")} : ${esc(c.name)}</span>`).join("")}</div></div>`).join("")}</div>`
-      : `<p class="note" style="margin:0">Rien créé pour l'instant.</p>`}
+    <div class="row" style="justify-content:space-between"><span class="label">À valider · ${pend.length}</span>${pend.length > 1 ? `<button class="btn small" id="archAll">Tout valider</button>` : ""}</div>
+    ${pend.length ? `<ol class="chain">${pend.map(t => taskRow(t, w)).join("")}</ol>` : `<p class="note" style="margin:0">Rien à valider.</p>`}
+    ${done.length ? `<details class="hist"><summary class="label">Historique · ${tasks.length - pend.length}</summary><ol class="chain">${done.map(t => taskRow(t, w)).join("")}</ol></details>` : ""}
   </section>`;
+}
+function pendingBanner(it) {
+  const t = archTasks(cur()).find(x => x.ref === it.id && x.status === "pending");
+  if (!t) return "";
+  return `<div class="pendbox"><b>Créé par l'archiviste, à valider</b>${t.evidence ? `<q>${esc(t.evidence)}</q>` : ""}<span class="note">${esc(t.source)}</span>
+    <div class="row"><button class="btn small primary" data-tok="${esc(t.id)}">Valider</button><button class="btn small ghost danger" data-tno="${esc(t.id)}">Rejeter</button></div></div>`;
+}
+function depthBanner(it) {
+  const list = archTasks(cur()).filter(t => t.kind === "depth" && t.ref === it.id && t.status === "pending");
+  if (!list.length) return "";
+  return `<div class="pendbox"><b>${list.length} proposition${list.length > 1 ? "s" : ""} de profondeur à valider</b><ol class="chain">${list.map(t => taskRow(t, cur())).join("")}</ol></div>`;
+}
+function thinness(k, it) {
+  const txt = Object.entries(it).filter(([f]) => FIELD_LABEL[f]).map(([, v]) => Array.isArray(v) ? v.join(" ") : String(v || "")).join(" ");
+  return txt.length;
+}
+async function proposeDepth({ btn, ref, statusEl } = {}) {
+  const st = statusEl || $("#archStatus");
+  const say = (m, err) => { if (st) { st.className = "status" + (err ? " err" : ""); st.textContent = m; } else toast(m); };
+  if (!sample) { say("La génération par IA n'est pas disponible dans cet affichage.", true); return; }
+  if (archBusy) { say("L'archiviste est déjà au travail, attends qu'il ait fini.", true); return; }
+  archBusy = true;
+  const w = ensureLists(ensureEditable());
+  // Targets: one element, or the thinnest ones across the world.
+  let targets;
+  if (ref) { const [k, it] = findItem(ref); targets = it ? [[k, it]] : []; }
+  else {
+    targets = ["places", "characters", "creatures", "peoples", "artifacts", "stories"].flatMap(k => (w[k] || []).map(it => [k, it]))
+      .filter(([, it]) => !archTasks(w).some(t => t.kind === "depth" && t.ref === it.id && t.status === "pending"))
+      .sort((a, b) => thinness(...a) - thinness(...b)).slice(0, 5);
+  }
+  if (!targets.length) { archBusy = false; say("Rien à approfondir pour l'instant."); return; }
+  if (btn) busy(btn, true, "Réflexion…");
+  say(ref ? "L'archiviste cherche des idées pour cette fiche…" : `L'archiviste cherche de la profondeur pour ${targets.length} fiches…`);
+  const strip = (it) => { const c = { ...it }; for (const f of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "pending", "chatRole", "chatSecrets", "chatDice", "chatPlayerId", "archivedMark", "attrs"]) delete c[f]; return c; };
+  try {
+    const out = await sample.json(`${RULES}
+Tu es l'archiviste de cet univers. Tu proposes des ajouts qui donnent de la PROFONDEUR aux fiches : un secret, une contradiction intérieure, un détail sensoriel, une coutume, une rivalité, une dette, une rumeur, un lien concret avec un autre élément existant du monde, une conséquence d'un événement de la chronologie. Pas de remplissage : chaque proposition doit ouvrir une possibilité de jeu ou d'histoire.
+
+CONTEXTE DU MONDE :
+${worldContext(w, 5000)}
+${rulesBrief(w)}
+
+FICHES À APPROFONDIR :
+${targets.map(([k, it]) => `- [${k}] ${JSON.stringify(strip(it))}`).join("\n")}
+
+TÂCHE : ${ref ? "propose 3 approfondissements différents pour cette fiche, au choix de l'auteur" : "propose 1 approfondissement par fiche"}. Chaque proposition modifie 1 à 3 champs EXISTANTS de la fiche : réécris le champ en entier en gardant ce qui y était déjà et en y intégrant l'idée.
+Réponds uniquement avec un objet JSON : {"proposals": [{"target": string (nom exact de la fiche), "idea": string (titre court de l'idée), "why": string (ce que ça apporte au jeu, une phrase), "fields": {champ: nouvelle valeur complète}}]}`, { cache: false });
+    const props = (out && Array.isArray(out.proposals) ? out.proposals : []).filter(p => p && p.target && p.fields && typeof p.fields === "object");
+    const now = Date.now(), added = [];
+    props.forEach((p, i) => {
+      const hit = targets.find(([, it]) => eqName(it.name || it.title, p.target)); if (!hit) return;
+      const [k, it] = hit, fields = {};
+      for (const [f, v] of Object.entries(p.fields)) if (f in it || FIELD_LABEL[f]) fields[f] = Array.isArray(v) ? v.map(String) : String(v);
+      if (!Object.keys(fields).length) return;
+      added.push({ id: uid("t"), at: now + i, source: ref ? "Proposition sur la fiche" : "Proposition de profondeur", kind: "depth", listKey: k, name: it.name || it.title, ref: it.id, idea: String(p.idea || ""), evidence: String(p.why || ""), fields, status: "pending" });
+    });
+    if (!added.length) throw { code: "invalid_json" };
+    archTasks(w); w.archTasks = [...(w.archTasks || []), ...added].slice(-200);
+    persistWorld(w); renderTabs();
+    if (tab === "lore") renderLore();
+    if (ref && openRef && openRef.id === ref) openDrawer(ref);
+    say(`${added.length} proposition${added.length > 1 ? "s" : ""} à valider${ref ? " ci-dessus" : " dans la file"}.`);
+  } catch (e) { say(aiError(e), true); }
+  finally { archBusy = false; if (btn && document.body.contains(btn)) busy(btn, false); }
+}
+function decideTask(id, ok) {
+  const w = ensureEditable(), t = archTasks(w).find(x => x.id === id); if (!t || t.status !== "pending") return;
+  t.status = ok ? "ok" : "rejected"; t.decidedAt = Date.now();
+  if (t.kind === "depth") {
+    const [, it] = findItem(t.ref);
+    if (ok && it) for (const [f, v] of Object.entries(t.fields || {})) {
+      if (["id", "name", "title", "x", "y", "image", "imageAsset", "stats", "dialogue"].includes(f)) continue;
+      it[f] = Array.isArray(v) ? v.map(String) : (Array.isArray(it[f]) ? String(v).split(/\n|·/).map(x => x.trim()).filter(Boolean) : String(v));
+    }
+    if (ok && !it) t.status = "rejected";
+  }
+  else if (t.kind === "factions") { if (!ok) w.factions = w.factions.filter(f => !eqName(f.name, t.name)); }
+  else {
+    const [k, it] = findItem(t.ref);
+    if (it) {
+      if (ok) delete it.pending;
+      else {
+        w[k] = w[k].filter(x => x.id !== t.ref);
+        if (k === "peoples" && w.rules && w.rules.peoples) w.rules.peoples = w.rules.peoples.filter(p => !eqName(p.name, t.name));
+        delete sketches[t.ref];
+      }
+    }
+  }
+  persistWorld(w);
+  if (openRef && openRef.id === t.ref) { if (ok || t.kind === "depth") openDrawer(t.ref); else closeDrawer(); }
+  renderTabs(); if (tab === "lore") renderLore(); else renderList();
+  toast(t.kind === "depth" ? (ok ? `${t.name} approfondi` : "Proposition écartée") : ok ? `${t.name} validé` : `${t.name} retiré du monde`);
 }
 function wireArchivist() {
   const b = $("#archBtn"); if (b) b.onclick = () => runArchivist({ btn: b, source: "Relecture complète" });
+  const dp = $("#deepBtn"); if (dp) dp.onclick = () => proposeDepth({ btn: dp });
+  document.querySelectorAll("[data-tok]").forEach(x => x.onclick = (e) => { e.stopPropagation(); decideTask(x.dataset.tok, true); });
+  document.querySelectorAll("[data-tno]").forEach(x => x.onclick = (e) => { e.stopPropagation(); decideTask(x.dataset.tno, false); });
+  const all = $("#archAll"); if (all) all.onclick = () => { if (!all.dataset.confirm) { all.dataset.confirm = "1"; all.textContent = `Valider les ${pendingTasks(cur()).length} ?`; return; } for (const t of pendingTasks(ensureEditable()).slice()) decideTask(t.id, true); };
   const a = $("#archAuto"); if (a) a.onchange = () => { const w = ensureEditable(); w.archAuto = a.checked; persistWorld(w); };
 }
 function allNames(w) {
@@ -1493,6 +1639,7 @@ ${Object.entries(shapes).map(([k, v]) => `- ${k} : ${v}`).join("\n")}`, { cache:
       const o = it.data, item = { id: uid(ID_PRE[it.kind]) };
       for (const [k, v] of Object.entries(o)) if (k !== "id" && v != null) item[k] = Array.isArray(v) ? v.map(String) : (typeof v === "object" ? v : String(v));
       normCodex(it.kind, item, o);
+      item.pending = true;
       w[it.kind].push(item);
       if (it.kind === "places") placed.push(item);
       if (it.kind === "peoples") peoplesAdded.push(item);
@@ -1502,10 +1649,13 @@ ${Object.entries(shapes).map(([k, v]) => `- ${k} : ${v}`).join("\n")}`, { cache:
     if (peoplesAdded.length) syncPeoples(w, peoplesAdded);
     if (chatId) { const c = w.characters.find(x => x.id === chatId); if (c) markRead(c); }
     else for (const c of w.characters) markRead(c);
-    if (created.length) { w.archive = [...(w.archive || []), { at: Date.now(), source, created }].slice(-30); }
+    if (created.length) {
+      archTasks(w); const now = Date.now();
+      w.archTasks = [...(w.archTasks || []), ...created.map((c, i) => ({ id: uid("t"), at: now + i, source, kind: c.kind, name: c.name, ref: c.id || "", evidence: c.evidence, status: "pending" }))].slice(-200);
+    }
     persistWorld(w); renderTabs();
     if (tab === "lore") renderLore(); else renderListSoon();
-    const msg = created.length ? `L'archiviste a créé ${created.length} élément${created.length > 1 ? "s" : ""} : ${created.map(c => c.name).join(", ")}.` : "L'archiviste n'a rien trouvé de manquant.";
+    const msg = created.length ? `L'archiviste a créé ${created.length} élément${created.length > 1 ? "s" : ""} à valider : ${created.map(c => c.name).join(", ")}. Voir l'onglet Cohérence.` : "L'archiviste n'a rien trouvé de manquant.";
     if (st()) { st().className = "status"; st().textContent = msg; }
     if (created.length || !quiet) toast(msg.length > 160 ? msg.slice(0, 157) + "…" : msg);
   } catch (e) {
