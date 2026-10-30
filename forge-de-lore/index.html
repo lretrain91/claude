@@ -235,6 +235,12 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .diff summary { cursor: pointer; }
 .diff p { margin: 2px 0 8px; font-size: 14px; white-space: pre-wrap; }
 .hist[open] summary { margin-bottom: 8px; }
+.check { border: 1px solid var(--line); border-left: 3px solid var(--brass); border-radius: 8px; padding: 8px 10px; font-size: 14px; display: grid; gap: 4px; }
+.check.ok { border-left-color: var(--verdigris); }
+.check ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.check .sevtag { font: 600 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.check .sevtag[data-sev="contradiction"] { color: var(--danger); } .check .sevtag[data-sev="trou"] { color: var(--brass); } .check .sevtag[data-sev="lien"] { color: var(--verdigris); }
+.task-body .status:empty, .pendbox .status:empty { display: none; }
 .pendbox { border: 1px solid var(--brass); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; background: color-mix(in srgb, var(--brass) 8%, transparent); }
 .alog { display: grid; gap: 8px; }
 .alog-item { display: grid; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
@@ -940,6 +946,7 @@ function openDrawer(id) {
   if (k === "creatures") wireBeast(it.id);
   d.querySelectorAll("[data-tok]").forEach(x => x.onclick = () => decideTask(x.dataset.tok, true));
   d.querySelectorAll("[data-tno]").forEach(x => x.onclick = () => decideTask(x.dataset.tno, false));
+  d.querySelectorAll("[data-tcheck]").forEach(x => x.onclick = () => checkTask(x.dataset.tcheck, x));
 }
 function linked(k, it) {
   const w = cur(), names = new Map();
@@ -1490,7 +1497,7 @@ function taskRow(t, w) {
       ${t.evidence ? `<q>${esc(t.evidence)}</q>` : ""}
       ${t.kind === "depth" && t.fields ? `<details class="diff"${t.status === "pending" ? " open" : ""}><summary class="note">Ce qui change</summary>${Object.entries(t.fields).map(([f, v]) => `<div><span class="kindtag">${esc(FIELD_LABEL[f] || f)}</span><p>${esc(Array.isArray(v) ? v.join(" · ") : v)}</p></div>`).join("")}</details>` : ""}
       ${t.status === "pending"
-        ? `<div class="row"><button class="btn small primary" data-tok="${esc(t.id)}">${t.kind === "depth" ? "Valider et appliquer" : "Valider"}</button><button class="btn small ghost danger" data-tno="${esc(t.id)}">Rejeter</button></div>`
+        ? `${checkHTML(t)}<div class="row"><button class="btn small primary" data-tok="${esc(t.id)}">${t.kind === "depth" ? "Valider et appliquer" : "Valider"}</button><button class="btn small ghost danger" data-tno="${esc(t.id)}">Rejeter</button>${exists ? `<button class="btn small" data-tcheck="${esc(t.id)}">${t.check ? "Revérifier la cohérence" : "Vérifier la cohérence"}</button>` : ""}</div><p class="status" id="tc_${esc(t.id)}"></p>`
         : `<span class="note">${t.status === "ok" ? (t.kind === "depth" ? "Validé et appliqué" : "Validé") : (t.kind === "depth" ? "Rejeté" : "Rejeté et supprimé du monde")}${t.decidedAt ? " le " + esc(new Date(t.decidedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })) : ""}</span>`}
     </div></li>`;
 }
@@ -1502,7 +1509,7 @@ function archivistHTML(w) {
       <div class="row"><button class="btn" id="deepBtn">Proposer de la profondeur</button><button class="btn primary" id="archBtn">Tout relire maintenant</button></div></div>
     <div class="row"><label><input type="checkbox" id="archAuto" ${archAuto(w) ? "checked" : ""}> Relire chaque conversation quand je la ferme</label></div>
     <p class="status" id="archStatus"></p>
-    <div class="row" style="justify-content:space-between"><span class="label">À valider · ${pend.length}</span>${pend.length > 1 ? `<button class="btn small" id="archAll">Tout valider</button>` : ""}</div>
+    <div class="row" style="justify-content:space-between"><span class="label">À valider · ${pend.length}</span><span class="row">${pend.length ? `<button class="btn small" id="archGuard" title="Relance le gardien de cohérence sur tout le monde, éléments à valider compris">Relancer le gardien de cohérence</button>` : ""}${pend.length > 1 ? `<button class="btn small" id="archAll">Tout valider</button>` : ""}</span></div>
     ${pend.length ? `<ol class="chain">${pend.map(t => taskRow(t, w)).join("")}</ol>` : `<p class="note" style="margin:0">Rien à valider.</p>`}
     ${done.length ? `<details class="hist"><summary class="label">Historique · ${tasks.length - pend.length}</summary><ol class="chain">${done.map(t => taskRow(t, w)).join("")}</ol></details>` : ""}
   </section>`;
@@ -1511,7 +1518,7 @@ function pendingBanner(it) {
   const t = archTasks(cur()).find(x => x.ref === it.id && x.status === "pending");
   if (!t) return "";
   return `<div class="pendbox"><b>Créé par l'archiviste, à valider</b>${t.evidence ? `<q>${esc(t.evidence)}</q>` : ""}<span class="note">${esc(t.source)}</span>
-    <div class="row"><button class="btn small primary" data-tok="${esc(t.id)}">Valider</button><button class="btn small ghost danger" data-tno="${esc(t.id)}">Rejeter</button></div></div>`;
+    ${checkHTML(t)}<div class="row"><button class="btn small primary" data-tok="${esc(t.id)}">Valider</button><button class="btn small ghost danger" data-tno="${esc(t.id)}">Rejeter</button><button class="btn small" data-tcheck="${esc(t.id)}">${t.check ? "Revérifier la cohérence" : "Vérifier la cohérence"}</button></div><p class="status" id="tc_${esc(t.id)}"></p></div>`;
 }
 function depthBanner(it) {
   const list = archTasks(cur()).filter(t => t.kind === "depth" && t.ref === it.id && t.status === "pending");
@@ -1572,6 +1579,53 @@ Réponds uniquement avec un objet JSON : {"proposals": [{"target": string (nom e
   } catch (e) { console.warn("depth", e); say(e && e.code ? `${aiError(e)} (code : ${e.code})` : `Erreur de la page : ${e && e.message ? e.message : e}`, true); }
   finally { archBusy = false; if (btn && document.body.contains(btn)) busy(btn, false); }
 }
+function checkHTML(t) {
+  const c = t.check; if (!c) return "";
+  if (!c.points.length) return `<div class="check ok"><div><b>Gardien de cohérence</b> · aucun problème détecté</div></div>`;
+  return `<div class="check"><div><b>Gardien de cohérence</b> · ${c.points.length} point${c.points.length > 1 ? "s" : ""} à regarder${t.kind === "depth" ? "" : " (ajouté" + (c.points.length > 1 ? "s" : "") + " au gardien plus bas)"}</div>
+    <ul>${c.points.map(p => `<li><span class="sevtag" data-sev="${esc(p.severity)}">${esc(SEV[p.severity] || "Point")}</span> <b>${esc(p.title)}</b> — ${esc(p.detail)}${p.fix ? ` <span class="note">Piste : ${esc(p.fix)}</span>` : ""}</li>`).join("")}</ul></div>`;
+}
+async function checkTask(id, btn) {
+  const w = ensureEditable(), t = archTasks(w).find(x => x.id === id); if (!t) return;
+  const st = () => document.getElementById("tc_" + id);
+  const say = (m, err) => { const e = st(); if (e) { e.className = "status" + (err ? " err" : ""); e.textContent = m; } else if (err) toast(m); };
+  if (!sample) { say("La génération par IA n'est pas disponible dans cet affichage.", true); return; }
+  const [k, it] = findItem(t.ref);
+  const target = t.kind === "factions" ? (w.factions || []).find(f => eqName(f.name, t.name)) : it;
+  if (!target) { say("Cet élément n'existe plus.", true); return; }
+  busy(btn, true, "Vérification…"); say("Le gardien vérifie cet élément face au reste du monde…");
+  const clean = (o) => { const c = { ...o }; for (const f of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue", "stats", "pending", "novel", "visual", "imgTry"]) delete c[f]; return c; };
+  const subject = t.kind === "depth"
+    ? `PROPOSITION D'APPROFONDISSEMENT (pas encore appliquée) pour « ${t.name} » : « ${t.idea} ».\nFiche actuelle : ${JSON.stringify(clean(target))}\nChamps proposés (remplaceraient les actuels) : ${JSON.stringify(t.fields)}`
+    : `ÉLÉMENT RÉCEMMENT AJOUTÉ PAR L'ARCHIVISTE (${ARCH_KINDS[t.kind]}) : ${JSON.stringify(clean(target))}\nIl a été créé à partir de : « ${t.evidence} »`;
+  try {
+    const out = await sample.json(`Tu es le gardien de la cohérence narrative d'un jeu vidéo.
+
+MONDE COMPLET (JSON) :
+${fullWorldJSON(w, 45000)}
+
+${subject}
+
+TÂCHE : vérifie UNIQUEMENT ${t.kind === "depth" ? "si cette proposition, une fois appliquée," : "si cet élément"} s'accorde avec le reste du monde. Signale 0 à 4 points concrets :
+- "contradiction" : il contredit un fait établi (date, lieu, lien, nature, capacité) ;
+- "trou" : il suppose quelque chose qui n'existe pas ou n'est pas expliqué ;
+- "lien" : il devrait être relié à un élément existant et ne l'est pas.
+Cite les noms exacts. Pas de remarque de style. Liste vide si tout est cohérent.
+Réponds uniquement avec un objet JSON : {"points": [{"severity": "contradiction" | "trou" | "lien", "title": string, "detail": string (1 phrase), "fix": string (piste en une phrase)}]}`, { cache: false });
+    const points = (out && Array.isArray(out.points) ? out.points : []).filter(p => p && p.title).slice(0, 4)
+      .map(p => ({ severity: SEV[p.severity] ? p.severity : "trou", title: String(p.title), detail: String(p.detail || ""), fix: String(p.fix || "") }));
+    t.check = { at: Date.now(), points };
+    // Points about something already in the world also go to the guardian list, with « Combler ».
+    if (t.kind !== "depth" && points.length) {
+      w.issues = [...points.map(p => ({ id: uid("i"), ...p, targets: [t.name], status: "open", about: t.ref || t.name })), ...(w.issues || [])];
+    }
+    persistWorld(w); renderTabs();
+    if (tab === "lore") renderLore();
+    if (openRef && openRef.id === t.ref) openDrawer(t.ref);
+    const s2 = st(); if (s2) { s2.className = "status"; s2.textContent = points.length ? "" : "Rien à signaler."; }
+  } catch (e) { say(e && e.code ? `${aiError(e)} (code : ${e.code})` : `Erreur de la page : ${e && e.message ? e.message : e}`, true); }
+  finally { if (btn && document.body.contains(btn)) busy(btn, false); }
+}
 function decideTask(id, ok) {
   const w = ensureEditable(), t = archTasks(w).find(x => x.id === id); if (!t || t.status !== "pending") return;
   t.status = ok ? "ok" : "rejected"; t.decidedAt = Date.now();
@@ -1605,6 +1659,8 @@ function wireArchivist() {
   const dp = $("#deepBtn"); if (dp) dp.onclick = () => proposeDepth({ btn: dp });
   document.querySelectorAll("[data-tok]").forEach(x => x.onclick = (e) => { e.stopPropagation(); decideTask(x.dataset.tok, true); });
   document.querySelectorAll("[data-tno]").forEach(x => x.onclick = (e) => { e.stopPropagation(); decideTask(x.dataset.tno, false); });
+  const ag = $("#archGuard"); if (ag) ag.onclick = async () => { await audit(ag); const s2 = $("#loreStatus"); if (s2) s2.scrollIntoView({ block: "center", behavior: "smooth" }); };
+  document.querySelectorAll("[data-tcheck]").forEach(x => x.onclick = (e) => { e.stopPropagation(); checkTask(x.dataset.tcheck, x); });
   const all = $("#archAll"); if (all) all.onclick = () => { if (!all.dataset.confirm) { all.dataset.confirm = "1"; all.textContent = `Valider les ${pendingTasks(cur()).length} ?`; return; } for (const t of pendingTasks(ensureEditable()).slice()) decideTask(t.id, true); };
   const a = $("#archAuto"); if (a) a.onchange = () => { const w = ensureEditable(); w.archAuto = a.checked; persistWorld(w); };
 }
