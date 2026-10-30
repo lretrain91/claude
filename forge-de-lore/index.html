@@ -189,6 +189,41 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .field input[type="color"] { width: 46px; height: 36px; padding: 2px; }
 @media (max-width: 560px) { .themebar .swatches { width: 70px; } }
 
+/* Coherence */
+.lore { display: grid; gap: 16px; }
+.lore-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.lore-head p { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
+.issues { display: grid; gap: 10px; }
+.issue { background: var(--plate); border: 1px solid var(--line); border-left: 4px solid var(--sev, var(--line)); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
+.issue[data-sev="contradiction"] { --sev: var(--danger); }
+.issue[data-sev="trou"] { --sev: var(--brass); }
+.issue[data-sev="lien"] { --sev: var(--verdigris); }
+.issue h4 { margin: 0; font: 700 16px/1.3 var(--body); }
+.issue p { margin: 0; font-size: 14px; color: var(--muted); }
+.issue .fix { color: var(--fg); }
+.issue.done { opacity: .62; }
+.sevtag { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sev); }
+.lore .status:empty { display: none; }
+.changes { margin: 0; padding-left: 18px; font-size: 14px; color: var(--fg); }
+.changes li { margin: 2px 0; }
+
+/* Dialogue */
+.chat { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: min(760px, 88vh); padding: 0; gap: 0; width: min(640px, 100%); overflow: hidden; }
+.chat-head { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.chat-head .face { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; border: 1px solid var(--brass); flex: none; }
+.chat-head .face svg, .chat-head .face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
+.chat-head h2 { font-size: 24px; line-height: 1.1; }
+.chat-log { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; }
+.msg.me { align-self: flex-end; background: var(--verdigris); color: var(--on-accent); border-bottom-right-radius: 4px; }
+.msg.them { align-self: flex-start; background: var(--plate-2); border-bottom-left-radius: 4px; font-family: var(--serif); font-size: 17px; }
+.msg.note { align-self: center; background: none; color: var(--muted); font-size: 13px; text-align: center; }
+.chat-foot { border-top: 1px solid var(--line); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; }
+.chat-foot form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.chat-foot textarea { background: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; resize: none; min-height: 44px; max-height: 120px; }
+.chat-opts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.chat-opts label { display: inline-flex; gap: 6px; align-items: center; }
+
 /* Drawer */
 .scrim { position: fixed; inset: 0; background: rgba(5, 8, 11, .6); z-index: 40; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--plate); border-left: 1px solid var(--line); z-index: 41; overflow-y: auto; display: grid; align-content: start;
@@ -480,17 +515,17 @@ function renderPlate() {
     <div class="plate-art" id="plateArt">${vignette(w.id, w.name, "world")}</div>`;
 }
 
-const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["art", "Illustrations"]];
+const TABS = [["map", "Carte"], ["places", "Lieux"], ["characters", "Personnages"], ["stories", "Histoires"], ["art", "Illustrations"], ["lore", "Cohérence"]];
 function renderTabs() {
   const w = cur();
-  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1 };
+  const n = { map: w.places.filter(p => p.x != null).length, places: w.places.length, characters: w.characters.length, stories: w.stories.length, art: w.places.length + w.characters.length + w.stories.length + 1, lore: (w.issues || []).filter(i => i.status === "open").length };
   $("#tabs").innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${l}<span class="count">${n[k]}</span></button>`).join("");
 }
 
 function renderForge() {
   const f = $("#forge");
-  f.hidden = tab === "map";
-  if (tab === "map") { f.innerHTML = ""; return; }
+  f.hidden = tab === "map" || tab === "lore";
+  if (f.hidden) { f.innerHTML = ""; return; }
   if (tab === "art") {
     const w = cur(), t = curTheme(w), nr = (refs[w.id] || []).length;
     f.innerHTML = `
@@ -516,6 +551,7 @@ function renderList() {
   const w = cur(), L = $("#list");
   if (tab === "art") return renderGallery();
   if (tab === "map") return renderMap();
+  if (tab === "lore") return renderLore();
   const items = w[tab];
   if (!items.length) { L.innerHTML = `<div class="empty">Aucun élément pour l'instant. Donne une indication ci-dessus et lance la génération, ou laisse-la vide pour laisser l'IA proposer.</div>`; return; }
   if (tab === "stories") {
@@ -610,6 +646,7 @@ function openDrawer(id) {
         <button class="btn" id="dImport">${imageFor(it.id) ? "Remplacer l'image" : "Importer une image"}</button>
         ${imageFor(it.id) ? '<button class="btn ghost" id="dNoImg">Retirer l\'image</button>' : ""}
         <button class="btn" id="dCopy">Copier le prompt image</button>
+        ${k === "characters" ? `<button class="btn" id="dTalk">Parler à ${esc(it.name.split(" ")[0])}</button>` : ""}
         <button class="btn" id="dDeepen">Approfondir</button>
         <button class="btn ghost danger" id="dDel">Supprimer</button>
       </div>
@@ -631,6 +668,7 @@ function openDrawer(id) {
   $("#dImport").onclick = () => pickImage(it.id);
   if ($("#dNoImg")) $("#dNoImg").onclick = () => removeImage(it.id);
   $("#dDeepen").onclick = (ev) => deepen(k, it, ev.currentTarget);
+  if ($("#dTalk")) $("#dTalk").onclick = () => { closeDrawer(); openChat(it.id); };
   $("#dDel").onclick = () => {
     const btn = $("#dDel");
     if (btn.dataset.confirm) { const w = cur(); w[k] = w[k].filter(x => x.id !== it.id); delete sketches[it.id]; deleteDoc("sketch_" + it.id); persistWorld(w); closeDrawer(); render(); toast("Supprimé"); }
@@ -1092,6 +1130,210 @@ $("#imgPick").onchange = async (ev) => {
   try { await setImage(id, f, "import"); toast("Image ajoutée"); }
   catch (err) { console.warn(err); toast(`L'image n'a pas pu être importée (${(err && (err.detail || err.code)) || "erreur inconnue"}).`); }
 };
+
+/* ---------- coherence guardian ---------- */
+const SEV = { contradiction: "Contradiction", trou: "Trou", lien: "Lien manquant" };
+let loreBusy = false;
+function renderLore() {
+  const w = cur(), issues = w.issues || [];
+  const open = issues.filter(i => i.status === "open"), done = issues.filter(i => i.status !== "open");
+  const order = { contradiction: 0, trou: 1, lien: 2 };
+  open.sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3));
+  $("#list").innerHTML = `<div class="lore">
+    <div class="lore-head"><div><h3 style="font-size:24px">Gardien de cohérence</h3>
+      <p>${w.lastAudit ? `Dernière analyse : ${new Date(w.lastAudit).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}. ` : ""}Claude relit tout le monde et signale les contradictions, les trous et les éléments isolés. « Combler » écrit ce qui manque directement dans le monde.</p></div>
+      <button class="btn primary" id="auditBtn">${issues.length ? "Relancer l'analyse" : "Analyser le monde"}</button></div>
+    <p class="status" id="loreStatus"></p>
+    ${issues.length ? "" : `<div class="empty">Aucune analyse pour l'instant. Lance-la pour obtenir la liste des points à corriger, classés par gravité.</div>`}
+    ${open.length ? `<div class="issues">${open.map(issueCard).join("")}</div>` : issues.length ? `<div class="empty">Plus aucun point ouvert. Relance l'analyse après tes prochains ajouts.</div>` : ""}
+    ${done.length ? `<div class="label">Traités · ${done.length}</div><div class="issues">${done.map(issueCard).join("")}</div>` : ""}
+  </div>`;
+  $("#auditBtn").onclick = (e) => audit(e.currentTarget);
+  $("#list").querySelectorAll("[data-fill]").forEach(b => b.onclick = () => fillIssue(b.dataset.fill, b));
+  $("#list").querySelectorAll("[data-ignore]").forEach(b => b.onclick = () => setIssue(b.dataset.ignore, "ignored"));
+  $("#list").querySelectorAll("[data-reopen]").forEach(b => b.onclick = () => setIssue(b.dataset.reopen, "open"));
+}
+function issueCard(i) {
+  const isOpen = i.status === "open";
+  return `<article class="issue ${isOpen ? "" : "done"}" data-sev="${esc(i.severity)}">
+    <div class="row" style="justify-content:space-between"><span class="sevtag">${esc(SEV[i.severity] || "Point")}${isOpen ? "" : i.status === "fixed" ? " · comblé" : " · ignoré"}</span>
+      ${(i.targets || []).length ? `<span class="meta">${i.targets.slice(0, 4).map(t => `<span class="chip">${esc(t)}</span>`).join("")}</span>` : ""}</div>
+    <h4>${esc(i.title)}</h4>
+    <p>${esc(i.detail)}</p>
+    ${i.fix && isOpen ? `<p class="fix">Piste : ${esc(i.fix)}</p>` : ""}
+    ${i.applied ? `<ul class="changes">${i.applied.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+    <p class="status" id="is_${esc(i.id)}"></p>
+    <div class="row">${isOpen
+      ? `<button class="btn small primary" data-fill="${esc(i.id)}">Combler</button><button class="btn small ghost" data-ignore="${esc(i.id)}">Ignorer</button>`
+      : `<button class="btn small ghost" data-reopen="${esc(i.id)}">Rouvrir</button>`}</div>
+  </article>`;
+}
+function setIssue(id, status) { const w = ensureEditable(), i = (w.issues || []).find(x => x.id === id); if (i) { i.status = status; persistWorld(w); renderLore(); renderTabs(); } }
+function fullWorldJSON(w, max = 60000) {
+  const strip = (o) => { const c = { ...o }; for (const k of ["id", "x", "y", "image", "imageAsset", "imageSource", "imagePrompt", "dialogue"]) delete c[k]; return c; };
+  const data = { nom: w.name, genre: w.genre, ton: w.tone, pitch: w.pitch, epoques: w.eras, factions: w.factions, lieux: w.places.map(strip), personnages: w.characters.map(strip), histoires: w.stories.map(strip) };
+  return JSON.stringify(data).slice(0, max);
+}
+async function audit(btn) {
+  if (loreBusy) return;
+  const st = $("#loreStatus");
+  if (!sample) { st.className = "status err"; st.textContent = "La génération par IA n'est pas disponible dans cet affichage."; return; }
+  const w = ensureEditable(); loreBusy = true;
+  busy(btn, true, "Analyse…"); st.className = "status"; st.textContent = "Claude relit tout le lore… (jusqu'à une minute)";
+  const known = (w.issues || []).filter(i => i.status !== "open").map(i => "- " + i.title).join("\n");
+  try {
+    const out = await sample.json(`Tu es éditeur de lore et responsable de la cohérence narrative d'un jeu vidéo.
+
+MONDE COMPLET (JSON) :
+${fullWorldJSON(w)}
+
+TÂCHE : relis tout et liste les problèmes à corriger, du plus grave au moins grave :
+- "contradiction" : deux éléments qui se contredisent (dates, liens, lieux, motivations).
+- "trou" : une information indispensable qui manque (époque vide, origine inexpliquée, faction sans lieu, mystère jamais expliqué ni posé comme tel).
+- "lien" : un élément isolé, rattaché à rien (personnage sans lieu d'origine, lieu jamais utilisé, faction sans membre).
+Sois concret, cite les noms exacts. 4 à 10 points maximum, pas de remarques de style.
+${known ? "Ne répète pas ces points déjà traités :\n" + known : ""}
+
+Réponds uniquement avec un tableau JSON d'objets :
+{"severity": "contradiction" | "trou" | "lien", "title": string (court), "detail": string (1-2 phrases), "targets": [noms exacts d'éléments concernés], "fix": string (piste de correction en une phrase)}`, { cache: false, modelTier: "complex" });
+    const list = (Array.isArray(out) ? out : []).filter(x => x && x.title);
+    if (!list.length) throw { code: "invalid_json" };
+    const kept = (w.issues || []).filter(i => i.status !== "open");
+    w.issues = [...list.map(x => ({ id: uid("i"), severity: SEV[x.severity] ? x.severity : "trou", title: String(x.title), detail: String(x.detail || ""), targets: [].concat(x.targets || []).map(String), fix: String(x.fix || ""), status: "open" })), ...kept];
+    w.lastAudit = Date.now(); persistWorld(w); renderLore(); renderTabs();
+    const s2 = $("#loreStatus"); if (s2) s2.textContent = `${list.length} point${list.length > 1 ? "s" : ""} à examiner.`;
+  } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
+  finally { loreBusy = false; }
+}
+const OPS_SHAPE = `{"summary": string (une phrase), "changes": [
+  {"op": "add_place", "data": ${SCHEMAS.places}} |
+  {"op": "add_character", "data": ${SCHEMAS.characters}} |
+  {"op": "add_story", "data": ${SCHEMAS.stories}} |
+  {"op": "add_era", "data": {"name": string, "desc": string}, "after": string (nom de l'époque précédente, ou "" pour la placer en premier)} |
+  {"op": "add_faction", "data": {"name": string, "desc": string}} |
+  {"op": "update", "kind": "place" | "character" | "story" | "era" | "faction" | "world", "name": string (nom exact de l'élément existant), "fields": {champ: nouvelle valeur complète}}
+]}`;
+function applyOps(w, ops) {
+  const log = [];
+  const find = (kind, name) => {
+    const n = String(name || "").trim().toLowerCase();
+    const list = { place: w.places, character: w.characters, story: w.stories, era: w.eras, faction: w.factions }[kind];
+    if (!list) return null;
+    return list.find(x => String(x.name || x.title || "").trim().toLowerCase() === n) || null;
+  };
+  const clean = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (k !== "id" && v != null) r[k] = Array.isArray(v) ? v.map(String) : String(v); return r; };
+  const placedNew = [];
+  for (const c of ops || []) {
+    if (!c || !c.op) continue;
+    if (c.op === "add_place" && c.data && c.data.name) { const it = { id: uid("p"), ...clean(c.data) }; w.places.push(it); placedNew.push(it); log.push(`Nouveau lieu : ${it.name}`); }
+    else if (c.op === "add_character" && c.data && c.data.name) { const it = { id: uid("c"), ...clean(c.data) }; w.characters.push(it); log.push(`Nouveau personnage : ${it.name}`); }
+    else if (c.op === "add_story" && c.data && c.data.title) { const it = { id: uid("s"), ...clean(c.data) }; it.beats = [].concat(it.beats || []); it.involves = [].concat(it.involves || []); w.stories.push(it); log.push(`Nouvelle histoire : ${it.title}`); }
+    else if (c.op === "add_era" && c.data && c.data.name) {
+      const e = clean(c.data), after = String(c.after || "").toLowerCase();
+      const idx = after ? w.eras.findIndex(x => x.name.toLowerCase() === after) : -1;
+      w.eras.splice(after && idx >= 0 ? idx + 1 : after ? w.eras.length : 0, 0, { name: e.name, desc: e.desc || "" }); log.push(`Nouvelle époque : ${e.name}`);
+    }
+    else if (c.op === "add_faction" && c.data && c.data.name) { const f = clean(c.data); w.factions.push({ name: f.name, desc: f.desc || "" }); log.push(`Nouvelle faction : ${f.name}`); }
+    else if (c.op === "update" && c.fields) {
+      const target = c.kind === "world" ? w : find(c.kind, c.name);
+      if (!target) continue;
+      const f = clean(c.fields), allowed = c.kind === "world" ? ["pitch", "tone"] : Object.keys(f).filter(k => !["x", "y", "image", "imageAsset"].includes(k));
+      const oldName = target.name;
+      for (const k of allowed) if (k in f) target[k] = (k === "beats" || k === "involves") ? [].concat(c.fields[k] || []).map(String) : f[k];
+      if (c.kind === "place" && f.name && oldName && f.name !== oldName) for (const ch of w.characters) { if (eqName(ch.origin, oldName)) ch.origin = f.name; if (eqName(ch.place, oldName)) ch.place = f.name; }
+      log.push(`Modifié : ${c.kind === "world" ? "le monde" : (target.name || target.title)} (${allowed.filter(k => k in f).join(", ")})`);
+    }
+  }
+  if (placedNew.length && w.mapInit) { try { ensureMap(w); autoPlace(w, placedNew); } catch {} }
+  return log;
+}
+async function fillIssue(id, btn) {
+  const w = ensureEditable(), issue = (w.issues || []).find(x => x.id === id); if (!issue) return;
+  const st = $("#is_" + CSS.escape(id));
+  if (!sample) { st.className = "status err"; st.textContent = "La génération par IA n'est pas disponible dans cet affichage."; return; }
+  busy(btn, true, "Écriture…"); st.className = "status"; st.textContent = "Claude écrit ce qui manque…";
+  try {
+    const out = await sample.json(`${RULES}
+
+MONDE COMPLET (JSON) :
+${fullWorldJSON(w)}
+
+PROBLÈME À RÉSOUDRE (${SEV[issue.severity] || issue.severity}) : ${issue.title}
+${issue.detail}
+Piste proposée : ${issue.fix}
+
+TÂCHE : résous ce problème avec le minimum de changements, en respectant tout le reste du lore. Ajoute ce qui manque ou modifie les éléments existants (en réécrivant le champ en entier). Utilise les noms exacts.
+Réponds uniquement avec un objet JSON de la forme :
+${OPS_SHAPE}`, { cache: false });
+    const log = applyOps(w, out && out.changes);
+    if (!log.length) throw { code: "invalid_json" };
+    issue.status = "fixed"; issue.applied = log; issue.summary = String(out.summary || "");
+    persistWorld(w); render(); wireForge();
+    toast(out.summary ? String(out.summary).slice(0, 140) : "Point comblé");
+  } catch (e) { st.className = "status err"; st.textContent = aiError(e); busy(btn, false); }
+}
+
+/* ---------- talk to a character ---------- */
+let chatCtl = null;
+function openChat(cid) {
+  const w = cur(), c = w.characters.find(x => x.id === cid); if (!c) return;
+  const turns = Array.isArray(c.dialogue) ? c.dialogue.slice() : [];
+  const m = $("#modal");
+  m.innerHTML = `<div class="modal-card chat" role="dialog" aria-label="Dialogue avec ${esc(c.name)}">
+    <div class="chat-head"><div class="face">${vignette(c.id, c.name, "character")}</div>
+      <div style="min-width:0;flex:1"><h2>${esc(c.name)}</h2><span class="note">${esc([c.role, c.place && "à " + c.place].filter(Boolean).join(" · "))}</span></div>
+      <button class="x" id="chClose" aria-label="Fermer">×</button></div>
+    <div class="chat-log" id="chLog" aria-live="polite"></div>
+    <div class="chat-foot">
+      <form id="chForm"><label for="chIn" hidden>Ton message</label><textarea id="chIn" rows="1" placeholder="Parle à ${esc(c.name.split(" ")[0])}…"></textarea><button class="btn primary" id="chSend">Envoyer</button></form>
+      <div class="chat-opts">
+        <label for="chRole" style="flex:1 1 240px">Tu es <input id="chRole" style="background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0;flex:1" value="${esc(c.chatRole || "un voyageur inconnu")}"></label>
+        <label><input type="checkbox" id="chSecrets" ${c.chatSecrets ? "checked" : ""}> Peut céder ses secrets</label>
+        <button class="btn small ghost" id="chClear" type="button">Effacer</button>
+      </div>
+    </div></div>`;
+  m.hidden = false; $("#scrim").hidden = false;
+  const log = $("#chLog"), input = $("#chIn");
+  const draw = () => {
+    log.innerHTML = turns.length ? turns.map(t => `<div class="msg ${t.role === "user" ? "me" : "them"}">${esc(t.content)}</div>`).join("")
+      : `<div class="msg note">${c.quote ? "« " + esc(c.quote) + " »<br>" : ""}Pose une question, provoque-le, négocie. Il répond dans sa voix, avec ce qu'il sait du monde.</div>`;
+    log.scrollTop = log.scrollHeight;
+  };
+  draw();
+  const save = () => { const w2 = ensureEditable(), c2 = w2.characters.find(x => x.id === cid) || c; c2.dialogue = turns.slice(-40); c2.chatRole = $("#chRole").value.trim(); c2.chatSecrets = $("#chSecrets").checked; persistWorld(w2); };
+  $("#chClose").onclick = () => { if (chatCtl) chatCtl.abort(); closeModal(); };
+  $("#chClear").onclick = () => { turns.length = 0; save(); draw(); };
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#chForm").requestSubmit(); } });
+  input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(120, input.scrollHeight) + "px"; });
+  $("#chForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim(); if (!text || chatCtl) return;
+    if (!sample) { log.insertAdjacentHTML("beforeend", `<div class="msg note">La génération par IA n'est pas disponible dans cet affichage.</div>`); return; }
+    turns.push({ role: "user", content: text }); input.value = ""; input.style.height = "";
+    draw();
+    const bubble = document.createElement("div"); bubble.className = "msg them"; bubble.textContent = "…"; log.appendChild(bubble); log.scrollTop = log.scrollHeight;
+    const send = $("#chSend"); send.disabled = true; send.textContent = "Stop"; send.type = "button";
+    chatCtl = new AbortController(); send.onclick = () => chatCtl && chatCtl.abort();
+    const sheet = { nom: c.name, role: c.role, faction: c.faction, origine: c.origin, lieu_actuel: c.place, description: c.desc, motivation: c.motivation, secret: c.secret, replique: c.quote };
+    const rules = `Tu joues ${c.name} dans un jeu de rôle. Reste toujours dans le personnage : parle à la première personne, avec sa voix, son vocabulaire et ses émotions. Ne dis jamais que tu es une IA.
+FICHE DU PERSONNAGE : ${JSON.stringify(sheet)}
+CE QU'IL SAIT DU MONDE :
+${worldContext(cur(), 3500)}
+Ton interlocuteur est : ${$("#chRole").value.trim() || "un voyageur inconnu"}.
+${$("#chSecrets").checked ? "Il peut finir par révéler son secret si on le met en confiance ou sous pression." : "Il ne révèle JAMAIS son secret, même sous la pression : il esquive, ment ou change de sujet."}
+Réponds en français, en 1 à 4 phrases, avec parfois un geste entre astérisques. Il ne sait rien de ce qu'il ne pourrait pas savoir.`;
+    try {
+      const { text: answer } = await sample([{ role: "user", content: rules }, ...turns.slice(-24)], { cache: false, signal: chatCtl.signal, onText: ({ text: t }) => { bubble.textContent = t; log.scrollTop = log.scrollHeight; } });
+      turns.push({ role: "assistant", content: answer }); save();
+    } catch (err) {
+      if (err && err.text) { turns.push({ role: "assistant", content: err.text }); save(); }
+      else { bubble.remove(); if (err && err.code !== "cancelled") log.insertAdjacentHTML("beforeend", `<div class="msg note">${esc(aiError(err))}</div>`); }
+    } finally {
+      chatCtl = null; send.disabled = false; send.textContent = "Envoyer"; send.type = "submit"; send.onclick = null; input.focus();
+    }
+  });
+  setTimeout(() => input.focus(), 50);
+}
 
 /* ---------- FLUX illustrations (Hugging Face connector) ---------- */
 const HF = "Hugging face Flux";
