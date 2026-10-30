@@ -199,7 +199,7 @@ button.chip:hover { color: var(--fg); border-color: var(--verdigris); }
 .modal-card h2 { font-size: 28px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--ink); padding: 9px 16px; border-radius: 999px; z-index: 60; font-weight: 500; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--ink); padding: 10px 16px; border-radius: 10px; z-index: 60; font-weight: 500; width: max-content; max-width: min(520px, calc(100vw - 32px)); text-align: center; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.3); }
 .note { font-size: 13px; color: var(--muted); }
 .spin { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .8s linear infinite; display: inline-block; }
 @keyframes s { to { transform: rotate(360deg); } }
@@ -256,7 +256,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const uid = (p) => p + "_" + Math.random().toString(36).slice(2, 9);
 const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2400); }
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, Math.max(2400, msg.length * 55)); }
 async function copy(text, el) {
   try { await navigator.clipboard.writeText(text); toast("Copié"); }
   catch { if (el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } toast("Texte sélectionné, copie-le avec Ctrl+C"); }
@@ -1124,12 +1124,22 @@ function imageFromResult(res) {
   }
   return null;
 }
+function errText(e) {
+  let t = (e && e.message) || "";
+  try { const r = e && e.result; if (r && Array.isArray(r.content)) t += " " + r.content.map(b => b && b.text || "").join(" "); } catch {}
+  return t;
+}
 function mcpError(e) {
-  const c = e && e.code;
+  const c = e && e.code, txt = errText(e);
+  if (/zerogpu|quota/i.test(txt)) {
+    const wait = txt.match(/try again in (\d+):(\d+):(\d+)/i);
+    const when = wait && (+wait[1] || +wait[2]) ? ` Réessaie dans ${+wait[1] ? wait[1] + " h " : ""}${+wait[2]} min.` : " Il se recharge au fil de la journée.";
+    return "Ton quota GPU gratuit Hugging Face est épuisé : il couvre seulement quelques images par jour, et il est commun aux trois générateurs." + when + " Avec Hugging Face PRO, il passe à environ 25 minutes par jour.";
+  }
   if (c === "server_not_connected" || c === "server_not_found" || c === "selection_required") return "Le connecteur « Hugging Face FLUX » n'est pas disponible. Vérifie-le dans claude.ai, Paramètres → Connecteurs.";
   if (c === "needs_reauth") return "Ta connexion Hugging Face a expiré. Reconnecte le connecteur dans claude.ai, Paramètres → Connecteurs.";
   if (c === "not_in_manifest" || c === "not_granted" || c === "approval_required") return "L'accès au générateur n'a pas été autorisé pour cette page. Réessaie et accepte la demande.";
-  if (c === "tool_error") return "Le générateur a refusé ou échoué. Ton quota GPU Hugging Face du jour est peut-être épuisé : essaie Z-Image ou FLUX Schnell, ou réessaie plus tard.";
+  if (c === "tool_error") return "Le générateur a échoué" + (txt ? ` : ${txt.slice(0, 160)}` : ".") + " Réessaie, ou change de générateur.";
   if (c === "server_unavailable") return "Le générateur est surchargé ou en train de démarrer. Réessaie dans une minute.";
   if (c === "cancelled") return "Annulé.";
   return "La génération d'image a échoué. Réessaie.";
